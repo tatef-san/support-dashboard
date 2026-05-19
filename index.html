@@ -262,7 +262,12 @@
 
   /* Section cards — each logical group gets its own card */
   .dd-section { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:18px 20px 20px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
-  .dd-section-hd { display:flex; align-items:center; gap:10px; padding-bottom:12px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .dd-section-hd { display:flex; align-items:center; gap:10px; padding-bottom:12px; margin-bottom:16px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+  .dd-section-hd:hover { opacity:.85; }
+  .dd-sec-chev { margin-left:auto; flex-shrink:0; font-size:11px; color:var(--muted); transition:transform .2s; }
+  .dd-section.collapsed .dd-sec-chev { transform:rotate(-90deg); }
+  .dd-section.collapsed .dd-section-hd { border-bottom:none; margin-bottom:0; padding-bottom:8px; }
+  .dd-section.collapsed > *:not(.dd-section-hd) { display:none !important; }
   .dd-icon { width:30px; height:30px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
   .dd-icon.blue   { background:#dbeafe; }
   .dd-icon.amber  { background:#fef3c7; }
@@ -625,6 +630,7 @@
             <div class="sc-title">Pending Team</div>
             <div class="sc-sub">Last @mention was a Sana team member (non-analyst) or external partner — ticket is waiting on their response.</div>
           </div>
+          <button onclick="exportMentionSection('B',event)" style="margin-left:auto;margin-right:10px;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Export Excel</button>
           <span class="sc-chevron">▼</span>
         </div>
         <div class="sc-body"><div id="actTeamPending"></div></div>
@@ -638,6 +644,7 @@
             <div class="sc-title">Pending Customer Feedback</div>
             <div class="sc-sub">Last @mention was a customer contact (@Customer, @Client, or an external name) — waiting on the customer side.</div>
           </div>
+          <button onclick="exportMentionSection('A',event)" style="margin-left:auto;margin-right:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Export Excel</button>
           <span class="sc-chevron">▼</span>
         </div>
         <div class="sc-body"><div id="actPendingCustomer"></div></div>
@@ -651,6 +658,7 @@
             <div class="sc-title">Pending Analyst</div>
             <div class="sc-sub">Last @mention was a Support Analyst — action is pending from that person. A <span style="background:#fef3c7;border:1px solid #fcd34d;border-radius:3px;padding:0 5px;font-size:11px;font-weight:600;">≠ owner</span> badge means the mentioned analyst differs from the ticket owner.</div>
           </div>
+          <button onclick="exportMentionSection('C',event)" style="margin-left:auto;margin-right:10px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Export Excel</button>
           <span class="sc-chevron">▼</span>
         </div>
         <div class="sc-body"><div id="actPendingAnalyst"></div></div>
@@ -664,6 +672,7 @@
             <div class="sc-title">No @mention — Unclassified</div>
             <div class="sc-sub">No @mention found in comments, or it was cleared after the analyst replied. Review these to confirm they need no action.</div>
           </div>
+          <button onclick="exportMentionSection('D',event)" style="margin-left:auto;margin-right:10px;background:#e5e7eb;color:#374151;border:1px solid #d1d5db;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Export Excel</button>
           <span class="sc-chevron">▼</span>
         </div>
         <div class="sc-body"><div id="actNoMention"></div></div>
@@ -4159,6 +4168,59 @@ if(window.opener&&!window.opener.closed){
     if (sec) sec.classList.toggle('collapsed');
   }
 
+  // ── Make all .dd-section headers collapsible ──────────────────────────────────
+  function initDdSectionCollapse() {
+    document.querySelectorAll('.dd-section-hd').forEach(hd => {
+      if (hd.querySelector('.dd-sec-chev')) return; // already wired
+      const chev = document.createElement('span');
+      chev.className = 'dd-sec-chev';
+      chev.textContent = '▼';
+      hd.appendChild(chev);
+      hd.addEventListener('click', e => {
+        if (e.target.closest('button') || e.target.closest('a')) return; // don't collapse on button clicks
+        hd.closest('.dd-section').classList.toggle('collapsed');
+      });
+    });
+  }
+
+  // ── Export pending-ownership section to .xlsx ────────────────────────────────
+  window.exportMentionSection = function(section, event) {
+    if (event) event.stopPropagation();
+    const stored = JSON.parse(localStorage.getItem('actMentions') || 'null');
+    if (!stored || !stored.data) { alert('No scan data yet — fetch @mentions from ADO first.'); return; }
+    const _scope = getScope(), inScope = inScopeFilter(_scope.region, _scope.analyst);
+    function inScopeRow(r) {
+      if (_scope.analyst && _scope.analyst !== 'All') return r.analyst === _scope.analyst;
+      if (_scope.region  && _scope.region  !== 'All') return r.analyst && inScope(r.analyst);
+      return true;
+    }
+    const allRows = Object.values(stored.data).filter(inScopeRow);
+    let rows, label;
+    if (section === 'B') { rows = allRows.filter(r => r.lastTeam);       label = 'Pending_Team'; }
+    else if (section === 'A') { rows = allRows.filter(r => r.pendingCustomer); label = 'Pending_Customer'; }
+    else if (section === 'C') { rows = allRows.filter(r => r.pendingAnalyst);  label = 'Pending_Analyst'; }
+    else { rows = allRows.filter(r => !r.lastTeam && !r.pendingCustomer && !r.pendingAnalyst); label = 'Unclassified'; }
+    rows.sort((a, b) => (b.age || 0) - (a.age || 0));
+    if (!rows.length) { alert('No tickets in this section for the current scope.'); return; }
+    const data = rows.map(r => ({
+      'WI #':              r.wi   || '',
+      'Title':             r.title  || '',
+      'Owner (Analyst)':   r.analyst || '',
+      'Account':           r.acct  || '',
+      'Age (days)':        r.age   || 0,
+      'Last @mention':     r.lastMentionText || '',
+      'Pending For':       section === 'B' ? (r.lastTeam || '') : section === 'C' ? (r.pendingAnalyst || '') : section === 'A' ? (r.lastMentionText || '') : '—',
+      'Team History':      (r.teamHistory || []).join('; '),
+      'ADO Link':          r.wi ? 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/' + r.wi : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    // Column widths
+    ws['!cols'] = [{ wch:8 }, { wch:55 }, { wch:22 }, { wch:28 }, { wch:10 }, { wch:22 }, { wch:22 }, { wch:35 }, { wch:70 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, label.replace(/_/g,' '));
+    XLSX.writeFile(wb, 'Active_' + label + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  };
+
   function switchAgingTab(btn) {
     document.querySelectorAll('.aging-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -7588,6 +7650,7 @@ if(window.opener&&!window.opener.closed){
     }
     renderIntranetUtilSummary();
     initBookmarklet();
+    initDdSectionCollapse();
     // Show PAT status in Data Upload tab
     (function() {
       const el = $('adoPatStatus');
