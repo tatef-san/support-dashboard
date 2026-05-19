@@ -264,8 +264,8 @@
   .dd-section { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:18px 20px 20px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
   .dd-section-hd { display:flex; align-items:center; gap:10px; padding-bottom:12px; margin-bottom:16px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
   .dd-section-hd:hover { opacity:.85; }
-  .dd-sec-chev { margin-left:auto; flex-shrink:0; font-size:11px; color:var(--muted); transition:transform .2s; }
-  .dd-section.collapsed .dd-sec-chev { transform:rotate(-90deg); }
+  .dd-section-hd::after { content:'▼'; margin-left:auto; flex-shrink:0; font-size:11px; color:var(--muted); transition:transform .2s; display:inline-block; }
+  .dd-section.collapsed .dd-section-hd::after { transform:rotate(-90deg); }
   .dd-section.collapsed .dd-section-hd { border-bottom:none; margin-bottom:0; padding-bottom:8px; }
   .dd-section.collapsed > *:not(.dd-section-hd) { display:none !important; }
   .dd-icon { width:30px; height:30px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
@@ -4168,20 +4168,15 @@ if(window.opener&&!window.opener.closed){
     if (sec) sec.classList.toggle('collapsed');
   }
 
-  // ── Make all .dd-section headers collapsible ──────────────────────────────────
-  function initDdSectionCollapse() {
-    document.querySelectorAll('.dd-section-hd').forEach(hd => {
-      if (hd.querySelector('.dd-sec-chev')) return; // already wired
-      const chev = document.createElement('span');
-      chev.className = 'dd-sec-chev';
-      chev.textContent = '▼';
-      hd.appendChild(chev);
-      hd.addEventListener('click', e => {
-        if (e.target.closest('button') || e.target.closest('a')) return; // don't collapse on button clicks
-        hd.closest('.dd-section').classList.toggle('collapsed');
-      });
-    });
-  }
+  // ── dd-section collapse — document-level delegation, fires at parse time ──────
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select')) return;
+    const hd = e.target.closest('.dd-section-hd');
+    if (!hd) return;
+    const section = hd.closest('.dd-section');
+    if (section) section.classList.toggle('collapsed');
+  });
+  function initDdSectionCollapse() { /* now handled by document delegation above */ }
 
   // ── Export pending-ownership section to .xlsx ────────────────────────────────
   window.exportMentionSection = function(section, event) {
