@@ -504,6 +504,7 @@
         </div>
       </details>
 
+      <div id="csatTargetBadge"></div>
       <div id="csatScores"></div>
       <div id="csatOffPerf" style="margin-top:14px;"></div>
       <div id="csatRespRate" style="margin-top:14px;"></div>
@@ -575,6 +576,7 @@
         <div class="dd-icon blue">📊</div>
         <div><div class="dd-section-label">Summary &amp; Performance</div><div class="dd-section-desc">Key counts and off-peak handling overview</div></div>
       </div>
+      <div id="actTargetBadge"></div>
       <div id="actSummary"></div>
       <div id="actOffPerf" style="margin-top:14px;"></div>
     </div>
@@ -731,6 +733,7 @@
         <div class="dd-icon green">📊</div>
         <div><div class="dd-section-label">Summary &amp; Performance</div><div class="dd-section-desc">Closed volume and off-peak handling overview for the selected period</div></div>
       </div>
+      <div id="cloTargetBadge"></div>
       <div id="cloSummary"></div>
       <div id="cloOffPerf" style="margin-top:14px;"></div>
       <div id="cloClosurePct" style="margin-top:14px;"></div>
@@ -889,6 +892,7 @@
     <div class="panel">
       <h2 class="panel-title">Response & Fix-time Deep-Dive</h2>
       <div class="panel-sub">Period filter is applied by <b>closure date</b>. Region and Analyst filters apply.</div>
+      <div id="rspTargetBadge"></div>
       <div id="rspSummary"></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Response SLA — met vs breached (≤ 2hrs)</h3><div id="rspSla"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Support type breakdown</h3><div id="rspSupport"></div></div>
@@ -919,6 +923,7 @@
       </div>
       <div id="escFetchStatus" style="margin-bottom:12px;"></div>
 
+      <div id="escTargetBadge"></div>
       <div id="escSummary"></div>
 
       <div class="coll-sec" id="escSec-teamMentions">
@@ -973,6 +978,7 @@
 
       <!-- Y2D Summary cards + top/bottom performers -->
       <div style="margin-bottom:4px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Y2D Utilization per SA</h3>
+        <div id="utlTargetBadge"></div>
         <div id="utlSummary"></div>
       </div>
 
@@ -5228,6 +5234,7 @@ if(window.opener&&!window.opener.closed){
 
   function renderKpiCsat() {
     renderCsatDropBadge();
+    renderTargetBadge('csatTargetBadge', r => r.csatPct != null && r.csatPct >= DATA.targets.csat, r => r.csatN === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const inScope = inScopeFilter(region, analyst);
@@ -5812,6 +5819,7 @@ if(window.opener&&!window.opener.closed){
   // KPI DEEP-DIVE: ACTIVE TICKETS
   // ===========================================================================
   function renderKpiActive() {
+    renderTargetBadge('actTargetBadge', r => r.gt15 === 0, r => r.actAllCount === 0);
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const inScope = inScopeFilter(region, analyst);
 
@@ -6131,6 +6139,26 @@ if(window.opener&&!window.opener.closed){
   // ---- Top-3 offenders / performers panel for a KPI within the current scope ----
   // kpi: { key, label, dir ('higher'|'lower'), fmt(v) }
   // Skips render if scope is an individual analyst (no ranking possible).
+  // ---- Target badge: "X meeting / Y not meeting target" strip for each KPI tab ----
+  function renderTargetBadge(targetId, meetFn, excludeFn) {
+    const el = $(targetId); if (!el) return;
+    const scope = getScope();
+    if (scope.kind === 'analyst') { el.innerHTML = ''; return; }
+    const range = periodRange();
+    const k = computeKPIs(range, scope.region, 'All');
+    const rows = k.analystRows.filter(r => excludeFn ? !excludeFn(r) : true);
+    if (!rows.length) { el.innerHTML = ''; return; }
+    const met = rows.filter(meetFn).length;
+    const notMet = rows.length - met;
+    el.innerHTML =
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font-size:12px;">' +
+      '<span style="font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:10px;">Analysts vs target</span>' +
+      '<span style="background:#dcfce7;color:#15803d;padding:3px 12px;border-radius:12px;font-weight:700;font-size:12px;">✅ ' + met + ' meeting target</span>' +
+      '<span style="background:#fee2e2;color:#dc2626;padding:3px 12px;border-radius:12px;font-weight:700;font-size:12px;">❌ ' + notMet + ' not meeting target</span>' +
+      '<span style="color:var(--muted);font-size:11px;">' + rows.length + ' analysts in scope</span>' +
+      '</div>';
+  }
+
   function renderOffPerf(targetId, kpi) {
     const scope = getScope();
     if (scope.kind === 'analyst') { $(targetId).innerHTML = ''; return; }
@@ -6201,6 +6229,7 @@ if(window.opener&&!window.opener.closed){
   // KPI DEEP-DIVE: CLOSED TICKETS
   // ===========================================================================
   function renderKpiClosed() {
+    renderTargetBadge('cloTargetBadge', r => r.slaMetPct != null && r.slaMetPct >= DATA.targets.closedSlaMet, r => r.closed === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const supportMaps = buildSupportTypeMaps();
@@ -6369,6 +6398,7 @@ if(window.opener&&!window.opener.closed){
   // KPI DEEP-DIVE: AVG RESPONSE / FIX TIME
   // ===========================================================================
   function renderKpiResp() {
+    renderTargetBadge('rspTargetBadge', r => r.respMetPct != null && r.respMetPct >= (DATA.targets.respMet || 0.9), r => r.closed === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const supportMaps = buildSupportTypeMaps();
@@ -6465,6 +6495,7 @@ if(window.opener&&!window.opener.closed){
   // KPI DEEP-DIVE: ESCALATION
   // ===========================================================================
   function renderKpiEsc() {
+    renderTargetBadge('escTargetBadge', r => r.escPct != null && r.escPct <= DATA.targets.esc, r => r.closed === 0);
     renderEscDropBadge();
     renderEscTeamMentions();
     const range = periodRange();
@@ -6665,6 +6696,7 @@ if(window.opener&&!window.opener.closed){
   // KPI DEEP-DIVE: UTILIZATION
   // ===========================================================================
   function renderKpiUtil() {
+    renderTargetBadge('utlTargetBadge', r => r.util != null && r.util >= (DATA.targets.util || 0.8), r => r.util == null);
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const allRoster = DATA.roster;
     const store = getIntranetUtilStore();
