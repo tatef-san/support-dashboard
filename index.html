@@ -2656,7 +2656,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
               if (rosterNames.has(name.toLowerCase())) return;
               const hibob = isHiBobEmployee(name, hibobMap);
               if (hibob === 'analyst') return;
-              if (hibob === 'team' || customTags.has(name.toLowerCase())) {
+              // For "Teams Involved": only include if it's a configured custom tag,
+              // OR a HiBob 'team' employee referenced by their FULL name (≥2 words).
+              // Single first-name fragments like "cor" / "hostin" are individual colleagues,
+              // not team names — they are excluded to keep the list meaningful.
+              const isCustomTag  = customTags.has(name.toLowerCase());
+              const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
+              if (isCustomTag || isFullName) {
                 if (!teams.includes(name)) teams.push(name);
                 teamMentions.push({ team: name, respHours: null });
               }
@@ -3808,9 +3814,14 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         addVariant(d);
         addVariant(d.replace(/\s*\(.*\)\s*$/, '').trim());
       }
-      if (e.firstName) addVariant(e.firstName.toLowerCase().trim());
-      if (e.surname)   addVariant(e.surname.toLowerCase().trim());
-      if (e.email)     addVariant(e.email.toLowerCase().trim());
+      // Only add standalone first/last name shortcuts for analysts.
+      // For non-analyst ('team') employees, a single first name like "cor" or "hostin"
+      // would incorrectly match any short @mention and pollute "Teams Involved" lists.
+      if (role === 'analyst') {
+        if (e.firstName) addVariant(e.firstName.toLowerCase().trim());
+        if (e.surname)   addVariant(e.surname.toLowerCase().trim());
+      }
+      if (e.email) addVariant(e.email.toLowerCase().trim());
       if (e.firstName && e.surname)
         addVariant((e.firstName + ' ' + e.surname).toLowerCase().trim());
     });
