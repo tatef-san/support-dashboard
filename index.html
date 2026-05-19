@@ -4163,10 +4163,13 @@ if(window.opener&&!window.opener.closed){
     const card = document.getElementById(id);
     if (card) card.classList.toggle('collapsed');
   }
+  window.toggleScCard = toggleScCard;
+
   function toggleCollSec(id) {
     const sec = document.getElementById(id);
     if (sec) sec.classList.toggle('collapsed');
   }
+  window.toggleCollSec = toggleCollSec;
 
   // ── dd-section collapse — document-level delegation, fires at parse time ──────
   document.addEventListener('click', function(e) {
