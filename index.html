@@ -810,8 +810,13 @@
   <!-- KPI: CSAT DEEP-DIVE -->
   <div id="view-kpi-csat" class="view">
     <div class="panel">
-      <h2 class="panel-title">CSAT Deep-Dive</h2>
-      <div class="panel-sub">All cards below respect the <b>Period</b>, <b>Region</b> and <b>Analyst</b> filters in the header.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+        <div>
+          <h2 class="panel-title" style="margin:0;">CSAT Deep-Dive</h2>
+          <div class="panel-sub" style="margin:2px 0 0;">All cards below respect the <b>Period</b>, <b>Region</b> and <b>Analyst</b> filters in the header.</div>
+        </div>
+        <button onclick="window._csatExportCsv&&window._csatExportCsv()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--primary);background:#fff;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;">&#11015; Export CSAT CSV</button>
+      </div>
       <!-- Power BI drop zone — optional override -->
       <details style="margin-bottom:8px;">
         <summary style="font-size:12px;color:var(--muted);cursor:pointer;">▶ Override with Power BI CSAT export (optional)</summary>
@@ -1489,6 +1494,16 @@
           <div class="panel-sub">Surveys submitted per account &middot; sorted by volume</div>
           <div id="mayaAccounts"></div>
         </div>
+      </div>
+      <div class="panel" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+          <div>
+            <div class="panel-title" style="margin:0;">How to Improve Maya CSAT &mdash; Auto Insights</div>
+            <div class="panel-sub" style="margin:2px 0 0;">Keyword themes from low-rated conversations &middot; 1&ndash;3 stars</div>
+          </div>
+          <button id="mayaExportBtn" onclick="window._mayaExportCsv&&window._mayaExportCsv()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--primary);background:#fff;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;">&#11015; Export CSV</button>
+        </div>
+        <div id="mayaInsights"></div>
       </div>
       <div class="panel" style="margin-bottom:20px;">
         <div class="panel-title">Customer Improvement Feedback</div>
@@ -6176,6 +6191,22 @@ if(window.opener&&!window.opener.closed){
     // Filter CSAT to in-scope, in-period, scored
     const rows = DATA.csat.filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
 
+    // ── CSV export (wired to button in HTML) ─────────────────────────────────
+    window._csatExportCsv = function() {
+      const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+      const cols = ['Date','Account','Analyst','Rating','Score','WorkItemId','ADO_Link','MainCategory','SubCategory','NegativeReason','Comment','CET'];
+      const csvEsc = v => { const s = String(v==null?'':v); return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+      const lines = [cols.join(','), ...rows.map(r => [
+        r.d||'', r.acct||'', r.c||'',
+        r.rating||'', RATING_NUM[String(r.rating).trim().toLowerCase()]||'',
+        r.wi||'', r.wi ? ADO_BASE+r.wi : '',
+        r.mainCat||'', r.subCat||'', r.reason||'', r.comment||'', r.cet||''
+      ].map(csvEsc).join(','))];
+      const blob = new Blob([lines.join('\r\n')], {type:'text/csv'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'sa-csat-export.csv'; a.click();
+    };
+
     const total = rows.length;
     const top = rows.filter(r => RATING_NUM[String(r.rating).trim().toLowerCase()] >= 4).length;
     const csatPct = total ? top/total : null;
@@ -8689,6 +8720,100 @@ if(window.opener&&!window.opener.closed){
             '</tr>';
         });
         acctEl.innerHTML = h + '</tbody></table>';
+      }
+    }
+
+    // ── CSV Export ────────────────────────────────────────────────────────────
+    window._mayaExportCsv = function() {
+      var rows = filtered.slice().sort(function(a,b){ return (b.d||'').localeCompare(a.d||''); });
+      var cols = ['Date','Account','CustomerEmail','Rating','ConvRef','TicketId','Summary','Feedback','AgentVersion'];
+      var lines = [cols.join(',')];
+      rows.forEach(function(r){
+        var acct = getAccount(r.cust);
+        var csvEsc = function(v){ var s=String(v==null?'':v); return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+        lines.push([r.d||'', acct, r.cust||'', r.rating||'', r.id?'Conv #'+r.id:'', r.wi&&r.wi>0?r.wi:'', r.summary||'', r.fb&&r.fb!=='0'?r.fb:'', r.v||''].map(csvEsc).join(','));
+      });
+      var blob = new Blob([lines.join('\r\n')], {type:'text/csv'});
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'maya-csat-'+((filtered[0]&&filtered[0].d)||'export')+'.csv';
+      a.click();
+    };
+
+    // ── Maya Auto-Insights ────────────────────────────────────────────────────
+    var insEl = document.getElementById('mayaInsights');
+    if (insEl) {
+      var lowFb = filtered.filter(function(r){ return r.rating <= 3 && r.fb && r.fb !== '0' && r.fb.trim(); });
+      if (!lowFb.length) {
+        insEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No low-rated feedback in selected period to analyze.</div>';
+      } else {
+        var MAYA_THEMES = [
+          { label: 'Bot couldn\'t answer / no solution found',  kw: ['not found','no answer','no solution','don\'t know','doesn\'t know','can\'t help','cannot help','not able','couldn\'t find','no result','not useful','didn\'t help','didnt help','not helpful','unhelpful'] },
+          { label: 'Irrelevant / wrong response',               kw: ['irrelevant','wrong','incorrect','not relevant','not related','misunderstand','misunderstood','off topic','not what','not the right','not accurate','inaccurate','different question'] },
+          { label: 'Wants human agent / escalation',            kw: ['human','agent','person','real person','talk to','speak to','representative','support team','live agent','actual person'] },
+          { label: 'Too slow / timeout',                        kw: ['slow','too long','wait','timeout','timed out','took forever','took ages','delay','loading'] },
+          { label: 'Missing feature / functionality',           kw: ['missing','feature','add','should have','need to','wish','would be nice','not possible','can\'t do','cannot do','unable to','doesn\'t allow','doesn\'t support'] },
+          { label: 'Confusing / hard to navigate',              kw: ['confusing','confused','unclear','hard to','difficult','complicated','not intuitive','not easy','frustrat','annoying'] },
+          { label: 'Technical error / not working',             kw: ['error','broken','bug','crash','not working','doesn\'t work','failed','issue','problem','glitch'] },
+        ];
+        var secOpen2 = function(emoji, title, color) {
+          return '<div style="border:1px solid '+color+'44;border-radius:8px;margin-bottom:12px;overflow:hidden;">' +
+            '<div style="background:'+color+'11;padding:10px 14px;border-bottom:1px solid '+color+'33;display:flex;align-items:center;gap:8px;">' +
+            '<span>'+emoji+'</span><span style="font-size:13px;font-weight:700;color:'+color+';">'+title+'</span></div>' +
+            '<div style="padding:12px 14px;">';
+        };
+        var out2 = secOpen2('🔴', 'Root Causes from Low-Rated Maya Conversations ('+lowFb.length+' with feedback)', '#dc2626');
+        var themeHits = MAYA_THEMES.map(function(g){
+          var matches = lowFb.filter(function(r){
+            var t = (r.fb||'').toLowerCase();
+            return g.kw.some(function(k){ return t.indexOf(k) >= 0; });
+          });
+          return { label: g.label, count: matches.length, rows: matches };
+        }).filter(function(t){ return t.count > 0; }).sort(function(a,b){ return b.count-a.count; });
+
+        var themeTotal = lowFb.length;
+        if (themeHits.length) {
+          out2 += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#374151;margin-bottom:10px;">Themes from customer feedback</div>';
+          // Summary bars
+          themeHits.forEach(function(t){
+            var pct = Math.round(t.count/themeTotal*100);
+            var barW = Math.max(3, pct);
+            out2 += '<div style="margin-bottom:8px;">' +
+              '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">' +
+                '<span style="font-weight:600;color:#374151;">'+esc(t.label)+'</span>' +
+                '<span style="font-weight:700;color:#dc2626;">'+t.count+' convs ('+pct+'%)</span>' +
+              '</div>' +
+              '<div style="background:#fde68a;border-radius:3px;height:6px;"><div style="background:#dc2626;width:'+barW+'%;height:6px;border-radius:3px;"></div></div>' +
+            '</div>';
+          });
+          // Drilldown cards per theme
+          out2 += '<div style="margin-top:14px;">';
+          themeHits.forEach(function(t){
+            out2 += '<div style="border:1px solid #fee2e2;border-radius:6px;padding:8px 10px;margin-bottom:8px;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                '<span style="font-size:12px;font-weight:700;color:#dc2626;">'+esc(t.label)+'</span>' +
+                '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:1px 8px;border-radius:8px;">'+t.count+' convs</span>' +
+              '</div>';
+            t.rows.forEach(function(r){
+              var acct = getAccount(r.cust);
+              var fb2 = (r.fb||'').length > 120 ? r.fb.slice(0,117)+'…' : (r.fb||'');
+              var ticketBadge = (r.wi&&r.wi>0) ? ' <a href="https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/'+r.wi+'" target="_blank" style="color:#4f46e5;font-size:10px;text-decoration:none;font-weight:700;">#'+r.wi+'</a>' : (r.id?' <span style="color:var(--muted);font-size:10px;">Conv#'+r.id+'</span>':'');
+              var ratingCol = r.rating <= 1 ? '#dc2626' : r.rating <= 2 ? '#ea580c' : '#b45309';
+              out2 += '<div style="display:flex;gap:6px;padding:4px 0;border-top:1px solid #fecaca;font-size:11px;align-items:baseline;flex-wrap:wrap;">' +
+                '<span style="flex-shrink:0;background:'+ratingCol+';color:#fff;font-size:10px;font-weight:700;padding:0 5px;border-radius:5px;">'+r.rating+'★</span>' +
+                '<span style="flex-shrink:0;color:#6b7280;min-width:60px;">'+esc(r.d||'')+'</span>' +
+                '<span style="flex-shrink:0;font-weight:600;color:#374151;min-width:80px;">'+esc(acct)+'</span>' +
+                ticketBadge +
+                '<span style="color:#374151;font-style:italic;flex:1;">"'+esc(fb2)+'"</span>' +
+              '</div>';
+            });
+            out2 += '</div>';
+          });
+          out2 += '</div>';
+        } else {
+          out2 += '<div style="color:var(--muted);font-size:13px;">No strong themes detected — feedback may be too varied or short for keyword matching.</div>';
+        }
+        out2 += '</div></div>';
+        insEl.innerHTML = out2;
       }
     }
 
