@@ -8700,13 +8700,17 @@ if(window.opener&&!window.opener.closed){
         fbEl.innerHTML=fb.map(function(r){
           var acct = getAccount(r.cust);
           var bdrCol = rCol[r.rating]||'var(--muted)';
+          var ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+          var ticketLink = (r.wi && r.wi > 0)
+            ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="font-size:11px;font-weight:700;color:#4f46e5;background:#e0e7ff;padding:2px 8px;border-radius:6px;text-decoration:none;margin-left:auto;">&#128279; Ticket #'+r.wi+'</a>'
+            : (r.id ? '<span style="font-size:10px;color:var(--muted);margin-left:auto;">Conv #'+r.id+'</span>' : '');
           return '<div style="border-left:3px solid '+bdrCol+';padding:8px 12px;margin-bottom:8px;background:var(--bg);border-radius:0 4px 4px 0;">' +
             '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">' +
               '<span style="font-size:11px;color:var(--muted);">'+(r.d||'')+'</span>' +
               '<span style="font-size:11px;font-weight:600;color:#374151;">'+esc(acct)+'</span>' +
               '<span style="font-size:10px;color:var(--muted);">'+esc((r.cust||'').slice(0,40))+'</span>' +
               '<span style="color:'+bdrCol+';font-weight:700;font-size:11px;">'+r.rating+' &#9733; / 5</span>' +
-              (r.id ? '<span style="font-size:10px;color:var(--muted);margin-left:auto;">Conv #'+r.id+'</span>' : '') +
+              ticketLink +
             '</div>' +
             '<div style="font-size:13px;line-height:1.5;">'+r.fb.replace(/</g,'&lt;')+'</div>' +
           '</div>';
@@ -8734,7 +8738,7 @@ if(window.opener&&!window.opener.closed){
         var acct = getAccount(r.cust);
         var starCol = rCol[r.rating]||'var(--muted)';
         h += '<tr style="background:'+(i%2?'#f9fafb':'#fff')+';border-bottom:1px solid var(--border);vertical-align:top;">' +
-          '<td style="padding:7px 8px;white-space:nowrap;color:var(--muted);font-size:11px;">' + (r.id?'#'+r.id:'—') + '</td>' +
+          '<td style="padding:7px 8px;white-space:nowrap;font-size:11px;">' + ((r.wi&&r.wi>0) ? '<a href="https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/'+r.wi+'" target="_blank" style="color:#4f46e5;font-weight:700;text-decoration:none;">&#128279; #'+r.wi+'</a>' : (r.id?'<span style="color:var(--muted);">Conv #'+r.id+'</span>':'—')) + '</td>' +
           '<td style="padding:7px 8px;white-space:nowrap;color:var(--muted);">'+(r.d||'')+'</td>' +
           '<td style="padding:7px 8px;font-weight:600;white-space:nowrap;">'+esc(acct)+'</td>' +
           '<td style="padding:7px 8px;white-space:nowrap;font-size:11px;color:var(--muted);">'+(r.cust||'').replace(/</g,'&lt;').slice(0,35)+'</td>' +

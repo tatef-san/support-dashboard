@@ -64,7 +64,7 @@ Write-Host "  Found $($sDt.Rows.Count) SA CSAT responses" -ForegroundColor Green
 # Step 4: Query VoiceflowRating table (Maya CSAT)
 Write-Host "  Querying Maya VoiceflowRating table..." -ForegroundColor Cyan
 $mCmd             = $sConn.CreateCommand()
-$mCmd.CommandText = "SELECT ID, Rating, CustomerEmail, AgentVersion, ConversationSummary, ImprovementFeedback, Timestamp FROM [dbo].[VoiceflowRating] WHERE Timestamp IS NOT NULL ORDER BY Timestamp DESC"
+$mCmd.CommandText = "SELECT ID, Rating, CustomerEmail, AgentVersion, ConversationSummary, ImprovementFeedback, Timestamp, CASE WHEN COL_LENGTH('dbo.VoiceflowRating','WorkItemId') IS NOT NULL THEN CAST(WorkItemId AS NVARCHAR) ELSE NULL END AS WorkItemId FROM [dbo].[VoiceflowRating] WHERE Timestamp IS NOT NULL ORDER BY Timestamp DESC"
 $mCmd.CommandTimeout = 60
 $mDt              = New-Object System.Data.DataTable
 (New-Object System.Data.SqlClient.SqlDataAdapter($mCmd)).Fill($mDt) | Out-Null
@@ -104,7 +104,8 @@ foreach ($r in $mDt.Rows) {
     $summary   = if ($r["ConversationSummary"] -is [System.DBNull]) { "" } else { [string]$r["ConversationSummary"] }
     $fb        = if ($r["ImprovementFeedback"] -is [System.DBNull]) { "" } else { [string]$r["ImprovementFeedback"] }
     $rowId     = if ($r["ID"] -is [System.DBNull]) { 0 } else { [int]$r["ID"] }
-    $mayaRows.Add([ordered]@{ id=$rowId; d=$d; cust=$custEmail; rating=$ratingVal; summary=$summary; fb=$fb; v=$version })
+    $wiId      = if ($r["WorkItemId"] -is [System.DBNull] -or [string]$r["WorkItemId"] -eq "") { 0 } else { try { [int]$r["WorkItemId"] } catch { 0 } }
+    $mayaRows.Add([ordered]@{ id=$rowId; wi=$wiId; d=$d; cust=$custEmail; rating=$ratingVal; summary=$summary; fb=$fb; v=$version })
 }
 Write-Host "  Mapped $($mayaRows.Count) Maya rows" -ForegroundColor Green
 
