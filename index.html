@@ -638,7 +638,7 @@
   <div class="view-tabs">
     <button class="view-tab active" data-view="overview">Overview</button>
     <button class="view-tab" data-view="tickets">Tickets</button>
-    <button class="view-tab" id="performanceTab" data-view="performance" style="display:none;">Performance</button>
+    <button class="view-tab" data-view="performance">Performance</button>
     <button class="view-tab" data-view="upload">Data Upload</button>
     <button class="view-tab" data-view="oneone">1:1 Meetings</button>
     <button class="view-tab" data-view="ranking" id="rankingTab" style="display:none;">🏆 Team Ranking</button>
@@ -6524,17 +6524,14 @@ if(window.opener&&!window.opener.closed){
     // ---- Per-analyst sections (hidden when viewing overall org) --------------
     const isOverall = (analyst === 'All');
     const commentsPanel = document.getElementById('csatCommentsPanel');
-    const perfTab = document.getElementById('performanceTab');
     if (isOverall) {
       $('csatOffPerf').innerHTML = '';
       $('csatAnalystTable').innerHTML = '';
       $('csatTopComments').innerHTML = '';
       $('csatBotComments').innerHTML = '';
       if (commentsPanel) commentsPanel.style.display = 'none';
-      if (perfTab) perfTab.style.display = 'none';
     } else {
       if (commentsPanel) commentsPanel.style.display = '';
-      if (perfTab) perfTab.style.display = '';
       renderOffPerf('csatOffPerf', { key: 'csatPct', label: 'CSAT %', dir: 'higher', minN: 'csatN', fmt: v => (v*100).toFixed(1) + '%' });
       renderAnalystKpiTable('csatAnalystTable', {
         key: 'csatPct', label: 'CSAT', targetKey: 'csat',
