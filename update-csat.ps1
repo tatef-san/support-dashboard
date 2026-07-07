@@ -63,8 +63,12 @@ Write-Host "  Found $($sDt.Rows.Count) SA CSAT responses" -ForegroundColor Green
 
 # Step 4: Query VoiceflowRating table (Maya CSAT)
 Write-Host "  Querying Maya VoiceflowRating table..." -ForegroundColor Cyan
+$chkCmd = $sConn.CreateCommand()
+$chkCmd.CommandText = "SELECT CASE WHEN COL_LENGTH('dbo.VoiceflowRating','WorkItemId') IS NOT NULL THEN 1 ELSE 0 END"
+$hasWI  = [int]$chkCmd.ExecuteScalar()
+$wiCol  = if ($hasWI) { "CAST(WorkItemId AS NVARCHAR) AS WorkItemId" } else { "CAST(NULL AS NVARCHAR) AS WorkItemId" }
 $mCmd             = $sConn.CreateCommand()
-$mCmd.CommandText = "SELECT ID, Rating, CustomerEmail, AgentVersion, ConversationSummary, ImprovementFeedback, Timestamp, CASE WHEN COL_LENGTH('dbo.VoiceflowRating','WorkItemId') IS NOT NULL THEN CAST(WorkItemId AS NVARCHAR) ELSE NULL END AS WorkItemId FROM [dbo].[VoiceflowRating] WHERE Timestamp IS NOT NULL ORDER BY Timestamp DESC"
+$mCmd.CommandText = "SELECT ID, Rating, CustomerEmail, AgentVersion, ConversationSummary, ImprovementFeedback, Timestamp, $wiCol FROM [dbo].[VoiceflowRating] WHERE Timestamp IS NOT NULL ORDER BY Timestamp DESC"
 $mCmd.CommandTimeout = 60
 $mDt              = New-Object System.Data.DataTable
 (New-Object System.Data.SqlClient.SqlDataAdapter($mCmd)).Fill($mDt) | Out-Null
