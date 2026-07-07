@@ -1129,8 +1129,8 @@
           <div class="dd-section-desc">Drop the Power BI Closed Tickets export below to update all closed-ticket metrics instantly.</div>
         </div>
       </div>
-      <details style="margin-top:8px;" open>
-        <summary style="font-size:12px;color:var(--muted);cursor:pointer;">▶ Upload Power BI export</summary>
+      <details style="margin-top:8px;">
+        <summary style="font-size:12px;color:var(--muted);cursor:pointer;">▶ Upload newer export (optional — data runs from embedded dataset by default)</summary>
         <div style="margin-top:10px;">
           <div id="closedDropZone" style="border:2px dashed #6ee7b7;border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:#f0fdf4;transition:all .2s;">
             <div style="font-size:13px;color:#047857;font-weight:600;">📂 Drop Power BI Closed Tickets export here (or click to browse)</div>
@@ -3380,7 +3380,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         ' <button onclick="clearClosedUpload()" style="margin-left:8px;padding:2px 8px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">✕ Clear</button>';
       if (zone) { zone.style.borderColor = '#6ee7b7'; zone.style.background = '#ecfdf5'; }
     } else {
-      status.innerHTML = '<span style="color:#6b7280;">No file loaded — upload the Power BI Closed Tickets export to populate this tab</span>';
+      status.innerHTML = '<span style="color:#6b7280;">Using embedded dataset — drop a newer Power BI export here to override</span>';
       if (zone) { zone.style.borderColor = ''; zone.style.background = ''; }
     }
   }
