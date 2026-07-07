@@ -7751,12 +7751,14 @@ if(window.opener&&!window.opener.closed){
   // ---- Single-scope Top-N ticket list (no more side-by-side wall of cards) ----
   // fn(reg, an) returns array of tickets; renderRow(t) returns HTML for one row.
   function renderTopNPerScope(targetId, fn, renderRow) {
+    const el = $(targetId);
+    if (!el) return;
     const scope = getScope();
     const items = fn(scope.region, scope.analyst);
     const html = '<div class="topN-card focus"><h4>' + esc(scope.label) + '</h4>' +
       (items.length ? items.map(renderRow).join('') : '<div class="cat-empty">none</div>') +
       '</div>';
-    $(targetId).innerHTML = html;
+    el.innerHTML = html;
   }
 
   // ===========================================================================
