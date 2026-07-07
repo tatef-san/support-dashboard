@@ -651,6 +651,7 @@
     <button class="view-tab" data-view="kpi-csat">CSAT</button>
     <button class="view-tab" data-view="kpi-active">Active tickets</button>
     <button class="view-tab" data-view="kpi-closed">Closed tickets</button>
+    <button class="view-tab" data-view="kpi-ttr">TTR</button>
     <button class="view-tab" data-view="kpi-resp">Avg response</button>
     <button class="view-tab" data-view="kpi-esc">Escape rate</button>
     <button class="view-tab" data-view="kpi-util">Utilization</button>
@@ -1174,57 +1175,14 @@
       <div id="closedCatInsight"></div>
     </div>
 
-    <!-- Summary + off-peak -->
+    <!-- Summary -->
     <div class="dd-section">
       <div class="dd-section-hd">
         <div class="dd-icon green">📊</div>
-        <div><div class="dd-section-label">Summary &amp; Performance</div><div class="dd-section-desc">Closed volume and off-peak handling overview for the selected period</div></div>
+        <div><div class="dd-section-label">Volume &amp; Closure Rate</div><div class="dd-section-desc">Closed ticket count and share-of-total ranking for the selected period</div></div>
       </div>
-      <div id="cloTargetBadge"></div>
       <div id="cloSummary"></div>
-      <div id="cloOffPerf" style="margin-top:14px;"></div>
-      <div id="cloAnalystTable" style="margin-top:14px;"></div>
       <div id="cloClosurePct" style="margin-top:14px;"></div>
-    </div>
-
-    <!-- SLA -->
-    <div class="dd-section">
-      <div class="dd-section-hd">
-        <div class="dd-icon amber">🎯</div>
-        <div><div class="dd-section-label">SLA &amp; Resolution Time</div><div class="dd-section-desc">Service level compliance and time-to-fix distribution</div></div>
-      </div>
-      <div class="dd-2col">
-        <div class="dd-sub">
-          <div class="dd-sub-title">SLA met vs breached (≤ 7 days)</div>
-          <div id="cloSlaMet"></div>
-        </div>
-        <div class="dd-sub">
-          <div class="dd-sub-title">SLA-breached buckets</div>
-          <div id="cloBreach"></div>
-        </div>
-      </div>
-      <div class="dd-sub">
-        <div class="dd-sub-title">Median time to fix (days) — per scope</div>
-        <div id="cloMedian"></div>
-      </div>
-    </div>
-
-    <!-- Top performers -->
-    <div class="dd-section">
-      <div class="dd-section-hd">
-        <div class="dd-icon green">🏆</div>
-        <div><div class="dd-section-label">Top Performers &amp; Breaches</div><div class="dd-section-desc">Fastest closures and worst SLA breaches in the selected period</div></div>
-      </div>
-      <div class="dd-2col">
-        <div class="dd-sub">
-          <div class="dd-sub-title">Top 5 closed fastest — per scope</div>
-          <div id="cloTopFast"></div>
-        </div>
-        <div class="dd-sub">
-          <div class="dd-sub-title">Top 5 SLA-breached — per scope</div>
-          <div id="cloTopBreached"></div>
-        </div>
-      </div>
     </div>
 
     <!-- JS compatibility placeholders only — section removed -->
@@ -1261,6 +1219,72 @@
         </div>
       </div>
       <div id="closedTeamMentions"></div>
+    </div>
+
+  </div>
+
+  <!-- KPI: TTR — TIME TO RESOLVE -->
+  <div id="view-kpi-ttr" class="view dd-page">
+
+    <div class="dd-hero">
+      <div class="dd-hero-text">
+        <h2>⏱ TTR — Time to Resolve</h2>
+        <p>SLA compliance and resolution-time performance. Uses the same Closed Tickets upload — upload on the <strong>Closed Tickets</strong> tab first. Period &amp; Region/Analyst filters apply.</p>
+      </div>
+    </div>
+
+    <!-- Target badge -->
+    <div id="ttrTargetBadge"></div>
+
+    <!-- Resolution Time Summary + per-analyst TTR SLA -->
+    <div class="dd-section">
+      <div class="dd-section-hd">
+        <div class="dd-icon amber">⏱</div>
+        <div><div class="dd-section-label">Resolution Time Summary</div><div class="dd-section-desc">Median and average time-to-resolve, and per-analyst TTR SLA ranking</div></div>
+      </div>
+      <div id="ttrSummary"></div>
+      <div id="cloOffPerf" style="margin-top:14px;"></div>
+      <div id="cloAnalystTable" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- SLA & Resolution Time -->
+    <div class="dd-section">
+      <div class="dd-section-hd">
+        <div class="dd-icon amber">🎯</div>
+        <div><div class="dd-section-label">SLA &amp; Resolution Time</div><div class="dd-section-desc">Service level compliance and time-to-fix distribution</div></div>
+      </div>
+      <div class="dd-2col">
+        <div class="dd-sub">
+          <div class="dd-sub-title">SLA met vs breached (≤ 7 days)</div>
+          <div id="cloSlaMet"></div>
+        </div>
+        <div class="dd-sub">
+          <div class="dd-sub-title">SLA-breached buckets</div>
+          <div id="cloBreach"></div>
+        </div>
+      </div>
+      <div class="dd-sub" style="margin-top:12px;">
+        <div class="dd-sub-title">Median time to fix (days) — per scope</div>
+        <div id="cloMedian"></div>
+      </div>
+    </div>
+
+    <!-- Top Performers & Breaches -->
+    <div class="dd-section">
+      <div class="dd-section-hd">
+        <div class="dd-icon green">🏆</div>
+        <div><div class="dd-section-label">Top Performers &amp; Breaches</div><div class="dd-section-desc">Fastest closures and worst SLA breaches in the selected period</div></div>
+      </div>
+      <div class="dd-2col">
+        <div class="dd-sub">
+          <div class="dd-sub-title">Top 5 closed fastest — per scope</div>
+          <div id="cloTopFast"></div>
+        </div>
+        <div class="dd-sub">
+          <div class="dd-sub-title">Top 5 SLA-breached — per scope</div>
+          <div id="cloTopBreached"></div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -7745,118 +7769,19 @@ if(window.opener&&!window.opener.closed){
   // KPI DEEP-DIVE: CLOSED TICKETS
   // ===========================================================================
   function renderKpiClosed() {
-    renderTargetBadge('cloTargetBadge', r => r.slaMetPct != null && r.slaMetPct >= DATA.targets.closedSlaMet, r => r.closed === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
-    const supportMaps = buildSupportTypeMaps();
     const rows = closedInScope(range, region, analyst);
-    const withAge = rows.filter(r => typeof r.age === 'number');
-    const _ageVals = withAge.map(r => r.age).sort((a,b) => a-b);
-    const medianTTR = _ageVals.length ? (_ageVals.length % 2 ? _ageVals[Math.floor(_ageVals.length/2)] : (_ageVals[_ageVals.length/2-1]+_ageVals[_ageVals.length/2])/2) : null;
-    const avgTTR = _ageVals.length ? _ageVals.reduce((a,b)=>a+b,0)/_ageVals.length : null;
 
-    // ---- A. Closed count + TTR summary ----
-    $('cloSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:repeat(3,1fr);">' +
+    // ---- A. Closed count only ----
+    $('cloSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
       '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — closed in period</div>' +
       '<div class="v">' + intg(rows.length) + '</div>' +
       '<div class="sub">period: ' + esc(range.label) + ' (closure date)</div></div>' +
-      '<div class="stat-card"><div class="l">Median Time to Fix</div>' +
-      '<div class="v" style="color:' + (medianTTR != null && medianTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (medianTTR != null ? medianTTR.toFixed(1) + 'd' : '-') + '</div>' +
-      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
-      '<div class="stat-card"><div class="l">Avg Time to Fix</div>' +
-      '<div class="v" style="color:' + (avgTTR != null && avgTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (avgTTR != null ? avgTTR.toFixed(1) + 'd' : '-') + '</div>' +
-      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
       '</div>';
 
-    // Off/Perf: rank analysts by % of their closed tickets that met the 7-day SLA
-    renderOffPerf('cloOffPerf', { key: 'slaMetPct', label: '% met 7-day SLA', dir: 'higher', minN: 'closed', fmt: v => (v*100).toFixed(1) + '%', numKey: 'slaMet', denKey: 'slaN', fracLabel: 'met SLA' });
-    renderAnalystKpiTable('cloAnalystTable', {
-      key: 'slaMetPct', label: 'TTR SLA (Time to Resolve)', targetKey: 'closedSlaMet',
-      targetLabel: '≥ ' + (DATA.targets.closedSlaMet * 100) + '% of tickets resolved within ' + DATA.targets.fixAvg + ' days',
-      dir: 'higher', fmt: v => (v * 100).toFixed(1) + '%',
-      minN: 'slaN', minNLabel: 'Tickets with age data',
-    });
-    // Off/Perf row 2: rank analysts by their share of total org closed tickets
+    // Rank analysts by their share of total org closed tickets
     renderOffPerf('cloClosurePct', { key: 'closedPct', label: 'closure % of total closed', dir: 'higher', minN: 'closed', fmt: v => (v*100).toFixed(1) + '%', numKey: 'closed', denKey: 'orgClosedN', fracLabel: 'closed' });
-
-    // ---- B. SLA met / breached (≤ 7 days; target = 60% met) ----
-    const slaMet = withAge.filter(r => r.age <= 7).length;
-    const slaBreached = withAge.length - slaMet;
-    const slaPct = withAge.length ? slaMet / withAge.length : null;
-    const slaBrPct = withAge.length ? slaBreached / withAge.length : null;
-    const slaOk = slaPct != null && slaPct >= DATA.targets.closedSlaMet;
-    $('cloSlaMet').innerHTML = '<div class="stat-row" style="grid-template-columns:repeat(4,1fr);">' +
-      '<div class="stat-card"><div class="l">Met SLA (≤ ' + DATA.targets.fixAvg + 'd)</div><div class="v" style="color:var(--good);">' + intg(slaMet) + '</div></div>' +
-      '<div class="stat-card"><div class="l">Breached SLA</div><div class="v" style="color:var(--bad);">' + intg(slaBreached) + '</div></div>' +
-      '<div class="stat-card"><div class="l">% met</div><div class="v" style="color:' + (slaOk ? 'var(--good)' : 'var(--bad)') + ';">' + (slaPct != null ? (slaPct*100).toFixed(1)+'%' : '-') + '</div><div class="sub">target ≥ ' + (DATA.targets.closedSlaMet*100) + '%</div></div>' +
-      '<div class="stat-card"><div class="l">% breached</div><div class="v" style="color:var(--bad);">' + (slaBrPct != null ? (slaBrPct*100).toFixed(1)+'%' : '-') + '</div></div>' +
-      '</div>';
-
-    // ---- C. SLA-breach buckets (only > 7d tickets) ----
-    const breachBands = [
-      { label: '> 90 days',    test: a => a > 90,                 color: '#7f1d1d' },
-      { label: '61 - 90 days', test: a => a > 60 && a <= 90,      color: '#b91c1c' },
-      { label: '31 - 60 days', test: a => a > 30 && a <= 60,      color: '#dc2626' },
-      { label: '16 - 30 days', test: a => a > 15 && a <= 30,      color: '#f59e0b' },
-      { label: '8 - 15 days',  test: a => a >= 8  && a <= 15,     color: '#b45309' },
-    ];
-    const breachItems = breachBands.map(b => ({
-      label: b.label, color: b.color,
-      value: withAge.filter(r => b.test(r.age)).length,
-    }));
-    const breachTotal = withAge.length;
-    $('cloBreach').innerHTML = svgBars(breachItems, { width: 600, barH: 22, labelW: 130, formatter: v => fmtCountPct(v, breachTotal) });
-
-    // ---- C2. Comment density (using Comments column on closed) ----
-    const cBands = [
-      { label: '10+ comments',    test: c => c >= 10,            color: '#b91c1c' },
-      { label: '5 - 10 comments', test: c => c >= 5 && c < 10,   color: '#b45309' },
-      { label: '< 5 comments',    test: c => c < 5,              color: '#047857' },
-    ];
-    const withComments = rows.filter(r => typeof r.commentsClosed === 'number');
-    // Closed source has "Comments" column — let's use it dynamically (we don't extract it currently;
-    // fall back to age band if missing).  Build it on the fly here via DATA.closed mapping.
-    // Actually we never extracted comments for closed. Skip if not present.
-    // If absent: show a note.
-    const closedHasComments = rows.length && rows.some(r => typeof r.comments === 'number' && r.comments > 0);
-    if (closedHasComments) {
-      const items = cBands.map(b => ({ label: b.label, color: b.color, value: rows.filter(r => typeof r.comments === 'number' && b.test(r.comments)).length }));
-      const cTot = items.reduce((s,x) => s + x.value, 0);
-      $('cloComments').innerHTML = svgBars(items, { width: 600, barH: 22, labelW: 140, formatter: v => fmtCountPct(v, cTot) });
-    } else {
-      $('cloComments').innerHTML = '<div class="cat-empty">comment count not available in current closed dataset</div>';
-    }
-
-    // ---- M. Support type breakdown (number + %) ----
-    const stCounts = {};
-    rows.forEach(r => { const s = lookupSupportType(supportMaps, r.acct, r.title); stCounts[s] = (stCounts[s]||0)+1; });
-    const stTotal = Object.values(stCounts).reduce((s,x) => s + x, 0);
-    const stItems = Object.entries(stCounts).map(([k,v]) => ({ label: k, value: v })).sort((a,b) => b.value - a.value);
-    $('cloSupport').innerHTML = stItems.length ? svgBars(stItems, { width: 600, barH: 22, labelW: 160, formatter: v => fmtCountPct(v, stTotal) }) : '<div class="cat-empty">no support-type data</div>';
-
-    // ---- Median time to fix — single scope ----
-    const scopeMed = median(rows.map(r => r.age));
-    $('cloMedian').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
-      '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — median fix</div>' +
-      '<div class="v">' + (scopeMed != null ? scopeMed.toFixed(1) + 'd' : '-') + '</div>' +
-      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd</div>' +
-      '</div></div>';
-
-    // ---- Top 5 closed fastest per scope ----
-    function topFast(reg, an) {
-      return closedInScope(range, reg, an).filter(r => typeof r.age === 'number')
-        .sort((a,b) => a.age - b.age).slice(0, 5);
-    }
-    function topBreached(reg, an) {
-      return closedInScope(range, reg, an).filter(r => typeof r.age === 'number' && r.age > DATA.targets.fixAvg)
-        .sort((a,b) => b.age - a.age).slice(0, 5);
-    }
-    const ticketRow = (cls) => (t) =>
-      '<div class="ticket"><div><div class="title">' + adoLink(t) + '</div>' +
-      '<div class="meta">' + esc(t.account || t.acct || '-') + '  ·  ' + esc(t.c || '-') + '</div></div>' +
-      '<div class="age ' + cls + '">' + Math.round(t.age) + 'd</div></div>';
-    renderTopNPerScope('cloTopFast',     topFast,     ticketRow('good'));
-    renderTopNPerScope('cloTopBreached', topBreached, ticketRow('bad'));
 
     // ---- D/E/F. Data quality ----
     const eMain = rows.filter(r => !r.mainCat).length;
@@ -7882,47 +7807,100 @@ if(window.opener&&!window.opener.closed){
     renderTop(top5('subCat'),   'cloTopSub');
     renderTop(top5('funcArea'), 'cloTopFunc');
 
-    // ---- J. Avg hours per ticket — single scope ----
-    const hoursVals = rows.filter(r => typeof r.hours === 'number').map(r => r.hours);
-    if (hoursVals.length) {
-      const avgH = hoursVals.reduce((s,x) => s+x, 0) / hoursVals.length;
-      $('cloAvgHours').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
-        '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — avg hours per closed ticket</div>' +
-        '<div class="v">' + avgH.toFixed(2) + 'h</div>' +
-        '<div class="sub">across ' + intg(hoursVals.length) + ' tickets with hours</div>' +
-        '</div></div>';
-    } else {
-      $('cloAvgHours').innerHTML = '<div class="cat-empty">"Hours" column not extracted in current closed dataset</div>';
-    }
-
-    // ---- K. Top 5 accounts (number + %) ----
-    const acctCounts = {};
-    rows.forEach(r => { if (r.acct) acctCounts[r.acct] = (acctCounts[r.acct]||0)+1; });
-    const topAccts = Object.entries(acctCounts).map(([k,v]) => ({ label: k, value: v })).sort((a,b) => b.value - a.value).slice(0, 5);
-    $('cloTopAccts').innerHTML = topAccts.length ? svgBars(topAccts, { width: 600, barH: 22, labelW: 280, formatter: v => fmtCountPct(v, totalClosedScope) }) : '<div class="cat-empty">no data</div>';
-
     // ---- N. MoM (closed count) ----
     const series = buildScopeMoM('closed');
     $('cloMom').innerHTML = svgMultiLine(series, { width: 800, height: 220, formatY: v => Number(v||0).toFixed(0) });
 
     // ---- L. Insights ----
+    const acctCounts = {};
+    rows.forEach(r => { if (r.acct) acctCounts[r.acct] = (acctCounts[r.acct]||0)+1; });
     const tips = [];
-    if (slaPct != null) {
-      if (slaPct < 0.8) tips.push('<b>SLA hit rate is ' + (slaPct*100).toFixed(1) + '%</b> (target 100% within 7 days). The biggest backlog band is the largest of the breach buckets above — start there.');
-      else if (slaPct < 1) tips.push('<b>SLA hit rate is ' + (slaPct*100).toFixed(1) + '%</b>. ' + intg(slaBreached) + ' tickets breached SLA. Review root causes (dev escalations, customer wait time).');
-      else tips.push('<span style="color:var(--good);"><b>All in-scope closures met SLA.</b> Document the playbook so this rate sustains.</span>');
-    }
     if (eFunc / Math.max(rows.length,1) > 0.2) tips.push('<b>' + (eFunc/rows.length*100).toFixed(0) + '% of closed tickets have no Functional area.</b> Reporting and triage will suffer — agree a triage rule and audit weekly.');
     const repeatAccts = Object.entries(acctCounts).filter(([_,n]) => n >= 5).length;
     if (repeatAccts > 0) tips.push('<b>' + repeatAccts + ' accounts</b> account for 5+ tickets each in this period. Investigate top-3 root causes per account; consider proactive outreach.');
-    if (Object.keys(stCounts).length > 1) {
-      const total = Object.values(stCounts).reduce((s,x)=>s+x, 0);
-      const dedicated = stCounts['Dedicated support'] || 0;
-      const pooled = stCounts['Pooled support'] || 0;
-      if (dedicated && pooled) tips.push('<b>Pooled vs Dedicated split:</b> ' + ((pooled/total)*100).toFixed(0) + '% pooled, ' + ((dedicated/total)*100).toFixed(0) + '% dedicated. Confirm capacity is allocated proportionally.');
-    }
     if (!tips.length) tips.push('<i>Not enough signal in the current scope to surface insights.</i>');
     $('cloInsights').innerHTML = tips.map(t => '<div class="insight-card warn" style="border-left-color:var(--warn);"><div class="action" style="font-size:13px;color:var(--text);">' + t + '</div></div>').join('');
+  }
+
+  // ===========================================================================
+  // KPI DEEP-DIVE: TTR — TIME TO RESOLVE
+  // ===========================================================================
+  function renderKpiTTR() {
+    renderTargetBadge('ttrTargetBadge', r => r.slaMetPct != null && r.slaMetPct >= DATA.targets.closedSlaMet, r => r.closed === 0);
+    const range = periodRange();
+    const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
+    const rows = closedInScope(range, region, analyst);
+    const withAge = rows.filter(r => typeof r.age === 'number');
+    const _ageVals = withAge.map(r => r.age).sort((a, b) => a - b);
+    const medianTTR = _ageVals.length
+      ? (_ageVals.length % 2 ? _ageVals[Math.floor(_ageVals.length / 2)] : (_ageVals[_ageVals.length / 2 - 1] + _ageVals[_ageVals.length / 2]) / 2)
+      : null;
+    const avgTTR = _ageVals.length ? _ageVals.reduce((a, b) => a + b, 0) / _ageVals.length : null;
+
+    // ---- Summary: median + avg TTR ----
+    $('ttrSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:repeat(2,1fr);">' +
+      '<div class="stat-card"><div class="l">Median Time to Resolve</div>' +
+      '<div class="v" style="color:' + (medianTTR != null && medianTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (medianTTR != null ? medianTTR.toFixed(1) + 'd' : '-') + '</div>' +
+      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
+      '<div class="stat-card"><div class="l">Avg Time to Resolve</div>' +
+      '<div class="v" style="color:' + (avgTTR != null && avgTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (avgTTR != null ? avgTTR.toFixed(1) + 'd' : '-') + '</div>' +
+      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
+      '</div>';
+
+    // ---- Per-analyst TTR SLA ranking ----
+    renderOffPerf('cloOffPerf', { key: 'slaMetPct', label: '% met 7-day SLA', dir: 'higher', minN: 'closed', fmt: v => (v * 100).toFixed(1) + '%', numKey: 'slaMet', denKey: 'slaN', fracLabel: 'met SLA' });
+    renderAnalystKpiTable('cloAnalystTable', {
+      key: 'slaMetPct', label: 'TTR SLA (Time to Resolve)', targetKey: 'closedSlaMet',
+      targetLabel: '≥ ' + (DATA.targets.closedSlaMet * 100) + '% of tickets resolved within ' + DATA.targets.fixAvg + ' days',
+      dir: 'higher', fmt: v => (v * 100).toFixed(1) + '%',
+      minN: 'slaN', minNLabel: 'Tickets with age data',
+    });
+
+    // ---- SLA met / breached ----
+    const slaMet = withAge.filter(r => r.age <= 7).length;
+    const slaBreached = withAge.length - slaMet;
+    const slaPct = withAge.length ? slaMet / withAge.length : null;
+    const slaBrPct = withAge.length ? slaBreached / withAge.length : null;
+    const slaOk = slaPct != null && slaPct >= DATA.targets.closedSlaMet;
+    $('cloSlaMet').innerHTML = '<div class="stat-row" style="grid-template-columns:repeat(4,1fr);">' +
+      '<div class="stat-card"><div class="l">Met SLA (≤ ' + DATA.targets.fixAvg + 'd)</div><div class="v" style="color:var(--good);">' + intg(slaMet) + '</div></div>' +
+      '<div class="stat-card"><div class="l">Breached SLA</div><div class="v" style="color:var(--bad);">' + intg(slaBreached) + '</div></div>' +
+      '<div class="stat-card"><div class="l">% met</div><div class="v" style="color:' + (slaOk ? 'var(--good)' : 'var(--bad)') + ';">' + (slaPct != null ? (slaPct * 100).toFixed(1) + '%' : '-') + '</div><div class="sub">target ≥ ' + (DATA.targets.closedSlaMet * 100) + '%</div></div>' +
+      '<div class="stat-card"><div class="l">% breached</div><div class="v" style="color:var(--bad);">' + (slaBrPct != null ? (slaBrPct * 100).toFixed(1) + '%' : '-') + '</div></div>' +
+      '</div>';
+
+    // ---- SLA-breach buckets ----
+    const breachBands = [
+      { label: '> 90 days',    test: a => a > 90,            color: '#7f1d1d' },
+      { label: '61 - 90 days', test: a => a > 60 && a <= 90, color: '#b91c1c' },
+      { label: '31 - 60 days', test: a => a > 30 && a <= 60, color: '#dc2626' },
+      { label: '16 - 30 days', test: a => a > 15 && a <= 30, color: '#f59e0b' },
+      { label: '8 - 15 days',  test: a => a >= 8 && a <= 15, color: '#b45309' },
+    ];
+    const breachItems = breachBands.map(b => ({ label: b.label, color: b.color, value: withAge.filter(r => b.test(r.age)).length }));
+    $('cloBreach').innerHTML = svgBars(breachItems, { width: 600, barH: 22, labelW: 130, formatter: v => fmtCountPct(v, withAge.length) });
+
+    // ---- Median per scope ----
+    const scopeMed = median(rows.map(r => r.age));
+    $('cloMedian').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
+      '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — median fix</div>' +
+      '<div class="v">' + (scopeMed != null ? scopeMed.toFixed(1) + 'd' : '-') + '</div>' +
+      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd</div>' +
+      '</div></div>';
+
+    // ---- Top 5 fastest & most breached ----
+    function topFast(reg, an) {
+      return closedInScope(range, reg, an).filter(r => typeof r.age === 'number').sort((a, b) => a.age - b.age).slice(0, 5);
+    }
+    function topBreached(reg, an) {
+      return closedInScope(range, reg, an).filter(r => typeof r.age === 'number' && r.age > DATA.targets.fixAvg).sort((a, b) => b.age - a.age).slice(0, 5);
+    }
+    const ticketRow = cls => t =>
+      '<div class="ticket"><div><div class="title">' + adoLink(t) + '</div>' +
+      '<div class="meta">' + esc(t.account || t.acct || '-') + '  ·  ' + esc(t.c || '-') + '</div></div>' +
+      '<div class="age ' + cls + '">' + Math.round(t.age) + 'd</div></div>';
+    renderTopNPerScope('cloTopFast',     topFast,     ticketRow('good'));
+    renderTopNPerScope('cloTopBreached', topBreached, ticketRow('bad'));
   }
 
   // ===========================================================================
@@ -8869,6 +8847,7 @@ if(window.opener&&!window.opener.closed){
     renderKpiCsat();
     renderKpiActive();
     renderKpiClosed();
+    renderKpiTTR();
     renderKpiResp();
     renderKpiEsc();
     renderKpiUtil();
