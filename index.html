@@ -922,7 +922,7 @@
         <summary class="dd-section-title">CET &amp; Top Accounts</summary>
         <div class="deep-grid" style="padding-top:8px;">
           <div><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">CET Rating distribution</h3><div id="csatCet"></div></div>
-          <div><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Top accounts by # responses</h3><div id="csatAccounts"></div></div>
+          <div><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Top 5 accounts by response rate</h3><div id="csatAccounts"></div></div>
         </div>
       </details>
 
@@ -6735,38 +6735,56 @@ if(window.opener&&!window.opener.closed){
           } })
       : '<div class="cat-empty">no data</div>';
 
-    // ---- F. Top accounts by # responses ----
-    const acctCounts = {};
-    const acctRatings = {};
-    rows.forEach(r => {
-      const a = r.acct || '(unknown)';
-      acctCounts[a] = (acctCounts[a]||0) + 1;
-      acctRatings[a] = acctRatings[a] || [];
-      acctRatings[a].push(RATING_NUM[String(r.rating).trim().toLowerCase()] || 0);
-    });
-    const acctList = Object.entries(acctCounts).map(([a,n]) => ({
-      acct: a, n,
-      avg: acctRatings[a].reduce((s,x)=>s+x,0)/acctRatings[a].length,
-    })).sort((a,b) => b.n - a.n || a.acct.localeCompare(b.acct)).slice(0, 10);
-    if (acctList.length === 0) {
-      $('csatAccounts').innerHTML = '<div class="cat-empty">no data</div>';
-    } else {
-      $('csatAccounts').innerHTML =
-        '<table class="acct-table"><thead><tr>' +
-          '<th>Account</th>' +
-          '<th class="num"># surveys</th>' +
-          '<th class="num">% of total</th>' +
-          '<th class="num">avg rating</th>' +
-        '</tr></thead><tbody>' +
-        acctList.map(a =>
-          '<tr>' +
-            '<td>' + esc(a.acct) + '</td>' +
-            '<td class="num">' + a.n + '</td>' +
-            '<td class="num" style="color:#6b7280;font-size:11px;">' + (total > 0 ? (a.n / total * 100).toFixed(1) + '%' : '—') + '</td>' +
-            '<td class="num">' + a.avg.toFixed(1) + '</td>' +
-          '</tr>'
-        ).join('') +
-        '</tbody></table>';
+    // ---- F. Top 5 accounts by response rate ----
+    {
+      // Build wi→acct lookup from closed tickets (CSAT acct field is often empty)
+      const wiToAcct = {};
+      DATA.closed.forEach(r => { if (r.wi && r.acct) wiToAcct[String(r.wi)] = r.acct; });
+
+      const acctMap = {};
+      rows.forEach(r => {
+        const a = (r.acct && r.acct.trim()) || (r.wi ? wiToAcct[String(r.wi)] : null);
+        if (!a) return;
+        if (!acctMap[a]) acctMap[a] = { acct: a, csatN: 0, csatTop: 0, closedN: 0 };
+        acctMap[a].csatN++;
+        if ((RATING_NUM[String(r.rating).trim().toLowerCase()] || 0) >= 4) acctMap[a].csatTop++;
+      });
+      DATA.closed.forEach(r => {
+        if (!inRange(r.closed, range) || !inScope(r.c) || !r.acct) return;
+        if (acctMap[r.acct]) acctMap[r.acct].closedN++;
+      });
+      const top5 = Object.values(acctMap)
+        .filter(a => a.csatN > 0 && a.closedN > 0)
+        .map(a => ({ ...a, respRate: a.csatN / a.closedN, csatPct: a.csatTop / a.csatN }))
+        .sort((a, b) => b.respRate - a.respRate || b.csatN - a.csatN)
+        .slice(0, 5);
+      if (top5.length === 0) {
+        $('csatAccounts').innerHTML = '<div class="cat-empty">no data — need both CSAT responses and closed tickets</div>';
+      } else {
+        const adoBase = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems';
+        $('csatAccounts').innerHTML =
+          '<table class="acct-table"><thead><tr>' +
+            '<th>Account</th>' +
+            '<th class="num">Responses</th>' +
+            '<th class="num">Resp. rate</th>' +
+            '<th class="num">CSAT score</th>' +
+            '<th class="num">Tickets</th>' +
+          '</tr></thead><tbody>' +
+          top5.map(a => {
+            const rateStr = a.respRate > 1 ? '&gt;100%' : (a.respRate * 100).toFixed(0) + '%';
+            const csatStr = (a.csatPct * 100).toFixed(0) + '%';
+            const csatColor = a.csatPct >= DATA.targets.csat ? 'var(--good)' : (a.csatPct >= DATA.targets.csat - 0.1 ? '#b45309' : 'var(--bad)');
+            const adoLink = adoBase + '?searchText=' + encodeURIComponent(a.acct);
+            return '<tr>' +
+              '<td style="font-weight:500;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(a.acct) + '">' + esc(a.acct) + '</td>' +
+              '<td class="num">' + a.csatN + '</td>' +
+              '<td class="num" style="font-weight:700;color:#0891b2;">' + rateStr + '</td>' +
+              '<td class="num" style="font-weight:700;color:' + csatColor + ';">' + csatStr + '</td>' +
+              '<td class="num"><a href="' + adoLink + '" target="_blank" rel="noopener" style="color:#4f46e5;font-size:11px;font-weight:600;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">↗ ' + a.closedN + ' tickets</a></td>' +
+            '</tr>';
+          }).join('') +
+          '</tbody></table>';
+      }
     }
 
     // ---- E. Top 3 highest-score and lowest-score comments (with non-empty text) ----
