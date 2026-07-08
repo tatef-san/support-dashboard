@@ -2619,7 +2619,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const y = padT + innerH - h;
       const color = it.color || COLORS[i % COLORS.length];
       svg += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" fill="' + color + '" rx="2"><title>' + esc(it.label) + ': ' + fmt(v) + '</title></rect>';
-      if (v > 0) svg += '<text x="' + (x + barW/2) + '" y="' + (y - 3) + '" text-anchor="middle" font-size="10" fill="#374151">' + fmt(v) + '</text>';
+      if (v > 0) svg += '<text x="' + (x + barW/2) + '" y="' + (y - 3) + '" text-anchor="middle" font-size="10" fill="#374151">' + fmt(v, it) + '</text>';
       svg += '<text x="' + (x + barW/2) + '" y="' + (padT + innerH + 12) + '" text-anchor="end" font-size="10" fill="#374151" transform="rotate(-30 ' + (x + barW/2) + ' ' + (padT + innerH + 12) + ')">' + esc(it.label) + '</text>';
     });
     svg += '</svg>';
@@ -6533,7 +6533,7 @@ if(window.opener&&!window.opener.closed){
       for (let m = 0; m <= _curM; m++) {
         const ms = _year + '-' + String(m + 1).padStart(2, '0') + '-01';
         const me = (m === _curM) ? _todayISO : new Date(Date.UTC(_year, m + 1, 0)).toISOString().slice(0, 10);
-        let n = 0, top = 0;
+        let n = 0, top = 0, closedN = 0;
         _csatSrc.forEach(r => {
           if (!r.d || r.d < ms || r.d > me) return;
           if (!inScope(r.c)) return;
@@ -6541,12 +6541,17 @@ if(window.opener&&!window.opener.closed){
           if (!num) return;
           n++; if (num >= 4) top++;
         });
-        monthly.push({ month: _MN[m], n, pct: n ? top / n : null });
+        DATA.closed.forEach(r => {
+          if (!r.closed || r.closed < ms || r.closed > me) return;
+          if (!inScope(r.c)) return;
+          closedN++;
+        });
+        monthly.push({ month: _MN[m], n, pct: n ? top / n : null, respRate: closedN > 0 ? n / closedN : null });
       }
 
       if (monthly.length > 1) {
         const csatPts  = monthly.map(r => ({ label: r.month, value: r.pct }));
-        const countPts = monthly.map(r => ({ label: r.month, value: r.n }));
+        const countPts = monthly.map(r => ({ label: r.month, value: r.n, respRate: r.respRate }));
         const noDataMonths = monthly.filter(r => !r.n).map(r => r.month);
         const noDataNote = noDataMonths.length
           ? '<div style="font-size:11px;color:#6b7280;margin-top:8px;">No survey responses for: <strong>' + noDataMonths.join(', ') + '</strong></div>'
@@ -6555,8 +6560,8 @@ if(window.opener&&!window.opener.closed){
           '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--primary);margin-bottom:6px;">Month-over-Month CSAT</div>' +
           '<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">CSAT % per month</div>' +
           svgLine(csatPts, { width: 860, height: 150, color: '#1f3864', formatY: v => v != null ? (v * 100).toFixed(0) + '%' : '—', showNullDash: true }) +
-          '<div style="font-size:11px;color:#6b7280;margin:10px 0 4px 0;">Responses per month</div>' +
-          svgVerticalBars(countPts, { width: 860, height: 120 }) +
+          '<div style="font-size:11px;color:#6b7280;margin:10px 0 4px 0;">Responses per month · <span style="color:#0891b2;">% = response rate (responses ÷ closed tickets)</span></div>' +
+          svgVerticalBars(countPts, { width: 860, height: 140, formatter: (v, it) => it ? (v + (it.respRate != null && it.respRate <= 1 ? ' (' + (it.respRate * 100).toFixed(0) + '%)' : '')) : Number(v).toFixed(0) }) +
           noDataNote;
       } else {
         $('csatMoM').innerHTML = '';
