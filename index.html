@@ -2079,21 +2079,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     }
     const _vfCsat = (window._vfCsatAutoData && window._vfCsatAutoData.length ? window._vfCsatAutoData : null) || loadVoiceflowCsat();
     if (_vfCsat && _vfCsat.length) { DATA.csat = _vfCsat.map(r => ({...r, c: _normName((r.c||'').replace(/\s+/g,' ').trim())})); used.csat = 'voiceflow'; }
-    // Supplement DATA.closed with FeedbackReminder-sourced closed tickets (injected by update-csat.ps1)
-    // Covers 2025+ months not included in the embedded Power BI data snapshot.
-    // Uses localStorage cache so data is available even on first load (before script tag executes).
+    // Cache _adoClosedAutoData to localStorage for use in Section F (Top 5 accounts).
+    // NOTE: this data is NOT merged into DATA.closed — it is FeedbackReminder-based
+    // (only tickets where a survey was sent, not all closed tickets), so using it as
+    // the denominator for the main response rate KPI would inflate the rate.
+    // Section F uses it directly for wi→acct lookup and per-account closed counts.
     if (window._adoClosedAutoData && window._adoClosedAutoData.length) {
       try { localStorage.setItem('adoClosedAutoData', JSON.stringify(window._adoClosedAutoData)); } catch(e) {}
-    }
-    const _adoClosed = (window._adoClosedAutoData && window._adoClosedAutoData.length ? window._adoClosedAutoData : null)
-      || (function(){ try { return JSON.parse(localStorage.getItem('adoClosedAutoData') || 'null'); } catch(e){ return null; } })();
-    if (_adoClosed && _adoClosed.length) {
-      const _existWIs = new Set(DATA.closed.map(r => r.wi != null ? String(r.wi) : '').filter(Boolean));
-      _adoClosed.forEach(r => {
-        if (!r.wi || _existWIs.has(String(r.wi))) return;
-        DATA.closed.push({ wi: r.wi, acct: r.acct || '', closed: r.closed || '',
-          c: _normName((r.c || '').replace(/\s+/g,' ').trim()) });
-      });
     }
     return used;
   }
@@ -6753,10 +6745,19 @@ if(window.opener&&!window.opener.closed){
 
     // ---- F. Top 5 accounts by response rate ----
     {
-      // Build wi→acct lookup from closed tickets (CSAT acct field is often empty)
+      // _adoClosedAutoData = FeedbackReminder-based: tickets where a survey WAS sent.
+      // This is the correct denominator for response rate (surveys sent per account).
+      // It is NOT merged into DATA.closed to avoid inflating the main response rate KPI.
+      const _adoClosed = (window._adoClosedAutoData && window._adoClosedAutoData.length ? window._adoClosedAutoData : null)
+        || (function(){ try { return JSON.parse(localStorage.getItem('adoClosedAutoData') || 'null'); } catch(e){ return null; } })()
+        || [];
+
+      // Build wi→acct lookup from both DATA.closed (Power BI / embedded) and _adoClosed (FeedbackReminder)
       const wiToAcct = {};
       DATA.closed.forEach(r => { if (r.wi && r.acct) wiToAcct[String(r.wi)] = r.acct; });
+      _adoClosed.forEach(r => { if (r.wi && r.acct && !wiToAcct[String(r.wi)]) wiToAcct[String(r.wi)] = r.acct; });
 
+      // Count CSAT responses per account (from rows = in-scope, in-period CSAT)
       const acctMap = {};
       rows.forEach(r => {
         const a = (r.acct && r.acct.trim()) || (r.wi ? wiToAcct[String(r.wi)] : null);
@@ -6765,18 +6766,29 @@ if(window.opener&&!window.opener.closed){
         acctMap[a].csatN++;
         if ((RATING_NUM[String(r.rating).trim().toLowerCase()] || 0) >= 4) acctMap[a].csatTop++;
       });
-      DATA.closed.forEach(r => {
+
+      // Count surveys sent per account from _adoClosed (primary source for denominator)
+      // Fall back to DATA.closed for accounts not covered by _adoClosed
+      const adoClosedAccts = new Set();
+      _adoClosed.forEach(r => {
         if (!inRange(r.closed, range) || !inScope(r.c) || !r.acct) return;
+        adoClosedAccts.add(r.acct);
         if (acctMap[r.acct]) acctMap[r.acct].closedN++;
       });
-      // Primary: accounts with closed data in the selected period
+      // For accounts not seen in _adoClosed, fall back to DATA.closed
+      DATA.closed.forEach(r => {
+        if (!inRange(r.closed, range) || !inScope(r.c) || !r.acct) return;
+        if (!adoClosedAccts.has(r.acct) && acctMap[r.acct]) acctMap[r.acct].closedN++;
+      });
+
+      // Primary: accounts with both CSAT responses and survey-sent data in the selected period
       let top5 = Object.values(acctMap)
         .filter(a => a.csatN > 0 && a.closedN > 0)
-        .map(a => ({ ...a, respRate: a.csatN / a.closedN, csatPct: a.csatTop / a.csatN }))
+        .map(a => ({ ...a, respRate: Math.min(a.csatN / a.closedN, 1), csatPct: a.csatTop / a.csatN }))
         .sort((a, b) => b.respRate - a.respRate || b.csatN - a.csatN)
         .slice(0, 5);
 
-      // Fallback: no period-matched closed data — use ALL available CSAT + ALL closed (no date filter)
+      // Fallback: no period-matched data — use ALL available (no date filter)
       let fallback = false;
       if (top5.length === 0) {
         fallback = true;
@@ -6791,13 +6803,19 @@ if(window.opener&&!window.opener.closed){
           acctMapFb[a].csatN++;
           if (num >= 4) acctMapFb[a].csatTop++;
         });
+        const fbAdoAccts = new Set();
+        _adoClosed.forEach(r => {
+          if (!inScope(r.c) || !r.acct) return;
+          fbAdoAccts.add(r.acct);
+          if (acctMapFb[r.acct]) acctMapFb[r.acct].closedN++;
+        });
         DATA.closed.forEach(r => {
           if (!inScope(r.c) || !r.acct) return;
-          if (acctMapFb[r.acct]) acctMapFb[r.acct].closedN++;
+          if (!fbAdoAccts.has(r.acct) && acctMapFb[r.acct]) acctMapFb[r.acct].closedN++;
         });
         top5 = Object.values(acctMapFb)
           .filter(a => a.csatN > 0 && a.closedN > 0)
-          .map(a => ({ ...a, respRate: a.csatN / a.closedN, csatPct: a.csatTop / a.csatN }))
+          .map(a => ({ ...a, respRate: Math.min(a.csatN / a.closedN, 1), csatPct: a.csatTop / a.csatN }))
           .sort((a, b) => b.respRate - a.respRate || b.csatN - a.csatN)
           .slice(0, 5);
       }
@@ -6807,7 +6825,7 @@ if(window.opener&&!window.opener.closed){
         $('csatAccounts').innerHTML = '<div class="cat-empty">' + (noAccts ? 'No CSAT responses with known accounts in scope.' : 'Upload closed tickets to calculate response rates.') + '</div>';
       } else {
         const adoBase = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems';
-        const fallbackNote = fallback ? '<div style="font-size:10px;color:#9ca3af;margin-top:4px;">* Response rate based on all available closed data (upload current period for exact rates)</div>' : '';
+        const fallbackNote = fallback ? '<div style="font-size:10px;color:#9ca3af;margin-top:4px;">* Based on all available data — select a specific period for filtered results</div>' : '';
         $('csatAccounts').innerHTML =
           '<table class="acct-table"><thead><tr>' +
             '<th>Account</th>' +
@@ -6817,7 +6835,7 @@ if(window.opener&&!window.opener.closed){
             '<th class="num">Tickets</th>' +
           '</tr></thead><tbody>' +
           top5.map(a => {
-            const rateStr = a.respRate > 1 ? '&gt;100%' : (a.respRate * 100).toFixed(0) + '%' + (fallback ? '*' : '');
+            const rateStr = (a.respRate * 100).toFixed(0) + '%' + (fallback ? '*' : '');
             const csatStr = (a.csatPct * 100).toFixed(0) + '%';
             const csatColor = a.csatPct >= DATA.targets.csat ? 'var(--good)' : (a.csatPct >= DATA.targets.csat - 0.1 ? '#b45309' : 'var(--bad)');
             const adoLink = adoBase + '?searchText=' + encodeURIComponent(a.acct);
