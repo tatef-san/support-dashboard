@@ -2600,7 +2600,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
   function svgVerticalBars(items, opts) {
     opts = opts || {};
     const W = opts.width || 720, H = opts.height || 220;
-    const padL = 36, padR = 12, padT = 12, padB = 70;
+    const padL = 36, padR = 12, padT = opts.padT || 12, padB = 70;
     const max = opts.max != null ? opts.max : Math.max(1, ...items.map(d => d.value || 0));
     const innerW = W - padL - padR, innerH = H - padT - padB;
     const barW = items.length ? innerW / items.length * 0.7 : 0;
@@ -6561,7 +6561,7 @@ if(window.opener&&!window.opener.closed){
           '<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">CSAT % per month</div>' +
           svgLine(csatPts, { width: 860, height: 150, color: '#1f3864', formatY: v => v != null ? (v * 100).toFixed(0) + '%' : '—', showNullDash: true }) +
           '<div style="font-size:11px;color:#6b7280;margin:10px 0 4px 0;">Responses per month · <span style="color:#0891b2;">% = response rate (responses ÷ closed tickets)</span></div>' +
-          svgVerticalBars(countPts, { width: 860, height: 140, formatter: (v, it) => it ? (v + (it.respRate != null && it.respRate <= 1 ? ' (' + (it.respRate * 100).toFixed(0) + '%)' : '')) : Number(v).toFixed(0) }) +
+          svgVerticalBars(countPts, { width: 860, height: 160, padT: 28, formatter: (v, it) => it ? (v + (it.respRate != null && it.respRate <= 1 ? ' (' + (it.respRate * 100).toFixed(0) + '%)' : '')) : Number(v).toFixed(0) }) +
           noDataNote;
       } else {
         $('csatMoM').innerHTML = '';
