@@ -6753,15 +6753,45 @@ if(window.opener&&!window.opener.closed){
         if (!inRange(r.closed, range) || !inScope(r.c) || !r.acct) return;
         if (acctMap[r.acct]) acctMap[r.acct].closedN++;
       });
-      const top5 = Object.values(acctMap)
+      // Primary: accounts with closed data in the selected period
+      let top5 = Object.values(acctMap)
         .filter(a => a.csatN > 0 && a.closedN > 0)
         .map(a => ({ ...a, respRate: a.csatN / a.closedN, csatPct: a.csatTop / a.csatN }))
         .sort((a, b) => b.respRate - a.respRate || b.csatN - a.csatN)
         .slice(0, 5);
+
+      // Fallback: no period-matched closed data — use ALL available CSAT + ALL closed (no date filter)
+      let fallback = false;
       if (top5.length === 0) {
-        $('csatAccounts').innerHTML = '<div class="cat-empty">no data — need both CSAT responses and closed tickets</div>';
+        fallback = true;
+        const acctMapFb = {};
+        DATA.csat.forEach(r => {
+          if (!inScope(r.c)) return;
+          const a = (r.acct && r.acct.trim()) || (r.wi ? wiToAcct[String(r.wi)] : null);
+          if (!a) return;
+          if (!acctMapFb[a]) acctMapFb[a] = { acct: a, csatN: 0, csatTop: 0, closedN: 0 };
+          const num = RATING_NUM[String(r.rating).trim().toLowerCase()] || 0;
+          if (!num) return;
+          acctMapFb[a].csatN++;
+          if (num >= 4) acctMapFb[a].csatTop++;
+        });
+        DATA.closed.forEach(r => {
+          if (!inScope(r.c) || !r.acct) return;
+          if (acctMapFb[r.acct]) acctMapFb[r.acct].closedN++;
+        });
+        top5 = Object.values(acctMapFb)
+          .filter(a => a.csatN > 0 && a.closedN > 0)
+          .map(a => ({ ...a, respRate: a.csatN / a.closedN, csatPct: a.csatTop / a.csatN }))
+          .sort((a, b) => b.respRate - a.respRate || b.csatN - a.csatN)
+          .slice(0, 5);
+      }
+
+      if (top5.length === 0) {
+        const noAccts = Object.keys(acctMap).length === 0;
+        $('csatAccounts').innerHTML = '<div class="cat-empty">' + (noAccts ? 'No CSAT responses with known accounts in scope.' : 'Upload closed tickets to calculate response rates.') + '</div>';
       } else {
         const adoBase = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems';
+        const fallbackNote = fallback ? '<div style="font-size:10px;color:#9ca3af;margin-top:4px;">* Response rate based on all available closed data (upload current period for exact rates)</div>' : '';
         $('csatAccounts').innerHTML =
           '<table class="acct-table"><thead><tr>' +
             '<th>Account</th>' +
@@ -6771,7 +6801,7 @@ if(window.opener&&!window.opener.closed){
             '<th class="num">Tickets</th>' +
           '</tr></thead><tbody>' +
           top5.map(a => {
-            const rateStr = a.respRate > 1 ? '&gt;100%' : (a.respRate * 100).toFixed(0) + '%';
+            const rateStr = a.respRate > 1 ? '&gt;100%' : (a.respRate * 100).toFixed(0) + '%' + (fallback ? '*' : '');
             const csatStr = (a.csatPct * 100).toFixed(0) + '%';
             const csatColor = a.csatPct >= DATA.targets.csat ? 'var(--good)' : (a.csatPct >= DATA.targets.csat - 0.1 ? '#b45309' : 'var(--bad)');
             const adoLink = adoBase + '?searchText=' + encodeURIComponent(a.acct);
@@ -6783,7 +6813,7 @@ if(window.opener&&!window.opener.closed){
               '<td class="num"><a href="' + adoLink + '" target="_blank" rel="noopener" style="color:#4f46e5;font-size:11px;font-weight:600;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">↗ ' + a.closedN + ' tickets</a></td>' +
             '</tr>';
           }).join('') +
-          '</tbody></table>';
+          '</tbody></table>' + fallbackNote;
       }
     }
 
