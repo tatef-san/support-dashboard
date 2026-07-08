@@ -53,7 +53,7 @@ try {
 
 # Step 3: Query Feedback table (SA CSAT)
 Write-Host "  Querying SA Feedback table..." -ForegroundColor Cyan
-$sql = "SELECT Rating, SupportExperience, [ ServiceConsultant], WorkItemId, Comment, NegativeReason, Timestamp FROM [dbo].[Feedback] WHERE Timestamp IS NOT NULL AND [ ServiceConsultant] IS NOT NULL AND [ ServiceConsultant] <> '' ORDER BY Timestamp DESC"
+$sql = "SELECT Rating, SupportExperience, [ ServiceConsultant], WorkItemId, Comment, NegativeReason, Timestamp FROM [dbo].[Feedback] WHERE Timestamp IS NOT NULL AND Timestamp >= '2026-01-01' ORDER BY Timestamp DESC"
 $sCmd             = $sConn.CreateCommand()
 $sCmd.CommandText = $sql
 $sCmd.CommandTimeout = 60
@@ -85,8 +85,9 @@ foreach ($r in $sDt.Rows) {
     $ts = $r["Timestamp"]; if ($ts -is [System.DBNull]) { continue }
     $d = ([datetime]$ts).ToString("yyyy-MM-dd")
     $emailRaw = ([string]$r[" ServiceConsultant"]).Trim().ToLower()
-    $analyst  = if ($emailMap.ContainsKey($emailRaw)) { $emailMap[$emailRaw] } else { $emailRaw }
-    if (-not $analyst) { continue }
+    # Rows with empty SA email get c="" — they count in Overall but not individual analyst views
+    # Rows with an unrecognised email keep the email as the name (as before)
+    $analyst  = if ($emailMap.ContainsKey($emailRaw)) { $emailMap[$emailRaw] } elseif ($emailRaw) { $emailRaw } else { "" }
     $cetKey = if ($r["SupportExperience"] -is [System.DBNull]) { "" } else { [string][int]$r["SupportExperience"] }
     $cet    = if ($cetKey -ne "" -and $cetMap.ContainsKey($cetKey)) { $cetMap[$cetKey] } else { "" }
     $wi     = if ($r["WorkItemId"] -is [System.DBNull]) { $null } else { [int]$r["WorkItemId"] }
