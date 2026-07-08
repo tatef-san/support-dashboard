@@ -154,6 +154,59 @@ if ($mayaRows.Count -gt 0) {
     } else { Write-Host "  WARNING: Maya CSAT markers not found" -ForegroundColor Yellow }
 }
 
+# Step 8: Query FeedbackReminder + CustomerName to build closed ticket data for response rate
+Write-Host "  Querying closed ticket history (FeedbackReminder + CustomerName)..." -ForegroundColor Cyan
+try {
+    $frConn = OpenConn $SphereDatabase
+    $frCmd  = $frConn.CreateCommand()
+    $frCmd.CommandText = @"
+SELECT
+    fr.WorkItemId,
+    CONVERT(VARCHAR(10), fr.FirstReminderDate, 23) AS ClosedDate,
+    COALESCE(pc.FullName, pf.CustomerName, '') AS CustomerName,
+    COALESCE(NULLIF(LTRIM(RTRIM(f.[ ServiceConsultant])), ''), NULLIF(pw.AssignedToEmail, ''), '') AS SA_Email
+FROM FeedbackReminder fr
+LEFT JOIN Feedback f ON fr.WorkItemId = f.WorkItemId
+LEFT JOIN $PrismaDatabase.dbo.Customers pc ON f.CustomerId = pc.Id
+LEFT JOIN $PrismaDatabase.dbo.AzureDevopsWorkitems pw ON fr.WorkItemId = pw.WorkitemId
+LEFT JOIN $PrismaDatabase.dbo.AzureDevopsFrameworks pf ON pw.ProjectInstanceId = pf.ProjectInstanceId
+WHERE fr.FirstReminderDate >= '2025-01-01'
+ORDER BY fr.FirstReminderDate DESC
+"@
+    $frCmd.CommandTimeout = 60
+    $frDt = New-Object System.Data.DataTable
+    (New-Object System.Data.SqlClient.SqlDataAdapter($frCmd)).Fill($frDt) | Out-Null
+    $frConn.Close()
+    Write-Host "  Found $($frDt.Rows.Count) closed ticket records" -ForegroundColor Green
+
+    $closedRows = [System.Collections.Generic.List[object]]::new()
+    foreach ($r in $frDt.Rows) {
+        if ($r["WorkItemId"] -is [System.DBNull]) { continue }
+        $wi      = [int]$r["WorkItemId"]
+        $closed  = [string]$r["ClosedDate"]
+        $acct    = ([string]$r["CustomerName"]).Trim()
+        $saEmail = ([string]$r["SA_Email"]).Trim().ToLower()
+        $analyst = if ($saEmail -and $emailMap.ContainsKey($saEmail)) { $emailMap[$saEmail] } else { "" }
+        $closedRows.Add([ordered]@{ wi=$wi; closed=$closed; acct=$acct; c=$analyst })
+    }
+    Write-Host "  Mapped $($closedRows.Count) closed rows" -ForegroundColor Green
+
+    if ($closedRows.Count -gt 0) {
+        $frJson   = $closedRows | ConvertTo-Json -Compress -Depth 3
+        $frBytes  = [System.Text.Encoding]::UTF8.GetBytes($frJson)
+        $frBase64 = [Convert]::ToBase64String($frBytes)
+        $frInject = "window._adoClosedAutoData=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob('$frBase64'),c=>c.charCodeAt(0))));"
+        $frSm = "/* ADO_CLOSED_AUTO_START */"; $frEm = "/* ADO_CLOSED_AUTO_END */"
+        $frStart = $content.IndexOf($frSm); $frEnd = $content.IndexOf($frEm)
+        if ($frStart -ge 0 -and $frEnd -ge 0) {
+            $content = $content.Substring(0, $frStart + $frSm.Length) + $frInject + $content.Substring($frEnd)
+            Write-Host "  Closed tickets injected ($($closedRows.Count) rows)" -ForegroundColor Green
+        } else { Write-Host "  WARNING: ADO_CLOSED_AUTO markers not found in index.html" -ForegroundColor Yellow }
+    }
+} catch {
+    Write-Host "  WARNING: Could not query closed ticket data: $_" -ForegroundColor Yellow
+}
+
 [System.IO.File]::WriteAllText($IndexHtml, $content, [System.Text.Encoding]::UTF8)
 Write-Host ""
 Write-Host "  Done. Refresh the dashboard to see updated data." -ForegroundColor Green
