@@ -4512,7 +4512,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const adoProj = adoCfg.project || 'Sana Projects';
       const adoClosedStates = (adoCfg.closedStates && adoCfg.closedStates.length ? adoCfg.closedStates : ['Closed','Resolved','Done']).map(function(s){ return "'"+s+"'"; }).join(',');
       const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
-      const cutoff = new Date(Date.now() - 730*86400000).toISOString().split('T')[0]; // 2 years back
+      const cutoff = new Date(Date.now() - 365*86400000).toISOString().split('T')[0]; // 1 year back
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
@@ -7806,6 +7806,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => !excludedWIs.has(r.wi))
         .filter(r => !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
+        .filter(r => !r.age || r.age <= 365)
         .map(r => {
           const ado = adoMap[+r.wi] || {};
           return {
