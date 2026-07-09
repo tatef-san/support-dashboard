@@ -1029,6 +1029,15 @@
       <div id="actOffPerf" style="margin-top:14px;"></div>
     </div>
 
+    <!-- Accounts with Multiple Open Tickets -->
+    <div class="dd-section">
+      <div class="dd-section-hd">
+        <div class="dd-icon blue">🏢</div>
+        <div><div class="dd-section-label">Accounts with Multiple Open Tickets</div><div class="dd-section-desc">Accounts with 2 or more open tickets in scope, sorted by count</div></div>
+      </div>
+      <div id="actAccountsView"></div>
+    </div>
+
     <!-- Aging & Comment Density -->
     <div class="dd-section">
       <div class="dd-section-hd">
@@ -7933,6 +7942,9 @@ if(window.opener&&!window.opener.closed){
     renderTop(top5('subCat'),   'actTopSub');
     renderTop(top5('funcArea'), 'actTopFunc');
 
+    // ---- Accounts with multiple open tickets ----
+    renderAccountsView(rows);
+
     // ---- Top 5 oldest open tickets per scope ----
     function topAged(reg, an) {
       const f = inScopeFilter(reg, an);
@@ -7975,6 +7987,47 @@ if(window.opener&&!window.opener.closed){
     renderActPendingCustomer();
     renderActPendingAnalyst();
     renderActNoMention();
+  }
+
+  function renderAccountsView(rows) {
+    const el = $('actAccountsView');
+    if (!el) return;
+    const counts = {};
+    rows.forEach(r => {
+      const acct = (r.acct || '').trim();
+      if (!acct) return;
+      counts[acct] = (counts[acct] || 0) + 1;
+    });
+    const multi = Object.entries(counts)
+      .filter(([,n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    if (!multi.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No accounts with 2 or more open tickets.</div>';
+      return;
+    }
+    const maxVal = multi[0][1];
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+      '<thead><tr>' +
+      '<th style="text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;">Account</th>' +
+      '<th style="text-align:right;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;width:80px;">Tickets</th>' +
+      '<th style="padding:6px 10px;border-bottom:2px solid var(--border);width:200px;"></th>' +
+      '</tr></thead><tbody>';
+    multi.forEach(([acct, n], i) => {
+      const pct = Math.round(n / maxVal * 100);
+      const bg = i % 2 === 0 ? '' : 'background:var(--bg-alt,rgba(0,0,0,0.02));';
+      html += '<tr style="' + bg + '">' +
+        '<td style="padding:6px 10px;">' + esc(acct) + '</td>' +
+        '<td style="text-align:right;padding:6px 10px;font-weight:600;font-variant-numeric:tabular-nums;">' + n + '</td>' +
+        '<td style="padding:6px 10px;">' +
+          '<div style="background:var(--border);border-radius:3px;height:10px;overflow:hidden;">' +
+            '<div style="background:var(--primary);width:' + pct + '%;height:100%;border-radius:3px;"></div>' +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div style="font-size:11px;color:var(--muted);margin-top:6px;">' + multi.length + ' account' + (multi.length !== 1 ? 's' : '') + ' · ' + multi.reduce((s,[,n]) => s+n, 0) + ' tickets shown</div>';
+    el.innerHTML = html;
   }
 
   function renderAgingFlags(rows) {
