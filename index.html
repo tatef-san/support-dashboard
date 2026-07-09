@@ -904,8 +904,14 @@
       <!-- Q1 / Q2 Summary Bar (no labels) -->
       <div id="csatQ1Q2Summary" style="margin-bottom:14px;"></div>
 
-      <!-- Monthly response bar -->
-      <div id="csatRespBar" style="margin-bottom:10px;"></div>
+      <!-- Monthly trend chart + Rating Distribution side by side -->
+      <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:440px;" id="csatRespBar"></div>
+        <div style="min-width:240px;max-width:300px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
+          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution</div>
+          <div id="csatRatingDist"></div>
+        </div>
+      </div>
 
       <!-- Raw Responses Filter + Table -->
       <details class="csat-panel" open style="margin-bottom:14px;">
@@ -6960,6 +6966,43 @@ if(window.opener&&!window.opener.closed){
         }
       } else {
         const _momEl = $('csatMoM'); if (_momEl) _momEl.innerHTML = '';
+      }
+    }
+
+    // ---- Rating Distribution panel ----
+    {
+      const _rdEl = $('csatRatingDist');
+      if (_rdEl) {
+        const RORD  = ['very satisfied','satisfied','neutral','dissatisfied','very dissatisfied'];
+        const RLBL  = {'very satisfied':'Very Satisfied','satisfied':'Satisfied','neutral':'Neutral','dissatisfied':'Dissatisfied','very dissatisfied':'Very Dissatisfied'};
+        const RCOL  = {'very satisfied':'#059669','satisfied':'#16a34a','neutral':'#6b7280','dissatisfied':'#dc2626','very dissatisfied':'#991b1b'};
+        const RNUM  = {'very satisfied':5,'satisfied':4,'neutral':3,'dissatisfied':2,'very dissatisfied':1};
+        const rdCounts = {};
+        rows.forEach(r => {
+          const k = String(r.rating||'').trim().toLowerCase();
+          if (RLBL[k]) rdCounts[k] = (rdCounts[k]||0) + 1;
+        });
+        const rdTotal = Object.values(rdCounts).reduce((s,v)=>s+v,0);
+        if (!rdTotal) {
+          _rdEl.innerHTML = '<div style="font-size:12px;color:var(--muted);">No data</div>';
+        } else {
+          let _h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">';
+          _h += '<thead><tr style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
+          _h += '<th style="text-align:left;padding:3px 0;">Rating</th><th style="text-align:right;padding:3px 6px;">Count</th><th style="padding:3px 6px;width:50%;">Bar</th></tr></thead><tbody>';
+          RORD.forEach(k => {
+            const cnt = rdCounts[k] || 0;
+            const pct = rdTotal ? cnt / rdTotal : 0;
+            const bar = Math.round(pct * 100);
+            const col = RCOL[k];
+            _h += '<tr style="border-top:1px solid var(--border);">';
+            _h += '<td style="padding:5px 0;font-weight:600;color:'+col+';">'+RNUM[k]+' ★ '+RLBL[k]+'</td>';
+            _h += '<td style="text-align:right;padding:5px 6px;color:var(--muted);">'+cnt+' ('+bar+'%)</td>';
+            _h += '<td style="padding:5px 6px;"><div style="background:#e5e7eb;border-radius:4px;height:9px;overflow:hidden;"><div style="width:'+bar+'%;height:9px;background:'+col+';border-radius:4px;"></div></div></td>';
+            _h += '</tr>';
+          });
+          _h += '</tbody></table>';
+          _rdEl.innerHTML = _h;
+        }
       }
     }
 
