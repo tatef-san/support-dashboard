@@ -7860,6 +7860,7 @@ if(window.opener&&!window.opener.closed){
         DATA.active.forEach(r => { const id = r.id || r.wi; if (id) adoMap2[+id] = r; });
         return upload.rows
           .filter(r => f(r.analyst) && typeof r.age === 'number')
+          .filter(r => !excludedWIs.has(r.wi) && !EXCL_ACTIVE.has((r.state||'').toLowerCase().trim()))
           .map(r => {
             const ado = adoMap2[+r.wi] || {};
             return { c: r.analyst, age: r.age, wi: r.wi, id: r.wi,
@@ -7872,9 +7873,11 @@ if(window.opener&&!window.opener.closed){
         .sort((a,b) => b.age - a.age).slice(0, 5);
     }
     const ticketRow = (t) =>
-      '<div class="ticket"><div><div class="title">' + adoLink(t) + '</div>' +
+      '<div class="ticket" style="display:flex;align-items:center;gap:6px;"><div style="flex:1;"><div class="title">' + adoLink(t) + '</div>' +
       '<div class="meta">' + esc(t.account || t.acct || '-') + '  ·  ' + esc(t.c || '-') + '</div></div>' +
-      '<div class="age bad">' + Math.round(t.age) + 'd</div></div>';
+      '<div class="age bad">' + Math.round(t.age) + 'd</div>' +
+      '<button onclick="(function(){var e=new Set(JSON.parse(localStorage.getItem(\'actExcludedWIs\')||\'[]\'));e.add(' + t.wi + ');localStorage.setItem(\'actExcludedWIs\',JSON.stringify([...e]));try{render();}catch(x){};})()" title="Remove from active tickets" style="flex-shrink:0;border:none;background:transparent;cursor:pointer;color:#9ca3af;font-size:13px;padding:2px 4px;border-radius:3px;" onmouseover="this.style.color=\'#dc2626\'" onmouseout="this.style.color=\'#9ca3af\'">✕</button>' +
+      '</div>';
     renderTopNPerScope('actTopAged', topAged, ticketRow);
 
     // ---- Pending with other teams ----
