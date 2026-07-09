@@ -900,8 +900,9 @@
 
       <div id="csatTargetBadge"></div>
 
-      <!-- Q1 / Q2 Summary Bar -->
-      <div id="csatQ1Q2Summary" style="margin-bottom:14px;"></div>
+
+      <!-- Monthly response bar -->
+      <div id="csatRespBar" style="margin-bottom:10px;"></div>
 
       <!-- Raw Responses Filter + Table -->
       <details class="csat-panel" open style="margin-bottom:14px;">
@@ -6642,64 +6643,6 @@ if(window.opener&&!window.opener.closed){
     // Filter CSAT to in-scope, in-period, scored
     const rows = DATA.csat.filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
 
-    // ── Q1 / Q2 Summary Bar ────────────────────────────────────────────────
-    (function() {
-      const el = $('csatQ1Q2Summary'); if (!el) return;
-      const RMAP = {'very satisfied':'Very Satisfied','satisfied':'Satisfied','neutral':'Neutral','dissatisfied':'Dissatisfied','very dissatisfied':'Very Dissatisfied','very unsatisfied':'Very Dissatisfied','unsatisfied':'Dissatisfied'};
-      const RCOLORS = {'Very Satisfied':'#059669','Satisfied':'#16a34a','Neutral':'#6b7280','Dissatisfied':'#dc2626','Very Dissatisfied':'#991b1b'};
-      const CORDER  = ['Very Dissatisfied','Dissatisfied','Neutral','Satisfied','Very Satisfied'];
-      const CCOLORS = {'Very Easy':'#059669','Easy':'#16a34a','Neutral':'#6b7280','Neither':'#6b7280','Difficult':'#dc2626','Very Difficult':'#991b1b'};
-      const CORDER2 = ['Very Difficult','Difficult','Neutral','Neither','Easy','Very Easy'];
-      // Q1 counts
-      const q1Dist = {}; CORDER.forEach(k => q1Dist[k]=0);
-      let q1Sum = 0, q1N = 0;
-      rows.forEach(r => {
-        const norm = (r.rating||'').trim().toLowerCase();
-        const label = RMAP[norm] || r.rating;
-        if (q1Dist[label] !== undefined) q1Dist[label]++;
-        const score = RATING_NUM[norm];
-        if (score) { q1Sum += score; q1N++; }
-      });
-      const q1Total = rows.length;
-      const q1Pos = (q1Dist['Satisfied']||0)+(q1Dist['Very Satisfied']||0);
-      const q1Pct = q1Total ? Math.round(q1Pos/q1Total*100) : 0;
-      const q1Avg = q1N ? (q1Sum/q1N).toFixed(2) : '—';
-      // Q2 counts
-      const q2Dist = {}; CORDER2.forEach(k => q2Dist[k]=0);
-      const CET_NUM = {'very easy':5,'easy':4,'neutral':3,'neither':3,'difficult':2,'very difficult':1};
-      let q2Sum = 0, q2N = 0, q2Skip = 0;
-      rows.forEach(r => {
-        const cet = (r.cet||'').trim();
-        if (!cet) { q2Skip++; return; }
-        const key = cet.toLowerCase();
-        // find matching CORDER2 entry
-        const match = CORDER2.find(k => k.toLowerCase() === key);
-        if (match) q2Dist[match]++;
-        const s = CET_NUM[key]; if (s) { q2Sum += s; q2N++; }
-      });
-      const q2Total = q2N;
-      const q2Avg = q2N ? (q2Sum/q2N).toFixed(2) : '—';
-      // Build pill
-      const mkPill = (label, count, color) =>
-        count > 0 ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:'+color+'22;color:'+color+';font-size:12px;font-weight:700;white-space:nowrap;">'+intg(count)+' '+label+'</span>' : '';
-      const mkRow = (label, stats, pills, pilBg) =>
-        '<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">' +
-          '<div style="background:#1e3a5f;color:#fff;padding:12px 16px;min-width:170px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;">'+label+'</div>' +
-          '<div style="display:flex;gap:0;flex-shrink:0;">'+stats+'</div>' +
-          '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;align-items:center;background:var(--bg);">'+pills+'</div>' +
-        '</div>';
-      const mkStat = (val, sub) =>
-        '<div style="padding:10px 18px;border-right:1px solid var(--border);border-left:1px solid var(--border);text-align:center;min-width:110px;background:var(--panel);">' +
-          '<div style="font-size:22px;font-weight:800;color:var(--primary);">'+val+'</div>' +
-          '<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">'+sub+'</div>' +
-        '</div>';
-      const q1Pillss = CORDER.map(k => mkPill(k, q1Dist[k]||0, RCOLORS[k])).join('');
-      const q2Pillss = CORDER2.map(k => mkPill(k, q2Dist[k]||0, CCOLORS[k])).join('');
-      el.innerHTML =
-        mkRow('Q1 — Satisfaction', mkStat(intg(q1Total),'Total responses')+mkStat(q1Pct+'%','Satisfied or above')+mkStat(q1Avg,'Avg score'), q1Pillss) +
-        mkRow('Q2 — Ease of Resolution', mkStat(intg(q2Total),'Responses ('+(q2Skip)+' skipped)')+mkStat(q2Avg,'Avg score'), q2Pillss);
-    })();
-
     // ── Raw Filterable Table ───────────────────────────────────────────────
     (function() {
       const tableEl = $('csatRawTable'); const cntEl = $('csatRowCount');
@@ -6911,6 +6854,8 @@ if(window.opener&&!window.opener.closed){
           '<div style="font-size:11px;color:#6b7280;margin:10px 0 4px 0;">Responses per month · <span style="color:#0891b2;">% = response rate (responses ÷ closed tickets)</span></div>' +
           svgVerticalBars(countPts, { width: 860, height: 160, padT: 28, formatter: (v, it) => it ? (v + (it.respRate != null && it.respRate <= 1 ? ' (' + (it.respRate * 100).toFixed(0) + '%)' : '')) : Number(v).toFixed(0) }) +
           noDataNote;
+        const _barEl = $('csatRespBar');
+        if (_barEl) _barEl.innerHTML = '<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">Responses per month · <span style="color:#0891b2;">% = response rate (responses ÷ closed tickets)</span></div>' + svgVerticalBars(countPts, { width: 860, height: 160, padT: 28, formatter: (v, it) => it ? (v + (it.respRate != null && it.respRate <= 1 ? ' (' + (it.respRate * 100).toFixed(0) + '%)' : '')) : Number(v).toFixed(0) }) + noDataNote;
       } else {
         $('csatMoM').innerHTML = '';
       }
