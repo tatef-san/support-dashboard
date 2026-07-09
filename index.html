@@ -2148,6 +2148,22 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       });
       if (patched > 0) console.log('[ADO] Backfilled WI + age into ' + patched + ' embedded closed tickets');
     })();
+    // Re-apply previously scanned resp values from the closedMentions cache so FRT/avg-response
+    // data is visible on every page load — not only immediately after a manual scan.
+    (function() {
+      try {
+        const cached = JSON.parse(localStorage.getItem('closedMentions') || 'null');
+        if (!cached || !cached.data) return;
+        const cacheData = cached.data;
+        let applied = 0;
+        DATA.closed.forEach(row => {
+          if (!row.wi || row.resp != null) return;
+          const entry = cacheData[row.wi];
+          if (entry && entry.resp != null) { row.resp = entry.resp; applied++; }
+        });
+        if (applied > 0) console.log('[ADO] Restored resp for ' + applied + ' tickets from scan cache');
+      } catch(e) {}
+    })();
     return used;
   }
 
