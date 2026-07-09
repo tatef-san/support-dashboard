@@ -155,7 +155,16 @@ if ($mayaRows.Count -gt 0) {
     } else { Write-Host "  WARNING: Maya CSAT markers not found" -ForegroundColor Yellow }
 }
 
-# Step 8: Query FeedbackReminder + CustomerName to build closed ticket data for response rate
+# Step 8: Query FeedbackReminder + CustomerName, then enrich with ADO CreatedDate for TTR
+# Load ADO credentials from ado_config.ps1 (gitignored — never commit that file)
+$AdoConfigFile = Join-Path $DashboardDir "ado_config.ps1"
+$AdoPat = ""; $AdoOrg = "https://sanacommerce.visualstudio.com"; $AdoProj = "Sana%20Projects"
+if (Test-Path $AdoConfigFile) { . $AdoConfigFile } else {
+    Write-Host "  NOTE: ado_config.ps1 not found — TTR enrichment skipped. Create it with `$AdoPat, `$AdoOrg, `$AdoProj." -ForegroundColor Yellow
+}
+$AdoToken = [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$AdoPat"))
+$AdoHeaders = @{ Authorization = "Basic $AdoToken"; "Content-Type" = "application/json" }
+
 Write-Host "  Querying closed ticket history (FeedbackReminder + CustomerName)..." -ForegroundColor Cyan
 try {
     $frConn = OpenConn $SphereDatabase
@@ -180,7 +189,8 @@ ORDER BY fr.FirstReminderDate DESC
     $frConn.Close()
     Write-Host "  Found $($frDt.Rows.Count) closed ticket records" -ForegroundColor Green
 
-    $closedRows = [System.Collections.Generic.List[object]]::new()
+    # Build base closed rows map (wi -> row object)
+    $closedMap = @{}
     foreach ($r in $frDt.Rows) {
         if ($r["WorkItemId"] -is [System.DBNull]) { continue }
         $wi      = [int]$r["WorkItemId"]
@@ -188,8 +198,53 @@ ORDER BY fr.FirstReminderDate DESC
         $acct    = ([string]$r["CustomerName"]).Trim()
         $saEmail = ([string]$r["SA_Email"]).Trim().ToLower()
         $analyst = if ($saEmail -and $emailMap.ContainsKey($saEmail)) { $emailMap[$saEmail] } else { "" }
-        $closedRows.Add([ordered]@{ wi=$wi; closed=$closed; acct=$acct; c=$analyst })
+        $closedMap[$wi] = [ordered]@{ wi=$wi; closed=$closed; acct=$acct; c=$analyst; age=$null }
     }
+
+    # Step 8b: Enrich with ADO CreatedDate + LastModifiedBy (for TTR computation)
+    $allWIs  = @($closedMap.Keys)
+    if (-not $AdoPat) {
+        Write-Host "  Skipping ADO TTR enrichment (no PAT configured in ado_config.ps1)" -ForegroundColor Yellow
+    } else {
+    Write-Host "  Enriching with ADO created dates for TTR (batches of 200)..." -ForegroundColor Cyan
+    $adoOk   = 0; $adoFail = 0
+    $batchSize = 200
+    for ($i = 0; $i -lt $allWIs.Count; $i += $batchSize) {
+        $chunk  = $allWIs[$i..([Math]::Min($i + $batchSize - 1, $allWIs.Count - 1))]
+        $idsStr = $chunk -join ','
+        $fieldsUrl = "$AdoOrg/_apis/wit/workItems?ids=$idsStr&fields=System.Id,System.CreatedDate,Custom.LastModifiedBy&api-version=7.1"
+        try {
+            $resp = Invoke-RestMethod -Uri $fieldsUrl -Method GET -Headers $AdoHeaders -ErrorAction Stop
+            foreach ($item in $resp.value) {
+                $wid = [int]$item.fields.'System.Id'
+                if (-not $closedMap.ContainsKey($wid)) { continue }
+                $createdRaw = $item.fields.'System.CreatedDate'
+                $lastModBy  = [string]$item.fields.'Custom.LastModifiedBy'
+                if ($createdRaw) {
+                    $created = [datetime]$createdRaw
+                    $closedDt = [datetime]$closedMap[$wid].closed
+                    $ttr = [int]($closedDt - $created).TotalDays
+                    if ($ttr -ge 0) { $closedMap[$wid].age = $ttr }
+                }
+                # Use ADO LastModifiedBy as SA name if DB email mapping gave nothing
+                if (-not $closedMap[$wid].c -and $lastModBy) {
+                    # Match display name against roster names (emailMap values)
+                    $rosterMatch = $emailMap.Values | Where-Object { $_ -eq $lastModBy } | Select-Object -First 1
+                    if ($rosterMatch) { $closedMap[$wid].c = $rosterMatch }
+                }
+                $adoOk++
+            }
+        } catch {
+            $adoFail += $chunk.Count
+        }
+    }
+    $withTTR = ($closedMap.Values | Where-Object { $_.age -ne $null }).Count
+    Write-Host "  ADO enrichment done: $adoOk records updated, $adoFail failed, $withTTR have TTR" -ForegroundColor Green
+    } # end if $AdoPat
+
+    $closedRows = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $closedMap.Values) { $closedRows.Add($row) }
+    $closedRows = $closedRows | Sort-Object { $_.closed } -Descending
     Write-Host "  Mapped $($closedRows.Count) closed rows" -ForegroundColor Green
 
     if ($closedRows.Count -gt 0) {
@@ -201,7 +256,7 @@ ORDER BY fr.FirstReminderDate DESC
         $frStart = $content.IndexOf($frSm); $frEnd = $content.IndexOf($frEm)
         if ($frStart -ge 0 -and $frEnd -ge 0) {
             $content = $content.Substring(0, $frStart + $frSm.Length) + $frInject + $content.Substring($frEnd)
-            Write-Host "  Closed tickets injected ($($closedRows.Count) rows)" -ForegroundColor Green
+            Write-Host "  Closed tickets injected ($($closedRows.Count) rows, $withTTR with TTR)" -ForegroundColor Green
         } else { Write-Host "  WARNING: ADO_CLOSED_AUTO markers not found in index.html" -ForegroundColor Yellow }
     }
 } catch {
