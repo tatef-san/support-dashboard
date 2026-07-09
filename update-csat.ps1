@@ -227,10 +227,13 @@ if (-not $AdoPat) {
                     if ($closedDt.Year -lt 2026 -or $closedDt.Year -gt 2026) { $adoOk++; continue }
                     $closedStr = $closedDt.ToString('yyyy-MM-dd')
 
-                    # TTR
+                    # TTR + created date (needed for FRT computation in the browser scanner)
                     $age = $null
+                    $createdStr = ''
                     if ($f.'System.CreatedDate') {
-                        $ttr = [int]($closedDt - [datetime]$f.'System.CreatedDate').TotalDays
+                        $createdDt = [datetime]$f.'System.CreatedDate'
+                        $createdStr = $createdDt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                        $ttr = [int]($closedDt - $createdDt).TotalDays
                         if ($ttr -ge 0) { $age = $ttr }
                     }
 
@@ -242,7 +245,7 @@ if (-not $AdoPat) {
                     $areaPath = ([string]$f.'System.AreaPath').Trim()
                     $acct = if ($areaPath) { ($areaPath -split '\\')[-1].Trim() } else { '' }
 
-                    $adoClosedMap[$wid] = [ordered]@{ wi=$wid; closed=$closedStr; acct=$acct; c=$saName; age=$age }
+                    $adoClosedMap[$wid] = [ordered]@{ wi=$wid; closed=$closedStr; created=$createdStr; acct=$acct; c=$saName; age=$age }
                     $adoOk++
                 }
             } catch {

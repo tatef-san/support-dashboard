@@ -2107,7 +2107,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         if (embeddedMaxDate && r.closed <= embeddedMaxDate) return;
         if (existingWIs.has(r.wi)) return;
         DATA.closed.push({
-          wi: r.wi, closed: r.closed, created: null,
+          wi: r.wi, closed: r.closed, created: r.created || null,
           acct: r.acct || '', c: _normName(r.c || ''),
           age: (typeof r.age === 'number' ? r.age : null),
           resp: null, solo: null,
@@ -2117,20 +2117,20 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         merged++;
       });
       if (merged > 0) console.log('[ADO] Merged ' + merged + ' closed tickets into DATA.closed' + (embeddedMaxDate ? ' (beyond ' + embeddedMaxDate + ')' : ' (full ADO dataset)'));
-      // Build ADO lookup maps for WI → age and WI → closed date (used for backfill + age patch below)
+      // Build ADO lookup maps for WI → age/created (used for backfill + age/created patch below)
       const adoAgeMap = new Map();
+      const adoCreatedMap = new Map();
       const adoByKey = new Map(); // (normAcct|analyst|date) → wi — for WI backfill into EMBEDDED
       const normAcct = s => (s || '').replace(/\s+/g, '').toLowerCase();
       _adoClosed.forEach(r => {
         if (!r.wi) return;
         if (typeof r.age === 'number') adoAgeMap.set(r.wi, r.age);
+        if (r.created) adoCreatedMap.set(r.wi, r.created);
         if (!r.closed || (embeddedMaxDate && r.closed > embeddedMaxDate)) return;
         const key = normAcct(r.acct) + '|' + _normName(r.c || '').toLowerCase() + '|' + r.closed;
         if (!adoByKey.has(key)) adoByKey.set(key, r.wi);
       });
-      // Backfill WI into embedded records that lack it (Power BI export may not include WI column).
-      // ADO acct is CamelCase with no spaces; Power BI acct has spaces — normalize by stripping
-      // spaces before comparing. Match by (normAcct, analyst, closed-date).
+      // Backfill WI, age, and created into embedded records where possible.
       let patched = 0;
       DATA.closed.forEach(row => {
         if (!row.closed) return;
@@ -2139,14 +2139,20 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const wi = adoByKey.get(key);
           if (wi) { row.wi = wi; patched++; }
         }
-        // Apply ADO age to any record with a known WI — ADO computes exact calendar TTR.
-        // Only fill when age is null so an explicit Power BI value is not overwritten.
-        if (row.wi && row.age == null) {
-          const adoAge = adoAgeMap.get(row.wi);
-          if (adoAge != null) row.age = adoAge;
+        if (row.wi) {
+          // Fill age from ADO when null (exact calendar TTR)
+          if (row.age == null) {
+            const adoAge = adoAgeMap.get(row.wi);
+            if (adoAge != null) row.age = adoAge;
+          }
+          // Fill created from ADO when null (needed by scanner to compute FRT)
+          if (!row.created) {
+            const adoCreated = adoCreatedMap.get(row.wi);
+            if (adoCreated) row.created = adoCreated;
+          }
         }
       });
-      if (patched > 0) console.log('[ADO] Backfilled WI + age into ' + patched + ' embedded closed tickets');
+      if (patched > 0) console.log('[ADO] Backfilled WI/age/created into ' + patched + ' embedded closed tickets');
     })();
     // Re-apply previously scanned resp values from the closedMentions cache so FRT/avg-response
     // data is visible on every page load — not only immediately after a manual scan.
