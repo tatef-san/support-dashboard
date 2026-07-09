@@ -1603,8 +1603,14 @@
       <!-- Q1 Summary (same style as CSAT) -->
       <div id="mayaKpiRow" style="margin-bottom:14px;"></div>
 
-      <!-- Monthly CSAT % trend chart -->
-      <div id="mayaRespBar" style="margin-bottom:14px;"></div>
+      <!-- Monthly CSAT % trend chart + Rating Distribution side by side -->
+      <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:440px;" id="mayaRespBar"></div>
+        <div style="min-width:240px;max-width:300px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
+          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution (All-Time)</div>
+          <div id="mayaRatingDist"></div>
+        </div>
+      </div>
 
       <!-- All Conversations -->
       <details class="csat-panel" open style="margin-bottom:14px;">
@@ -1634,23 +1640,19 @@
         </div>
       </details>
 
-      <!-- Rating Distribution & Account Insights -->
+      <!-- Account Insights -->
       <details class="csat-panel" open style="margin-bottom:14px;">
-        <summary class="dd-section-title">Rating Distribution &amp; Account Insights</summary>
+        <summary class="dd-section-title">Account Insights</summary>
         <div style="padding-top:10px;">
           <div class="grid-2" style="margin-bottom:14px;">
-            <div>
-              <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution (All-Time)</div>
-              <div id="mayaRatingDist"></div>
-            </div>
             <div>
               <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Top Offenders &mdash; Most Negative Ratings</div>
               <div id="mayaTopOffenders"></div>
             </div>
-          </div>
-          <div>
-            <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Account Participation</div>
-            <div id="mayaAccounts"></div>
+            <div>
+              <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Account Participation</div>
+              <div id="mayaAccounts"></div>
+            </div>
           </div>
         </div>
       </details>
