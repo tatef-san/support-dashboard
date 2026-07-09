@@ -7855,10 +7855,16 @@ if(window.opener&&!window.opener.closed){
     // ---- A. Open tickets — single scope + offenders/performers ----
     const _actTotal = DATA.active.length;
     const _actPct   = _actTotal > 0 ? (rows.length / _actTotal * 100).toFixed(1) : null;
+    const _daysSinceJan2026 = Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000);
+    const _pre2026 = rows.filter(r => typeof r.age === 'number' && r.age > _daysSinceJan2026);
+    const _pre2026Note = _pre2026.length > 0
+      ? ' <span style="display:inline-block;margin-left:10px;padding:2px 8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;font-weight:500;color:#92400e;">⚠ ' + _pre2026.length + ' from 2025 (not in Power BI)</span>'
+      : '';
     $('actSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
       '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — open tickets</div>' +
       '<div class="v">' + intg(rows.length) +
         (_actPct !== null ? ' <span style="font-size:16px;font-weight:500;color:var(--muted);">(' + _actPct + '%)</span>' : '') +
+        _pre2026Note +
       '</div>' +
       '<div class="sub">snapshot of currently open tickets in scope' +
         (_actTotal > 0 ? ' · out of <b>' + _actTotal + '</b> total' : '') +
