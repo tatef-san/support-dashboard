@@ -2117,26 +2117,36 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         merged++;
       });
       if (merged > 0) console.log('[ADO] Merged ' + merged + ' closed tickets into DATA.closed' + (embeddedMaxDate ? ' (beyond ' + embeddedMaxDate + ')' : ' (full ADO dataset)'));
+      // Build ADO lookup maps for WI → age and WI → closed date (used for backfill + age patch below)
+      const adoAgeMap = new Map();
+      const adoByKey = new Map(); // (normAcct|analyst|date) → wi — for WI backfill into EMBEDDED
+      const normAcct = s => (s || '').replace(/\s+/g, '').toLowerCase();
+      _adoClosed.forEach(r => {
+        if (!r.wi) return;
+        if (typeof r.age === 'number') adoAgeMap.set(r.wi, r.age);
+        if (!r.closed || (embeddedMaxDate && r.closed > embeddedMaxDate)) return;
+        const key = normAcct(r.acct) + '|' + _normName(r.c || '').toLowerCase() + '|' + r.closed;
+        if (!adoByKey.has(key)) adoByKey.set(key, r.wi);
+      });
       // Backfill WI into embedded records that lack it (Power BI export may not include WI column).
       // ADO acct is CamelCase with no spaces; Power BI acct has spaces — normalize by stripping
       // spaces before comparing. Match by (normAcct, analyst, closed-date).
-      if (embeddedMaxDate) {
-        const normAcct = s => (s || '').replace(/\s+/g, '').toLowerCase();
-        const adoByKey = new Map();
-        _adoClosed.forEach(r => {
-          if (!r.wi || !r.closed || r.closed > embeddedMaxDate) return;
-          const key = normAcct(r.acct) + '|' + _normName(r.c || '').toLowerCase() + '|' + r.closed;
-          if (!adoByKey.has(key)) adoByKey.set(key, r.wi);
-        });
-        let patched = 0;
-        DATA.closed.forEach(row => {
-          if (row.wi || !row.closed || row.closed > embeddedMaxDate) return;
+      let patched = 0;
+      DATA.closed.forEach(row => {
+        if (!row.closed) return;
+        if (!row.wi) {
           const key = normAcct(row.acct) + '|' + (row.c || '').toLowerCase() + '|' + row.closed;
           const wi = adoByKey.get(key);
           if (wi) { row.wi = wi; patched++; }
-        });
-        if (patched > 0) console.log('[ADO] Backfilled WI into ' + patched + ' embedded closed tickets (Jan-May)');
-      }
+        }
+        // Apply ADO age to any record with a known WI — ADO computes exact calendar TTR.
+        // Only fill when age is null so an explicit Power BI value is not overwritten.
+        if (row.wi && row.age == null) {
+          const adoAge = adoAgeMap.get(row.wi);
+          if (adoAge != null) row.age = adoAge;
+        }
+      });
+      if (patched > 0) console.log('[ADO] Backfilled WI + age into ' + patched + ' embedded closed tickets');
     })();
     return used;
   }
