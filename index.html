@@ -7807,6 +7807,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
         .filter(r => !r.age || r.age <= 365)
+        .filter(r => { const a = (r.analyst || '').trim(); return a && a !== '-'; })
         .map(r => {
           const ado = adoMap[+r.wi] || {};
           return {
@@ -7826,7 +7827,7 @@ if(window.opener&&!window.opener.closed){
           };
         });
     } else {
-      rows = DATA.active.filter(r => inScope(r.c));
+      rows = DATA.active.filter(r => inScope(r.c)).filter(r => { const a = (r.c || '').trim(); return a && a !== '-'; });
     }
 
     // Categories panel — must use the same enriched+filtered rows as the rest of this function
