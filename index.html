@@ -4576,8 +4576,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           }
         });
       } catch(e) {
-        // If batch state check fails, include all tickets in this chunk to be safe
-        tickets.filter(t => chunk.includes(t.wi)).forEach(t => openTickets.push(t));
+        // If batch state check fails, skip this chunk — better to miss a ticket temporarily
+        // than to let Done/Wishlist tickets through. They appear on the next successful Sync.
       }
     }
     const skipped = tickets.length - openTickets.length;
