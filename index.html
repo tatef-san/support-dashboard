@@ -1000,6 +1000,7 @@
         <div class="fetch-controls">
           <button onclick="fetchActMentions()" style="background:#4f46e5;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;background:#a5b4fc;border-radius:50%;display:inline-block;"></span> Fetch @mentions from ADO</button>
           <button onclick="clearActMentions()" style="background:#fff;border:1px solid #c7d2fe;color:#3730a3;padding:8px 16px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px;font-weight:500;">↺ Clear cache</button>
+          <button onclick="window._discoverReleaseField()" style="background:#fff;border:1px solid #f59e0b;color:#92400e;padding:8px 14px;border-radius:6px;cursor:pointer;font:inherit;font-size:12px;font-weight:500;">🔍 Find field name</button>
         </div>
         <div class="fetch-note">Reads all open ticket comments from ADO. Results are cached in your browser — re-scan after closing tickets or when assignments change.</div>
       </div>
@@ -4666,6 +4667,19 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     try { render(); } catch(e) {}
   }
   window.fetchActMentions = fetchActMentions;
+
+  window._discoverReleaseField = async function() {
+    const el = document.getElementById('actFetchStatus');
+    if (el) el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">🔍 Looking up field name on ticket 379320…</div>';
+    try {
+      const d = await adoFetch('/_apis/wit/workItems/379320?$expand=fields&api-version=7.0');
+      const keys = Object.keys(d.fields || {}).filter(k => k.toLowerCase().includes('release') || k.toLowerCase().includes('version') || (d.fields[k] && String(d.fields[k]).toLowerCase().includes('wishlist')));
+      const msg = keys.length ? keys.map(k => k + ' = ' + d.fields[k]).join('<br>') : 'No matching fields found';
+      if (el) el.innerHTML = '<div style="padding:8px 12px;background:#d1fae5;border-radius:6px;font-size:12px;color:#065f46;word-break:break-all;">✅ Fields found:<br><b>' + msg + '</b></div>';
+    } catch(e) {
+      if (el) el.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:6px;font-size:12px;color:#dc2626;">⚠ Error: ' + e.message + '</div>';
+    }
+  };
 
   window.clearActMentions = function() {
     localStorage.removeItem('actMentions');
