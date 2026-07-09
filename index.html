@@ -2109,9 +2109,14 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       }
     });
     // Exclude tickets in terminal/non-active states from the active pool
+    // Also exclude Internal support requests (not customer-facing)
     if (DATA.active && DATA.active.length) {
       const EXCL_STATES = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix']);
-      DATA.active = DATA.active.filter(r => !EXCL_STATES.has((r.state || '').toLowerCase().trim()));
+      DATA.active = DATA.active.filter(r =>
+        !EXCL_STATES.has((r.state || '').toLowerCase().trim()) &&
+        (r.mainCat || '').toLowerCase().trim() !== 'internal' &&
+        (r.title   || '').toLowerCase().trim() !== 'internal'
+      );
     }
     // When a closed upload is active, supplement with EMBEDDED records not in the upload.
     // This prevents a partial or bad upload from wiping out TTR/age data for the embedded period.
@@ -7794,6 +7799,8 @@ if(window.opener&&!window.opener.closed){
       DATA.active.forEach(r => { const id = r.id || r.wi; if (id) adoMap[+id] = r; });
       rows = upload.rows
         .filter(r => !EXCL_ACTIVE.has((r.state || '').toLowerCase().trim()))
+        .filter(r => (r.mainCat || '').toLowerCase().trim() !== 'internal')
+        .filter(r => (r.title   || '').toLowerCase().trim() !== 'internal')
         .filter(r => !excludedWIs.has(r.wi))
         .filter(r => !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
