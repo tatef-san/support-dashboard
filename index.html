@@ -899,6 +899,41 @@
       </details>
 
       <div id="csatTargetBadge"></div>
+
+      <!-- Q1 / Q2 Summary Bar -->
+      <div id="csatQ1Q2Summary" style="margin-bottom:14px;"></div>
+
+      <!-- Raw Responses Filter + Table -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">Raw CSAT Responses</summary>
+        <div style="padding-top:10px;">
+          <div id="csatFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">SEARCH</span>
+            <input id="csatSearch" placeholder="Search any column…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:160px;background:var(--panel);color:var(--text);">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">RATING</span>
+            <select id="csatRatingFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="">All ratings</option>
+              <option>Very Satisfied</option><option>Satisfied</option><option>Neutral</option><option>Dissatisfied</option><option>Very Dissatisfied</option>
+            </select>
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CUSTOMER</span>
+            <select id="csatCustomerFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:220px;">
+              <option value="">All customers</option>
+            </select>
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CONSULTANT</span>
+            <select id="csatConsultantFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:200px;">
+              <option value="">All consultants</option>
+            </select>
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">EASE OF RESOLUTION</span>
+            <select id="csatCetFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="">All</option>
+              <option>Very Easy</option><option>Easy</option><option>Neutral</option><option>Difficult</option><option>Very Difficult</option>
+            </select>
+            <span id="csatRowCount" style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;"></span>
+          </div>
+          <div id="csatRawTable" style="overflow-x:auto;font-size:12px;"></div>
+        </div>
+      </details>
+
       <div id="csatScores"></div>
 
       <details class="csat-panel" open style="margin-top:14px;">
@@ -1605,7 +1640,7 @@
             <div class="panel-title" style="margin:0;">How to Improve Maya CSAT &mdash; Auto Insights</div>
             <div class="panel-sub" style="margin:2px 0 0;">Keyword themes from low-rated conversations &middot; 1&ndash;3 stars</div>
           </div>
-          <button id="mayaExportBtn" onclick="window._mayaExportCsv&&window._mayaExportCsv()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--primary);background:#fff;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;">&#11015; Export CSV</button>
+          <span></span>
         </div>
         <div id="mayaInsights"></div>
       </div>
@@ -1615,8 +1650,30 @@
         <div id="mayaFeedback"></div>
       </div>
       <div class="panel">
-        <div class="panel-title">All Conversations</div>
-        <div id="mayaConversations" style="overflow-x:auto;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div class="panel-title" style="margin:0;">All Conversations</div>
+          <button id="mayaExportBtn" onclick="window._mayaExportCsv&&window._mayaExportCsv()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--primary);background:var(--panel);color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;">&#11015; Export CSV</button>
+        </div>
+        <!-- Filter bar -->
+        <div id="mayaFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">SEARCH</span>
+          <input id="mayaSearch" placeholder="Search any column…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:160px;background:var(--panel);color:var(--text);">
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CUSTOMER</span>
+          <select id="mayaCustomerFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:220px;">
+            <option value="">All customers</option>
+          </select>
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">RATING</span>
+          <select id="mayaRatingFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+            <option value="">All ratings</option>
+            <option value="5">5 ★ Very Satisfied</option>
+            <option value="4">4 ★ Satisfied</option>
+            <option value="3">3 ★ Neutral</option>
+            <option value="2">2 ★ Unsatisfied</option>
+            <option value="1">1 ★ Very Unsatisfied</option>
+          </select>
+          <span id="mayaRowCount" style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;"></span>
+        </div>
+        <div id="mayaConversations" style="overflow-x:auto;font-size:12px;"></div>
       </div>
     </div>
   </div>
@@ -6584,6 +6641,138 @@ if(window.opener&&!window.opener.closed){
     // Filter CSAT to in-scope, in-period, scored
     const rows = DATA.csat.filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
 
+    // ── Q1 / Q2 Summary Bar ────────────────────────────────────────────────
+    (function() {
+      const el = $('csatQ1Q2Summary'); if (!el) return;
+      const RMAP = {'very satisfied':'Very Satisfied','satisfied':'Satisfied','neutral':'Neutral','dissatisfied':'Dissatisfied','very dissatisfied':'Very Dissatisfied','very unsatisfied':'Very Dissatisfied','unsatisfied':'Dissatisfied'};
+      const RCOLORS = {'Very Satisfied':'#059669','Satisfied':'#16a34a','Neutral':'#6b7280','Dissatisfied':'#dc2626','Very Dissatisfied':'#991b1b'};
+      const CORDER  = ['Very Dissatisfied','Dissatisfied','Neutral','Satisfied','Very Satisfied'];
+      const CCOLORS = {'Very Easy':'#059669','Easy':'#16a34a','Neutral':'#6b7280','Difficult':'#dc2626','Very Difficult':'#991b1b'};
+      const CORDER2 = ['Very Difficult','Difficult','Neutral','Easy','Very Easy'];
+      // Q1 counts
+      const q1Dist = {}; CORDER.forEach(k => q1Dist[k]=0);
+      let q1Sum = 0, q1N = 0;
+      rows.forEach(r => {
+        const norm = (r.rating||'').trim().toLowerCase();
+        const label = RMAP[norm] || r.rating;
+        if (q1Dist[label] !== undefined) q1Dist[label]++;
+        const score = RATING_NUM[norm];
+        if (score) { q1Sum += score; q1N++; }
+      });
+      const q1Total = rows.length;
+      const q1Pos = (q1Dist['Satisfied']||0)+(q1Dist['Very Satisfied']||0);
+      const q1Pct = q1Total ? Math.round(q1Pos/q1Total*100) : 0;
+      const q1Avg = q1N ? (q1Sum/q1N).toFixed(2) : '—';
+      // Q2 counts
+      const q2Dist = {}; CORDER2.forEach(k => q2Dist[k]=0);
+      const CET_NUM = {'very easy':5,'easy':4,'neutral':3,'neither':3,'difficult':2,'very difficult':1};
+      let q2Sum = 0, q2N = 0, q2Skip = 0;
+      rows.forEach(r => {
+        const cet = (r.cet||'').trim();
+        if (!cet) { q2Skip++; return; }
+        const key = cet.toLowerCase();
+        // find matching CORDER2 entry
+        const match = CORDER2.find(k => k.toLowerCase() === key);
+        if (match) q2Dist[match]++;
+        const s = CET_NUM[key]; if (s) { q2Sum += s; q2N++; }
+      });
+      const q2Total = q2N;
+      const q2Avg = q2N ? (q2Sum/q2N).toFixed(2) : '—';
+      // Build pill
+      const mkPill = (label, count, color) =>
+        count > 0 ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:'+color+'22;color:'+color+';font-size:12px;font-weight:700;white-space:nowrap;">'+intg(count)+' '+label+'</span>' : '';
+      const mkRow = (label, stats, pills, pilBg) =>
+        '<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">' +
+          '<div style="background:#1e3a5f;color:#fff;padding:12px 16px;min-width:170px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;">'+label+'</div>' +
+          '<div style="display:flex;gap:0;flex-shrink:0;">'+stats+'</div>' +
+          '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;align-items:center;background:var(--bg);">'+pills+'</div>' +
+        '</div>';
+      const mkStat = (val, sub) =>
+        '<div style="padding:10px 18px;border-right:1px solid var(--border);border-left:1px solid var(--border);text-align:center;min-width:110px;background:var(--panel);">' +
+          '<div style="font-size:22px;font-weight:800;color:var(--primary);">'+val+'</div>' +
+          '<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">'+sub+'</div>' +
+        '</div>';
+      const q1Pillss = CORDER.map(k => mkPill(k, q1Dist[k]||0, RCOLORS[k])).join('');
+      const q2Pillss = CORDER2.map(k => mkPill(k, q2Dist[k]||0, CCOLORS[k])).join('');
+      el.innerHTML =
+        mkRow('Q1 — Satisfaction', mkStat(intg(q1Total),'Total responses')+mkStat(q1Pct+'%','Satisfied or above')+mkStat(q1Avg,'Avg score'), q1Pillss) +
+        mkRow('Q2 — Ease of Resolution', mkStat(intg(q2Total),'Responses ('+(q2Skip)+' skipped)')+mkStat(q2Avg,'Avg score'), q2Pillss);
+    })();
+
+    // ── Raw Filterable Table ───────────────────────────────────────────────
+    (function() {
+      const tableEl = $('csatRawTable'); const cntEl = $('csatRowCount');
+      if (!tableEl) return;
+      const RATING_LABEL = {'very satisfied':'Very Satisfied','satisfied':'Satisfied','neutral':'Neutral','dissatisfied':'Dissatisfied','very dissatisfied':'Very Dissatisfied','very unsatisfied':'Very Dissatisfied','unsatisfied':'Dissatisfied'};
+      const SCORE_COL = {'Very Satisfied':'#059669','Satisfied':'#16a34a','Neutral':'#6b7280','Dissatisfied':'#dc2626','Very Dissatisfied':'#991b1b'};
+      const CET_COL = {'Very Easy':'#059669','Easy':'#16a34a','Neutral':'#6b7280','Difficult':'#dc2626','Very Difficult':'#991b1b'};
+      // Populate customer dropdown
+      const custSel = $('csatCustomerFilter');
+      if (custSel && custSel.options.length <= 1) {
+        const accts = [...new Set(rows.map(r=>r.acct||'').filter(Boolean))].sort();
+        accts.forEach(a => { const o=document.createElement('option'); o.value=a; o.textContent=a; custSel.appendChild(o); });
+      }
+      // Populate consultant dropdown
+      const consSel = $('csatConsultantFilter');
+      if (consSel && consSel.options.length <= 1) {
+        const cons = [...new Set(rows.map(r=>r.c||'').filter(Boolean))].sort();
+        cons.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; consSel.appendChild(o); });
+      }
+      const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+      function renderTable() {
+        const search = ($('csatSearch')||{}).value||''; const sq = search.toLowerCase();
+        const ratingF = ($('csatRatingFilter')||{}).value||'';
+        const custF   = ($('csatCustomerFilter')||{}).value||'';
+        const consF   = ($('csatConsultantFilter')||{}).value||'';
+        const cetF    = ($('csatCetFilter')||{}).value||'';
+        let visible = rows.filter(r => {
+          const rlabel = RATING_LABEL[(r.rating||'').trim().toLowerCase()] || r.rating || '';
+          if (ratingF && rlabel !== ratingF) return false;
+          if (custF   && r.acct !== custF) return false;
+          if (consF   && r.c !== consF) return false;
+          if (cetF    && r.cet !== cetF) return false;
+          if (sq) { const blob = [r.d||'',r.acct||'',r.c||'',rlabel,r.cet||'',r.mainCat||'',r.subCat||'',r.reason||'',r.comment||''].join(' ').toLowerCase(); return blob.indexOf(sq)>=0; }
+          return true;
+        });
+        const total = visible.length;
+        if (cntEl) cntEl.textContent = intg(total)+' rows';
+        const show = visible.slice(0,500);
+        const COLS = ['Date','Account','Consultant','Rating','Score','Ease of Resolution','Main Category','Sub Category','Ticket','Comment'];
+        let h = '<table style="width:100%;border-collapse:collapse;min-width:900px;"><thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
+        COLS.forEach(c => { h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap;">'+c+'</th>'; });
+        h += '</tr></thead><tbody>';
+        show.forEach((r,i) => {
+          const rlabel = RATING_LABEL[(r.rating||'').trim().toLowerCase()] || r.rating || '';
+          const score = RATING_NUM[(r.rating||'').trim().toLowerCase()] || '';
+          const rcol = SCORE_COL[rlabel] || 'var(--text)';
+          const cetcol = CET_COL[r.cet] || 'var(--text)';
+          const wiLink = r.wi ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);font-weight:600;">#'+r.wi+'</a>' : '';
+          const comment = r.comment ? '<span title="'+esc(r.comment)+'" style="cursor:help;color:var(--muted);">'+esc((r.comment||'').slice(0,60))+(r.comment.length>60?'…':'')+'</span>' : '';
+          h += '<tr style="border-bottom:1px solid var(--border);background:'+(i%2===0?'var(--panel)':'var(--bg)')+';">' +
+            '<td style="padding:7px 10px;white-space:nowrap;color:var(--muted);">'+esc(r.d||'')+'</td>' +
+            '<td style="padding:7px 10px;font-weight:600;">'+esc(r.acct||'')+'</td>' +
+            '<td style="padding:7px 10px;">'+esc(r.c||'')+'</td>' +
+            '<td style="padding:7px 10px;font-weight:700;color:'+rcol+';">'+esc(rlabel)+'</td>' +
+            '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+rcol+';">'+score+'</td>' +
+            '<td style="padding:7px 10px;color:'+cetcol+';font-weight:600;">'+esc(r.cet||'')+'</td>' +
+            '<td style="padding:7px 10px;color:var(--muted);">'+esc(r.mainCat||'')+'</td>' +
+            '<td style="padding:7px 10px;color:var(--muted);">'+esc(r.subCat||'')+'</td>' +
+            '<td style="padding:7px 10px;">'+wiLink+'</td>' +
+            '<td style="padding:7px 10px;max-width:220px;">'+comment+'</td>' +
+          '</tr>';
+        });
+        if (total > 500) h += '<tr><td colspan="'+COLS.length+'" style="padding:10px;text-align:center;color:var(--muted);font-size:11px;">Showing 500 of '+intg(total)+' rows — refine filters to see more</td></tr>';
+        h += '</tbody></table>';
+        tableEl.innerHTML = h;
+      }
+      renderTable();
+      // Wire filters — debounced
+      let _ct; const debounce = () => { clearTimeout(_ct); _ct = setTimeout(renderTable, 180); };
+      ['csatSearch','csatRatingFilter','csatCustomerFilter','csatConsultantFilter','csatCetFilter'].forEach(id => {
+        const el2 = $(id); if (el2) { el2.removeEventListener('input', debounce); el2.removeEventListener('change', debounce); el2.addEventListener('input', debounce); el2.addEventListener('change', debounce); }
+      });
+    })();
+
     // ── CSV export (wired to button in HTML) ─────────────────────────────────
     window._csatExportCsv = function() {
       const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
@@ -9257,14 +9446,27 @@ if(window.opener&&!window.opener.closed){
     });
     var acctList = Object.values(acctMap).sort(function(a,b){ return b.total-a.total; });
 
-    // ── KPI cards ─────────────────────────────────────────────────────────────
+    // ── Q1-style Summary Bar ──────────────────────────────────────────────────
     var uniqueAccts = acctList.length;
+    var RCOLM={5:'#059669',4:'#16a34a',3:'#6b7280',2:'#dc2626',1:'#991b1b'};
+    var RLBLM={5:'Very Satisfied',4:'Satisfied',3:'Neutral',2:'Unsatisfied',1:'Very Unsatisfied'};
+    var q1Pills = [5,4,3,2,1].map(function(s){
+      var cnt=rc[s]||0; if(!cnt) return '';
+      return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:'+RCOLM[s]+'22;color:'+RCOLM[s]+';font-size:12px;font-weight:700;white-space:nowrap;">'+cnt+' '+RLBLM[s]+'</span>';
+    }).join('');
+    var mkStatM = function(val,sub){ return '<div style="padding:10px 18px;border-right:1px solid var(--border);border-left:1px solid var(--border);text-align:center;min-width:110px;background:var(--panel);"><div style="font-size:22px;font-weight:800;color:var(--primary);">'+val+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">'+sub+'</div></div>'; };
     kpiRow.innerHTML =
-      mkCard('Conversations Rated', total, 'in selected period', 'var(--primary)')+
-      mkCard('CSAT % (4-5 stars)', fmtP(csatPct), 'target ≥ 80%', pCol)+
-      mkCard('Average Rating', fmtA(avgR), 'scale 1–5', pCol)+
-      mkCard('Accounts Participating', uniqueAccts, 'unique company domains', 'var(--primary)')+
-      mkCard('Total All-Time', raw.length, 'all periods', '#374151');
+      '<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">' +
+        '<div style="background:#1e3a5f;color:#fff;padding:12px 16px;min-width:180px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;">Q1 — Satisfaction</div>' +
+        mkStatM(total,'Total responses')+
+        mkStatM(fmtP(csatPct),'Satisfied or above')+
+        mkStatM(fmtA(avgR),'Avg score')+
+        '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;align-items:center;background:var(--bg);">'+q1Pills+'</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+        mkCard('Accounts Participating', uniqueAccts, 'unique company domains', 'var(--primary)')+
+        mkCard('Total All-Time', raw.length, 'all periods', '#374151') +
+      '</div>';
 
     // ── Rating Distribution ───────────────────────────────────────────────────
     if (distEl) {
@@ -9523,36 +9725,69 @@ if(window.opener&&!window.opener.closed){
       }
     }
 
-    // ── All Conversations table ───────────────────────────────────────────────
+    // ── All Conversations — filterable table ─────────────────────────────────
     if (convEl) {
       var allConvs = filtered.slice().sort(function(a,b){ return (b.d||'').localeCompare(a.d||''); });
-      var strs={5:'5&#9733;',4:'4&#9733;',3:'3&#9733;',2:'2&#9733;',1:'1&#9733;'};
-      var h = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">'+allConvs.length+' conversations in selected period</div>';
-      h += '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg);font-size:11px;color:var(--muted);">' +
-        '<th style="text-align:left;padding:7px 8px;white-space:nowrap;">Ref #</th>' +
-        '<th style="text-align:left;padding:7px 8px;white-space:nowrap;">Date</th>' +
-        '<th style="text-align:left;padding:7px 8px;">Account</th>' +
-        '<th style="text-align:left;padding:7px 8px;">Customer Email</th>' +
-        '<th style="text-align:center;padding:7px 8px;">Rating</th>' +
-        '<th style="text-align:left;padding:7px 8px;">Conversation Summary</th>' +
-        '<th style="text-align:left;padding:7px 8px;">Feedback</th>' +
-        '</tr></thead><tbody>';
-      allConvs.forEach(function(r, i){
-        var summary = (r.summary||'').slice(0,180)+((r.summary||'').length>180?'…':'');
-        var fb = r.fb&&r.fb!=='0'&&r.fb.trim() ? r.fb.replace(/</g,'&lt;').slice(0,100) : '<span style="color:var(--muted);">—</span>';
-        var acct = getAccount(r.cust);
-        var starCol = rCol[r.rating]||'var(--muted)';
-        h += '<tr style="background:'+(i%2?'#f9fafb':'#fff')+';border-bottom:1px solid var(--border);vertical-align:top;">' +
-          '<td style="padding:7px 8px;white-space:nowrap;font-size:11px;">' + ((r.wi&&r.wi>0) ? '<a href="https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/'+r.wi+'" target="_blank" style="color:#4f46e5;font-weight:700;text-decoration:none;">&#128279; #'+r.wi+'</a>' : (r.id?'<span style="color:var(--muted);">Conv #'+r.id+'</span>':'—')) + '</td>' +
-          '<td style="padding:7px 8px;white-space:nowrap;color:var(--muted);">'+(r.d||'')+'</td>' +
-          '<td style="padding:7px 8px;font-weight:600;white-space:nowrap;">'+esc(acct)+'</td>' +
-          '<td style="padding:7px 8px;white-space:nowrap;font-size:11px;color:var(--muted);">'+(r.cust||'').replace(/</g,'&lt;').slice(0,35)+'</td>' +
-          '<td style="padding:7px 8px;text-align:center;color:'+starCol+';font-weight:700;white-space:nowrap;">'+(strs[r.rating]||r.rating)+'</td>' +
-          '<td style="padding:7px 8px;max-width:320px;line-height:1.5;">'+summary.replace(/</g,'&lt;')+'</td>' +
-          '<td style="padding:7px 8px;max-width:180px;line-height:1.5;">'+fb+'</td>' +
+      var strs={5:'5&#9733; Very Satisfied',4:'4&#9733; Satisfied',3:'3&#9733; Neutral',2:'2&#9733; Unsatisfied',1:'1&#9733; Very Unsatisfied'};
+      var rShort={5:'5&#9733;',4:'4&#9733;',3:'3&#9733;',2:'2&#9733;',1:'1&#9733;'};
+      // Populate customer dropdown
+      var custDd = document.getElementById('mayaCustomerFilter');
+      if (custDd && custDd.options.length <= 1) {
+        var custSet = {};
+        allConvs.forEach(function(r){ var a=getAccount(r.cust); if(a&&a!=='(unknown)') custSet[a]=1; });
+        Object.keys(custSet).sort().forEach(function(a){ var o=document.createElement('option'); o.value=a; o.textContent=a; custDd.appendChild(o); });
+      }
+      var cntDd = document.getElementById('mayaRowCount');
+      function renderMayaTable() {
+        var sq = ((document.getElementById('mayaSearch')||{}).value||'').toLowerCase();
+        var rF = ((document.getElementById('mayaRatingFilter')||{}).value||'');
+        var cF = ((document.getElementById('mayaCustomerFilter')||{}).value||'');
+        var visible = allConvs.filter(function(r){
+          if (rF && String(r.rating) !== rF) return false;
+          if (cF && getAccount(r.cust) !== cF) return false;
+          if (sq) {
+            var blob = [r.d||'', getAccount(r.cust), r.cust||'', String(r.rating||''), r.id||'', r.wi||'', r.summary||'', r.fb||'', r.v||''].join(' ').toLowerCase();
+            return blob.indexOf(sq) >= 0;
+          }
+          return true;
+        });
+        if (cntDd) cntDd.textContent = visible.length + ' rows';
+        var show = visible.slice(0,500);
+        var ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+        var COLS = ['Ticket','CustomerName','CustomerEmail','TranscriptId','AgentVersion','Rating','Conversation Summary','Improvement Feedback'];
+        var h = '<table style="width:100%;border-collapse:collapse;min-width:900px;">' +
+          '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
+        COLS.forEach(function(c){ h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap;">'+c+'</th>'; });
+        h += '</tr></thead><tbody>';
+        show.forEach(function(r, i){
+          var acct = getAccount(r.cust);
+          var starCol = rCol[r.rating]||'var(--muted)';
+          var ticketCell = (r.wi&&r.wi>0) ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);font-weight:700;text-decoration:none;">#'+r.wi+'</a>' : (r.id?'<span style="color:var(--muted);font-size:11px;">Conv #'+r.id+'</span>':'—');
+          var summary = (r.summary||''); var sumShort = summary.slice(0,120)+(summary.length>120?'…':'');
+          var fbText = r.fb&&r.fb!=='0'&&r.fb.trim() ? r.fb : '';
+          var fbShort = fbText.slice(0,100)+(fbText.length>100?'…':'');
+          h += '<tr style="border-bottom:1px solid var(--border);background:'+(i%2===0?'var(--panel)':'var(--bg)')+';vertical-align:top;">' +
+            '<td style="padding:7px 10px;white-space:nowrap;">'+ticketCell+'</td>' +
+            '<td style="padding:7px 10px;font-weight:600;white-space:nowrap;">'+esc(acct)+'</td>' +
+            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);white-space:nowrap;">'+(r.cust||'').replace(/</g,'&lt;')+'</td>' +
+            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+(r.id||'—')+'</td>' +
+            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);white-space:nowrap;">'+(r.v||'—')+'</td>' +
+            '<td style="padding:7px 10px;font-weight:700;color:'+starCol+';white-space:nowrap;">'+(rShort[r.rating]||r.rating)+'</td>' +
+            '<td style="padding:7px 10px;max-width:280px;line-height:1.5;"><span title="'+esc(summary)+'">'+summary.replace(/</g,'&lt;').slice(0,120)+(summary.length>120?'…':'')+'</span></td>' +
+            '<td style="padding:7px 10px;max-width:200px;line-height:1.5;">'+(fbShort?'<span title="'+esc(fbText)+'" style="color:var(--text);">'+fbShort.replace(/</g,'&lt;')+'</span>':'<span style="color:var(--muted);">—</span>')+'</td>' +
           '</tr>';
+        });
+        if (visible.length > 500) h += '<tr><td colspan="'+COLS.length+'" style="padding:10px;text-align:center;color:var(--muted);font-size:11px;">Showing 500 of '+visible.length+' rows — refine filters</td></tr>';
+        h += '</tbody></table>';
+        convEl.innerHTML = h;
+      }
+      renderMayaTable();
+      var _mct; var debounceM = function(){ clearTimeout(_mct); _mct = setTimeout(renderMayaTable, 180); };
+      ['mayaSearch','mayaRatingFilter','mayaCustomerFilter'].forEach(function(id){
+        var el2 = document.getElementById(id); if (!el2) return;
+        el2.removeEventListener('input', debounceM); el2.removeEventListener('change', debounceM);
+        el2.addEventListener('input', debounceM); el2.addEventListener('change', debounceM);
       });
-      convEl.innerHTML = h + '</tbody></table>';
     }
   }
     renderUploadUI();
