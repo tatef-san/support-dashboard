@@ -4417,6 +4417,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           try { localStorage.setItem('actPendUpload', JSON.stringify({at:Date.now(), rows, filename:file.name})); } catch(se) {}
           refreshActDrop();
           try { render(); } catch(re) { console.error('render after actPendUpload:', re); }
+          // Auto-clean Done/Wishlist after upload (runs async, re-renders when done)
+          if (window._autoCleanActPend) window._autoCleanActPend();
         } catch(err) {
           const s=$('actPendDropStatus'); if(s) s.innerHTML='<span style="color:var(--bad);">⚠ '+err.message+'</span>';
         }
@@ -11014,7 +11016,8 @@ if(window.opener&&!window.opener.closed){
     initClosedDropZone();
     if (window._actPendDropInit) window._actPendDropInit();
     // Silently strip Done/Wishlist tickets from actPendUpload using ADO state API
-    (async () => {
+    // Exposed on window so handleActFile (different nested scope) can call it after upload.
+    window._autoCleanActPend = async function _autoCleanActPend() {
       try {
         const _up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
         if (!_up || !_up.rows || !_up.rows.length) return;
@@ -11039,7 +11042,8 @@ if(window.opener&&!window.opener.closed){
         } catch(e) {}
         render();
       } catch(e) {}
-    })();
+    };
+    window._autoCleanActPend();
     const _dedicatedSrc = localStorage.getItem('dedicatedSource');
     if (_dedicatedSrc === 'file') renderDedicatedSourceBadge('file');
     const _savedTeamTags = localStorage.getItem('customTeamTags');
