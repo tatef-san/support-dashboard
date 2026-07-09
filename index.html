@@ -4641,6 +4641,52 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
   }
   window.fetchActMentions = fetchActMentions;
 
+  // Auto-clean: silently check ADO states on page load and strip Done/Wishlist tickets
+  // Runs only when actPendUpload exists AND ADO PAT is configured. No UI, no user action.
+  async function autoCleanActPend() {
+    try {
+      const up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
+      if (!up || !up.rows || !up.rows.length) return;
+      let pat = '';
+      try { const cfg = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); pat = cfg.pat || ''; } catch(e) {}
+      if (!pat) pat = localStorage.getItem('adoPAT') || '';
+      if (!pat) return; // no PAT — skip silently
+      const CLOSED = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix']);
+      const allIds = up.rows.map(r => r.wi).filter(Boolean);
+      const closedWIs = new Set();
+      for (let i = 0; i < allIds.length; i += 200) {
+        const chunk = allIds.slice(i, i + 200);
+        try {
+          const base = 'https://sanacommerce.visualstudio.com/Sana%20Projects';
+          const resp = await fetch(base + '/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State&api-version=7.0', {
+            headers: { 'Authorization': 'Basic ' + btoa(':' + pat) }
+          });
+          if (!resp.ok) continue;
+          const data = await resp.json();
+          (data.value || []).forEach(item => {
+            const st = ((item.fields || {})['System.State'] || '').toLowerCase().trim();
+            if (CLOSED.has(st)) closedWIs.add(item.id);
+          });
+        } catch(e) { continue; }
+      }
+      if (!closedWIs.size) return;
+      // Remove closed tickets and persist
+      const before = up.rows.length;
+      up.rows = up.rows.filter(r => !closedWIs.has(r.wi));
+      if (up.rows.length < before) {
+        localStorage.setItem('actPendUpload', JSON.stringify(up));
+        // Also persist to actExcludedWIs for future safety
+        try {
+          const excl = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
+          closedWIs.forEach(wi => excl.add(wi));
+          localStorage.setItem('actExcludedWIs', JSON.stringify([...excl]));
+        } catch(e) {}
+        try { render(); } catch(e) {}
+      }
+    } catch(e) {}
+  }
+  window.autoCleanActPend = autoCleanActPend;
+
   window.clearActMentions = function() {
     localStorage.removeItem('actMentions');
     const el=$('actFetchStatus'); if(el) el.innerHTML='';
@@ -11009,6 +11055,8 @@ if(window.opener&&!window.opener.closed){
     initEscDropZone();
     initClosedDropZone();
     if (window._actPendDropInit) window._actPendDropInit();
+    // Silently remove Done/Wishlist tickets from the upload cache using ADO API
+    if (window.autoCleanActPend) window.autoCleanActPend();
     const _dedicatedSrc = localStorage.getItem('dedicatedSource');
     if (_dedicatedSrc === 'file') renderDedicatedSourceBadge('file');
     const _savedTeamTags = localStorage.getItem('customTeamTags');
