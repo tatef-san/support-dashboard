@@ -4547,12 +4547,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     for (let i = 0; i < allIds.length; i += 200) {
       const chunk = allIds.slice(i, i + 200);
       try {
-        const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate&api-version=7.0');
-        const stateMap = {}, stateRawMap = {}, analystMap = {}, acctMap = {}, titleMap = {}, dateMap = {};
+        const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate,Custom.ProjectReleaseVersion&api-version=7.0');
+        const stateMap = {}, stateRawMap = {}, analystMap = {}, acctMap = {}, titleMap = {}, dateMap = {}, releaseVerMap = {};
         (stateData.value || []).forEach(item => {
           const f = item.fields || {};
           stateMap[item.id] = (f['System.State'] || '').toLowerCase().trim();
           stateRawMap[item.id] = f['System.State'] || '';
+          releaseVerMap[item.id] = (f['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
           const raw = (typeof f['System.AssignedTo'] === 'object' ? f['System.AssignedTo'].displayName : f['System.AssignedTo']) || '';
           const NON_A = ['customer','@customer','partner','@partner','team','@team'];
           analystMap[item.id] = NON_A.includes(raw.toLowerCase().trim())
@@ -4563,11 +4564,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           dateMap[item.id]   = f['System.CreatedDate'] || null;
         });
         tickets.filter(t => chunk.includes(t.wi)).forEach(t => {
-          if (!CLOSED_STATES_ADO.has(stateMap[t.wi])) {
+          const isWishlist = releaseVerMap[t.wi] === 'wishlist';
+          if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && !isWishlist) {
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
             if (stateRawMap[t.wi]) t._adoState = stateRawMap[t.wi];
+            if (releaseVerMap[t.wi]) t._releaseVer = releaseVerMap[t.wi];
             if ((t.age == null || t.age === 0) && dateMap[t.wi]) {
               t.age = Math.floor((Date.now() - new Date(dateMap[t.wi]).getTime()) / 86400000);
             }
@@ -4646,6 +4649,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           analyst: _normName(t.analyst || t.c || scan.analyst || ''),
           age: typeof t.age === 'number' ? t.age : 0,
           state: t._adoState || 'Active',
+          releaseVer: t._releaseVer || '',
           lastTeam: scan.lastTeam || t.lastTeam || null,
           pendingCustomer: !!(scan.pendingCustomer || t.pendingCustomer),
           pendingAnalyst: scan.pendingAnalyst || null,
@@ -7810,6 +7814,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => inScope(r.analyst))
         .filter(r => !r.age || r.age <= 365)
         .filter(r => { const a = (r.analyst || '').trim(); return a && a !== '-'; })
+        .filter(r => (r.releaseVer || '').toLowerCase().trim() !== 'wishlist')
         .map(r => {
           const ado = adoMap[+r.wi] || {};
           return {
