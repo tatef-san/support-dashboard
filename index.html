@@ -1589,7 +1589,9 @@
   <!-- Maya AI CSAT view -->
   <div id="view-maya-csat" class="view">
     <div style="max-width:1200px;margin:0 auto;padding:0 4px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--border);">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--border);">
         <div style="font-size:32px;">&#x1F916;</div>
         <div>
           <h2 style="margin:0;font-size:20px;font-weight:700;color:var(--primary);">Maya AI Agent &mdash; CSAT</h2>
@@ -1597,70 +1599,74 @@
         </div>
         <div id="mayaAgentVersion" style="margin-left:auto;font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:12px;font-weight:600;"></div>
       </div>
-      <div class="kpi-row" id="mayaKpiRow" style="margin-bottom:20px;"></div>
-      <div class="grid-2" style="margin-bottom:20px;">
-        <div class="panel">
-          <div class="panel-title">Rating Distribution (All-Time)</div>
-          <div id="mayaRatingDist"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-title">Monthly Trend</div>
-          <div id="mayaMonthlyTrend"></div>
-        </div>
-      </div>
-      <div class="grid-2" style="margin-bottom:20px;">
-        <div class="panel">
-          <div class="panel-title">Top Offenders</div>
-          <div class="panel-sub">Accounts with most negative ratings (1&ndash;2 stars) in selected period</div>
-          <div id="mayaTopOffenders"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-title">Account Participation</div>
-          <div class="panel-sub">Surveys submitted per account &middot; sorted by volume</div>
-          <div id="mayaAccounts"></div>
-        </div>
-      </div>
-      <div class="panel" style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
-          <div>
-            <div class="panel-title" style="margin:0;">How to Improve Maya CSAT &mdash; Auto Insights</div>
-            <div class="panel-sub" style="margin:2px 0 0;">Keyword themes from low-rated conversations &middot; 1&ndash;3 stars</div>
+
+      <!-- Q1 Summary (same style as CSAT) -->
+      <div id="mayaKpiRow" style="margin-bottom:14px;"></div>
+
+      <!-- Monthly CSAT % trend chart -->
+      <div id="mayaRespBar" style="margin-bottom:14px;"></div>
+
+      <!-- All Conversations -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">All Conversations
+          <button id="mayaExportBtn" onclick="event.stopPropagation();window._mayaExportCsv&&window._mayaExportCsv()" style="margin-left:12px;padding:4px 12px;border-radius:6px;border:1px solid var(--primary);background:var(--panel);color:var(--primary);font-size:11px;font-weight:600;cursor:pointer;">&#11015; Export CSV</button>
+        </summary>
+        <div style="padding-top:10px;">
+          <div id="mayaFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">SEARCH</span>
+            <input id="mayaSearch" placeholder="Search any column&hellip;" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:160px;background:var(--panel);color:var(--text);">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CUSTOMER</span>
+            <select id="mayaCustomerFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:220px;">
+              <option value="">All customers</option>
+            </select>
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">RATING</span>
+            <select id="mayaRatingFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="">All ratings</option>
+              <option value="5">5 &#9733; Very Satisfied</option>
+              <option value="4">4 &#9733; Satisfied</option>
+              <option value="3">3 &#9733; Neutral</option>
+              <option value="2">2 &#9733; Unsatisfied</option>
+              <option value="1">1 &#9733; Very Unsatisfied</option>
+            </select>
+            <span id="mayaRowCount" style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;"></span>
           </div>
-          <span></span>
+          <div id="mayaConversations" style="overflow-x:auto;font-size:12px;"></div>
         </div>
-        <div id="mayaInsights"></div>
-      </div>
-      <div class="panel" style="margin-bottom:20px;">
-        <div class="panel-title">Customer Improvement Feedback</div>
-        <div class="panel-sub">Comments left by customers who rated 1&ndash;3</div>
-        <div id="mayaFeedback"></div>
-      </div>
-      <div class="panel">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-          <div class="panel-title" style="margin:0;">All Conversations</div>
-          <button id="mayaExportBtn" onclick="window._mayaExportCsv&&window._mayaExportCsv()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--primary);background:var(--panel);color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;">&#11015; Export CSV</button>
+      </details>
+
+      <!-- Rating Distribution & Account Insights -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">Rating Distribution &amp; Account Insights</summary>
+        <div style="padding-top:10px;">
+          <div class="grid-2" style="margin-bottom:14px;">
+            <div>
+              <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution (All-Time)</div>
+              <div id="mayaRatingDist"></div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Top Offenders &mdash; Most Negative Ratings</div>
+              <div id="mayaTopOffenders"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Account Participation</div>
+            <div id="mayaAccounts"></div>
+          </div>
         </div>
-        <!-- Filter bar -->
-        <div id="mayaFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
-          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">SEARCH</span>
-          <input id="mayaSearch" placeholder="Search any column…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:160px;background:var(--panel);color:var(--text);">
-          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CUSTOMER</span>
-          <select id="mayaCustomerFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:220px;">
-            <option value="">All customers</option>
-          </select>
-          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">RATING</span>
-          <select id="mayaRatingFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
-            <option value="">All ratings</option>
-            <option value="5">5 ★ Very Satisfied</option>
-            <option value="4">4 ★ Satisfied</option>
-            <option value="3">3 ★ Neutral</option>
-            <option value="2">2 ★ Unsatisfied</option>
-            <option value="1">1 ★ Very Unsatisfied</option>
-          </select>
-          <span id="mayaRowCount" style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;"></span>
-        </div>
-        <div id="mayaConversations" style="overflow-x:auto;font-size:12px;"></div>
-      </div>
+      </details>
+
+      <!-- Customer Improvement Feedback -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">Customer Improvement Feedback</summary>
+        <div id="mayaFeedback" style="padding-top:8px;"></div>
+      </details>
+
+      <!-- How to Improve — Auto Insights -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">How to Improve Maya CSAT &mdash; Auto Insights</summary>
+        <div id="mayaInsights" style="padding-top:8px;"></div>
+      </details>
+
     </div>
   </div>
 <div id="view-oneone" class="view"></div>
@@ -9497,27 +9503,77 @@ if(window.opener&&!window.opener.closed){
     });
     var acctList = Object.values(acctMap).sort(function(a,b){ return b.total-a.total; });
 
-    // ── Q1-style Summary Bar ──────────────────────────────────────────────────
-    var uniqueAccts = acctList.length;
+    // ── Q1 Summary Bar (same style as CSAT page) ─────────────────────────────
     var RCOLM={5:'#059669',4:'#16a34a',3:'#6b7280',2:'#dc2626',1:'#991b1b'};
     var RLBLM={5:'Very Satisfied',4:'Satisfied',3:'Neutral',2:'Unsatisfied',1:'Very Unsatisfied'};
     var q1Pills = [5,4,3,2,1].map(function(s){
       var cnt=rc[s]||0; if(!cnt) return '';
       return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:'+RCOLM[s]+'22;color:'+RCOLM[s]+';font-size:12px;font-weight:700;white-space:nowrap;">'+cnt+' '+RLBLM[s]+'</span>';
     }).join('');
-    var mkStatM = function(val,sub){ return '<div style="padding:10px 18px;border-right:1px solid var(--border);border-left:1px solid var(--border);text-align:center;min-width:110px;background:var(--panel);"><div style="font-size:22px;font-weight:800;color:var(--primary);">'+val+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">'+sub+'</div></div>'; };
+    var mkStatM = function(val,sub){ return '<div style="padding:10px 18px;border-right:1px solid var(--border);text-align:center;min-width:110px;background:var(--panel);"><div style="font-size:22px;font-weight:800;color:var(--primary);">'+val+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">'+sub+'</div></div>'; };
     kpiRow.innerHTML =
-      '<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">' +
-        '<div style="background:#1e3a5f;color:#fff;padding:12px 16px;min-width:180px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;">Q1 — Satisfaction</div>' +
-        mkStatM(total,'Total responses')+
-        mkStatM(fmtP(csatPct),'Satisfied or above')+
-        mkStatM(fmtA(avgR),'Avg score')+
-        '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;align-items:center;background:var(--bg);">'+q1Pills+'</div>' +
-      '</div>' +
-      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
-        mkCard('Accounts Participating', uniqueAccts, 'unique company domains', 'var(--primary)')+
-        mkCard('Total All-Time', raw.length, 'all periods', '#374151') +
+      '<div style="margin-bottom:8px;">' +
+        '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;">Q1 — Satisfaction</div>' +
+        '<div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;overflow:hidden;">' +
+          mkStatM(total,'Total responses') +
+          mkStatM(fmtP(csatPct),'Satisfied or above') +
+          mkStatM(fmtA(avgR),'Avg score') +
+          '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;align-items:center;background:var(--bg);">'+q1Pills+'</div>' +
+        '</div>' +
       '</div>';
+
+    // ── Monthly CSAT % trend chart (same style as csatRespBar) ────────────────
+    var mayaRespBarEl = document.getElementById('mayaRespBar');
+    if (mayaRespBarEl) {
+      var _mbm = {};
+      raw.forEach(function(r){
+        var m = (r.d||'').slice(0,7); if (!m) return;
+        if (!_mbm[m]) _mbm[m] = { n:0, pos:0 };
+        _mbm[m].n++;
+        if ((r.rating||0) >= 4) _mbm[m].pos++;
+      });
+      var _mMonths = Object.keys(_mbm).sort();
+      var _mData = _mMonths.map(function(m){ return { month: m.slice(0,7), pct: _mbm[m].n ? _mbm[m].pos/_mbm[m].n : null, n: _mbm[m].n }; });
+      // filter to period range
+      var _range = periodRange();
+      var _mFiltered = _mData.filter(function(d){ return inRange(d.month + '-01', _range); });
+      if (!_mFiltered.length) _mFiltered = _mData;
+      var _mTgt = 0.80;
+      var _W=860,_H=200,_pL=44,_pR=14,_pT=28,_pB=44;
+      var _iW=_W-_pL-_pR,_iH=_H-_pT-_pB;
+      var _n=_mFiltered.length;
+      var _step=_n>1?_iW/_n:_iW;
+      var _bW=_step*0.55;
+      var _svg='<svg width="'+_W+'" height="'+_H+'" viewBox="0 0 '+_W+' '+_H+'" style="display:block;overflow:visible;">';
+      for (var _g=0;_g<=4;_g++){
+        var _gy=_pT+_iH*_g/4,_gv=100*(1-_g/4);
+        _svg+='<line x1="'+_pL+'" y1="'+_gy+'" x2="'+(_W-_pR)+'" y2="'+_gy+'" stroke="#e5e7eb" stroke-width="0.5"/>';
+        _svg+='<text x="'+(_pL-4)+'" y="'+(_gy+3.5)+'" text-anchor="end" font-size="10" fill="#9ca3af">'+_gv.toFixed(0)+'%</text>';
+      }
+      var _tgtY=(_pT+_iH*(1-_mTgt)).toFixed(1);
+      _svg+='<line x1="'+_pL+'" y1="'+_tgtY+'" x2="'+(_W-_pR)+'" y2="'+_tgtY+'" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,3"/>';
+      _svg+='<text x="'+(_W-_pR+2)+'" y="'+(parseFloat(_tgtY)-2)+'" font-size="9" fill="#f59e0b">target</text>';
+      _mFiltered.forEach(function(m,i){
+        var _x=_pL+i*_step+(_step-_bW)/2;
+        var _pct=m.pct!=null?m.pct:0;
+        var _bH=_iH*_pct;
+        var _y=_pT+_iH-_bH;
+        var _col=m.pct==null?'#e5e7eb':m.pct>=_mTgt?'#16a34a':m.pct>=_mTgt*0.85?'#f59e0b':'#ef4444';
+        _svg+='<rect x="'+_x.toFixed(1)+'" y="'+_y.toFixed(1)+'" width="'+_bW.toFixed(1)+'" height="'+_bH.toFixed(1)+'" fill="'+_col+'" rx="3" opacity="0.85"/>';
+        if (m.pct!=null) _svg+='<text x="'+(_x+_bW/2).toFixed(1)+'" y="'+(_y-4).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
+        _svg+='<text x="'+(_x+_bW/2).toFixed(1)+'" y="'+(_pT+_iH+14)+'" text-anchor="middle" font-size="10" fill="#374151">'+esc(m.month)+'</text>';
+      });
+      _svg+='</svg>';
+      mayaRespBarEl.innerHTML =
+        '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">CSAT % — Monthly Trend</div>' +
+        _svg +
+        '<div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><span style="display:inline-block;width:12px;height:12px;background:#16a34a;border-radius:2px;"></span>CSAT % (≥ target)</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:2px;"></span>CSAT % (near target)</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:2px;"></span>CSAT % (below target)</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#f59e0b;"><svg width="20" height="4" style="overflow:visible"><line x1="0" y1="2" x2="16" y2="2" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"/></svg>Target ('+(_mTgt*100).toFixed(0)+'%)</span>' +
+        '</div>';
+    }
 
     // ── Rating Distribution ───────────────────────────────────────────────────
     if (distEl) {
