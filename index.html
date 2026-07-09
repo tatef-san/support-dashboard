@@ -4543,8 +4543,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     for (let i = 0; i < allIds.length; i += 200) {
       const chunk = allIds.slice(i, i + 200);
       try {
-        const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title&api-version=7.0');
-        const stateMap = {}, analystMap = {}, acctMap = {}, titleMap = {};
+        const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate&api-version=7.0');
+        const stateMap = {}, analystMap = {}, acctMap = {}, titleMap = {}, dateMap = {};
         (stateData.value || []).forEach(item => {
           const f = item.fields || {};
           stateMap[item.id] = (f['System.State'] || '').toLowerCase().trim();
@@ -4555,12 +4555,16 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
             : raw;
           acctMap[item.id]   = (f['System.AreaPath'] || '').split('\\').pop() || '';
           titleMap[item.id]  = f['System.Title'] || '';
+          dateMap[item.id]   = f['System.CreatedDate'] || null;
         });
         tickets.filter(t => chunk.includes(t.wi)).forEach(t => {
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi])) {
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
+            if ((t.age == null || t.age === 0) && dateMap[t.wi]) {
+              t.age = Math.floor((Date.now() - new Date(dateMap[t.wi]).getTime()) / 86400000);
+            }
             openTickets.push(t);
           } else {
             // Persist confirmed-closed WIs so render-time filter works even without a re-upload
@@ -4621,14 +4625,24 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Scanning… (' + done + ' / ' + tickets.length + ')' + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + '</div>';
     }
     localStorage.setItem('actMentions', JSON.stringify({ at: Date.now(), v: 2, data: result }));
-    // Write the ADO-verified open tickets back so future renders exclude Done/Wishlist rows
+    // Always write live ADO-verified open tickets to actPendUpload — this is the authoritative
+    // source for the Active Tickets tab and requires no file upload.
     try {
-      const prevUp = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
-      if (prevUp) {
-        const openWIs = new Set(openTickets.map(t => t.wi));
-        prevUp.rows = prevUp.rows.filter(r => openWIs.has(r.wi));
-        localStorage.setItem('actPendUpload', JSON.stringify(prevUp));
-      }
+      const liveRows = openTickets.map(t => {
+        const scan = result[t.wi] || {};
+        return {
+          wi: t.wi,
+          acct: t.acct || '',
+          title: t.title || '',
+          analyst: _normName(t.analyst || t.c || scan.analyst || ''),
+          age: typeof t.age === 'number' ? t.age : 0,
+          state: 'Active',
+          lastTeam: scan.lastTeam || t.lastTeam || null,
+          pendingCustomer: !!(scan.pendingCustomer || t.pendingCustomer),
+          pendingAnalyst: scan.pendingAnalyst || null,
+        };
+      });
+      localStorage.setItem('actPendUpload', JSON.stringify({ at: Date.now(), rows: liveRows, filename: 'ADO Live Sync' }));
     } catch(e) {}
     const nTeam = Object.values(result).filter(r => r.lastTeam).length;
     const nCust = Object.values(result).filter(r => r.pendingCustomer).length;
@@ -4640,6 +4654,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       el.innerHTML = '<div style="padding:8px 12px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:6px;font-size:12px;color:#065f46;">✅ Done — ' + scanned + ' tickets scanned' + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + ' · <b>B:</b> ' + nTeam + ' pending team · <b>A:</b> ' + nCust + ' pending customer · <b>C:</b> ' + nAnal + ' pending analyst</div>';
     }
     renderActMentionSummary(); renderActTeamPending(); renderActPendingCustomer(); renderActPendingAnalyst(); renderActNoMention();
+    try { render(); } catch(e) {}
   }
   window.fetchActMentions = fetchActMentions;
 
