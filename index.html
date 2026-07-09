@@ -2111,7 +2111,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     // Exclude tickets in terminal/non-active states from the active pool
     // Also exclude Internal support requests (not customer-facing)
     if (DATA.active && DATA.active.length) {
-      const EXCL_STATES = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix','live accepted']);
+      const EXCL_STATES = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix']);
       DATA.active = DATA.active.filter(r =>
         !EXCL_STATES.has((r.state || '').toLowerCase().trim()) &&
         (r.mainCat || '').toLowerCase().trim() !== 'internal' &&
@@ -4394,7 +4394,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                             'pending update','pending client','awaiting customer','awaiting client','customer response','waiting response'];
           const TEAM_ST  = ['on sme','on-sme','on peer','on-peer','on dev queue','on dev','on-dev',
                             'escalated','with sme','with peer','with dev','hosting','platform','r&d','engineering'];
-          const CLOSED_ST = ['done','wishlist','closed','resolved','cancelled','canceled','won\'t fix','wontfix','duplicate','rejected','live accepted'];
+          const CLOSED_ST = ['done','wishlist','closed','resolved','cancelled','canceled','won\'t fix','wontfix','duplicate','rejected'];
           function isClosed(s) { const v=(s||'').toLowerCase().trim(); return CLOSED_ST.some(x=>v===x||v.includes(x)); }
           function pendFromState(s) {
             const v = (s||'').toLowerCase();
@@ -4540,7 +4540,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
 
     // Pre-filter: fetch current ADO state for all tickets in batches of 200
     // and exclude any that are now Closed / Done / Resolved in ADO.
-    const CLOSED_STATES_ADO = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','live accepted']);
+    const CLOSED_STATES_ADO = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected']);
     el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Checking current ticket states in ADO…</div>';
     const openTickets = [];
     const allIds = tickets.map(t => t.wi).filter(Boolean);
@@ -7789,7 +7789,7 @@ if(window.opener&&!window.opener.closed){
       if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Initialising — verifying ticket states from ADO…</div>';
       return;
     }
-    const EXCL_ACTIVE = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix','duplicate','live accepted']);
+    const EXCL_ACTIVE = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix','duplicate']);
     const excludedWIs = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
     // actMentions was already filtered against ADO states — use its WIs as an allowlist if available
     const _actMentData = (() => { try { const s=JSON.parse(localStorage.getItem('actMentions')||'null'); return (s&&(s.v||0)>=2)?s.data:null; } catch(e){return null;} })();
@@ -11071,7 +11071,7 @@ if(window.opener&&!window.opener.closed){
       try {
         const _up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
         if (!_up || !_up.rows || !_up.rows.length) return;
-        const _CLOSED = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','live accepted']);
+        const _CLOSED = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix']);
         const _ids = _up.rows.map(r => r.wi).filter(Boolean);
         const _closedWIs = new Set();
         for (let _i = 0; _i < _ids.length; _i += 200) {
