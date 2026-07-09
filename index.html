@@ -2083,6 +2083,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     if (window._adoClosedAutoData && window._adoClosedAutoData.length) {
       try { localStorage.setItem('adoClosedAutoData', JSON.stringify(window._adoClosedAutoData)); } catch(e) {}
     }
+    // Normalize analyst names in DATA.closed that came from EMBEDDED or uploads —
+    // ensures aliases like 'Daniela Martinez' → 'Maria Daniela Martinez' are applied
+    // regardless of when the data was originally stored.
+    DATA.closed.forEach(r => { if (r.c) r.c = _normName(r.c); });
     // Merge _adoClosedAutoData into DATA.closed.
     // When embedded data exists, only merge records beyond its max date to avoid duplication.
     // When DATA.closed is empty (no embedded export), merge ALL ADO records.
@@ -2104,7 +2108,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         if (existingWIs.has(r.wi)) return;
         DATA.closed.push({
           wi: r.wi, closed: r.closed, created: null,
-          acct: r.acct || '', c: r.c || '',
+          acct: r.acct || '', c: _normName(r.c || ''),
           age: (typeof r.age === 'number' ? r.age : null),
           resp: null, solo: null,
           mainCat: '', subCat: '', funcArea: '', subFunc: '', feature: '', capability: ''
@@ -2121,7 +2125,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         const adoByKey = new Map();
         _adoClosed.forEach(r => {
           if (!r.wi || !r.closed || r.closed > embeddedMaxDate) return;
-          const key = normAcct(r.acct) + '|' + (r.c || '').toLowerCase() + '|' + r.closed;
+          const key = normAcct(r.acct) + '|' + _normName(r.c || '').toLowerCase() + '|' + r.closed;
           if (!adoByKey.has(key)) adoByKey.set(key, r.wi);
         });
         let patched = 0;
@@ -3529,8 +3533,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const _inScope = name => (scope.region === 'All' || _rosterSetAdo.has(name)) && (scope.analyst === 'All' || scope.analyst === name);
     const fromAdo = _adoFallback ? _adoFallback.filter(r =>
       r.wi && r.closed && r.closed >= range.start && r.closed <= range.end &&
-      _inScope(r.c) && !existingWiSet.has(r.wi)
-    ) : [];
+      _inScope(_normName(r.c || '')) && !existingWiSet.has(r.wi)
+    ).map(r => ({ ...r, c: _normName(r.c || '') })) : [];
     const ticketRows = fromData.concat(fromAdo);
     if (!ticketRows.length) {
       if (el) el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ No closed tickets with ADO IDs found for this period — try clicking <b>⟳ Sync</b> first.</div>';
@@ -11159,6 +11163,8 @@ if(window.opener&&!window.opener.closed){
       'sarah el farmawy':   'Sarah Elfaramawy',
       'sarah el-farmawy':   'Sarah Elfaramawy',
       'sarah elfarawy':     'Sarah Elfaramawy',
+      'najabi salgado':     'Najabi Salgado Giraldo',
+      'daniela martinez':   'Maria Daniela Martinez',
     };
     function normalizeAnalystName(raw) {
       var stripped = raw.replace(/\s*<[^>]+>/, '').trim();
