@@ -4548,22 +4548,27 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const chunk = allIds.slice(i, i + 200);
       try {
         const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate&api-version=7.0');
-        const stateMap = {}, stateRawMap = {}, analystMap = {}, acctMap = {}, titleMap = {}, dateMap = {};
+        const stateMap = {}, stateRawMap = {}, analystMap = {}, scMap = {}, acctMap = {}, titleMap = {}, dateMap = {};
         (stateData.value || []).forEach(item => {
           const f = item.fields || {};
           stateMap[item.id] = (f['System.State'] || '').toLowerCase().trim();
           stateRawMap[item.id] = f['System.State'] || '';
+          const scRaw = (typeof f['Custom.ServiceConsultant'] === 'object' ? f['Custom.ServiceConsultant'].displayName : f['Custom.ServiceConsultant']) || '';
+          scMap[item.id] = scRaw.trim();
           const raw = (typeof f['System.AssignedTo'] === 'object' ? f['System.AssignedTo'].displayName : f['System.AssignedTo']) || '';
           const NON_A = ['customer','@customer','partner','@partner','team','@team'];
           analystMap[item.id] = NON_A.includes(raw.toLowerCase().trim())
-            ? ((typeof f['Custom.ServiceConsultant'] === 'object' ? f['Custom.ServiceConsultant'].displayName : f['Custom.ServiceConsultant']) || raw)
+            ? (scRaw.trim() || raw)
             : raw;
           acctMap[item.id]   = (f['System.AreaPath'] || '').split('\\').pop() || '';
           titleMap[item.id]  = f['System.Title'] || '';
           dateMap[item.id]   = f['System.CreatedDate'] || null;
         });
         tickets.filter(t => chunk.includes(t.wi)).forEach(t => {
-          if (!CLOSED_STATES_ADO.has(stateMap[t.wi])) {
+          // Exclude tickets with no Service Consultant — matches Power BI behaviour:
+          // when a ticket is moved to wishlist the SC field is cleared.
+          const hasSC = !!scMap[t.wi];
+          if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && hasSC) {
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
