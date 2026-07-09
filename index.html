@@ -4560,6 +4560,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
             openTickets.push(t);
+          } else {
+            // Persist confirmed-closed WIs so render-time filter works even without a re-upload
+            try {
+              const excl = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
+              excl.add(t.wi);
+              localStorage.setItem('actExcludedWIs', JSON.stringify([...excl]));
+            } catch(e) {}
           }
         });
       } catch(e) {
@@ -7733,12 +7740,16 @@ if(window.opener&&!window.opener.closed){
 
     // Use Power BI upload as authoritative source when available; fall back to ADO sync
     const upload = JSON.parse(localStorage.getItem('actPendUpload')||'null');
+    const EXCL_ACTIVE = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix','duplicate']);
+    const excludedWIs = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
     let rows;
     if (upload && upload.rows && upload.rows.length) {
       // Build WI→ADO row lookup to enrich upload rows with comment/category data
       const adoMap = {};
       DATA.active.forEach(r => { const id = r.id || r.wi; if (id) adoMap[+id] = r; });
       rows = upload.rows
+        .filter(r => !EXCL_ACTIVE.has((r.state || '').toLowerCase().trim()))
+        .filter(r => !excludedWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
         .map(r => {
           const ado = adoMap[+r.wi] || {};
