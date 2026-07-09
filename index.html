@@ -7265,8 +7265,19 @@ if(window.opener&&!window.opener.closed){
     $('csatBotComments').innerHTML = bot3.length ? bot3.map(r => renderComment(r, 'bad')).join('') : '<div class="cat-empty">no comments in scope</div>';
 
     // ---- G. CSAT deep-dive: root causes, strengths, analyst coaching, at-risk accounts ----
+    // Hide in overall org view — only show for individual analyst/region scope
     {
-      // Score each row
+      const _improvePanel = document.querySelector('#csatImprove')?.closest('details');
+      if (isOverall) {
+        if (_improvePanel) _improvePanel.style.display = 'none';
+        $('csatImprove').innerHTML = '';
+        // skip rest of block
+      } else {
+        if (_improvePanel) _improvePanel.style.display = '';
+      }
+    }
+    if (!isOverall) {
+    // Score each row
       const scored = rows.map(r => {
         const num = RATING_NUM[String(r.rating).trim().toLowerCase()] || 0;
         return Object.assign({}, r, {
@@ -7654,7 +7665,7 @@ if(window.opener&&!window.opener.closed){
       }
 
       $('csatImprove').innerHTML = out || '<div class="cat-empty" style="padding:16px;">Not enough signal in current scope to generate insights.</div>';
-    }
+    } // end if (!isOverall)
   }
 
   // ===========================================================================
