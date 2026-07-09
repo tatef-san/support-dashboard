@@ -77,7 +77,7 @@
   .ov-stat { display:flex; flex-direction:column; gap:1px; }
   .ov-stat-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
   .ov-stat-val { font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
-  .ov-spark { display:flex; align-items:flex-end; gap:3px; height:32px; margin-top:4px; }
+  .ov-spark { display:flex; align-items:flex-end; gap:4px; height:52px; margin-top:6px; }
   /* ─────────────────────────────────────────────────────────────────── */
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   th, td { padding:7px 10px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top; }
@@ -2948,19 +2948,21 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       var sparkNonNull = spark.filter(function(v){return v!=null;});
       var sparkMax = sparkNonNull.length ? Math.max.apply(null, sparkNonNull.map(function(v){return v*100;})) : 1;
       if (sparkMax < 0.01) sparkMax = 1;
-      var sparkHtml = spark.map(function(v) {
-        var h = v != null ? Math.max(3, Math.round((v*100) / sparkMax * 28)) : 3;
+      var sparkHtml = spark.map(function(v, idx) {
+        var h = v != null ? Math.max(5, Math.round((v*100) / sparkMax * 46)) : 5;
         var c = goal != null ? (v != null && v >= goal ? '#22c55e' : '#ef4444') : cfg.color;
-        var o = v != null ? '1' : '0.25';
-        return '<div style="width:8px;height:'+h+'px;background:'+c+';border-radius:2px 2px 0 0;opacity:'+o+';flex-shrink:0;"></div>';
+        var o = v != null ? '1' : '0.2';
+        var isCur = idx === 5;
+        return '<div style="width:13px;height:'+h+'px;background:'+c+';border-radius:3px 3px 0 0;opacity:'+o+';flex-shrink:0;'+(isCur?'outline:2px solid '+c+';outline-offset:1px;':'')+';"></div>';
       }).join('');
 
+      var curPeriodLabel = period === 'Monthly' ? mRange(yr, curM).label + ' ' + yr : '';
       html += '<div class="ov-kpi-card" style="--card-color:'+cfg.color+'">' +
         '<div class="ov-card-top"><div>' +
           '<div class="ov-label">'+cfg.label+'</div>' +
           '<div class="ov-sublabel">'+cfg.sub+'</div>' +
         '</div>'+badge+'</div>' +
-        '<div class="ov-main">'+fp(curVal)+'</div>' +
+        '<div class="ov-main">'+fp(curVal)+(curPeriodLabel ? '<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:6px;">'+curPeriodLabel+'</span>' : '')+'</div>' +
         trendHtml +
         '<div class="ov-stats-row">' +
           '<div class="ov-stat"><span class="ov-stat-label">YTD</span><span class="ov-stat-val">'+fp(ytdVal)+'</span></div>' +
