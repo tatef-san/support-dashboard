@@ -85,7 +85,7 @@ foreach ($r in $sDt.Rows) {
     $ts = $r["Timestamp"]; if ($ts -is [System.DBNull]) { continue }
     $d = ([datetime]$ts).ToString("yyyy-MM-dd")
     $emailRaw = ([string]$r[" ServiceConsultant"]).Trim().ToLower()
-    # Rows with empty SA email get c="" — they count in Overall but not individual analyst views
+    # Rows with empty SA email get c="" - they count in Overall but not individual analyst views
     # Rows with an unrecognised email keep the email as the name (as before)
     $analyst  = if ($emailMap.ContainsKey($emailRaw)) { $emailMap[$emailRaw] } elseif ($emailRaw) { $emailRaw } else { "" }
     $cetKey = if ($r["SupportExperience"] -is [System.DBNull]) { "" } else { [string][int]$r["SupportExperience"] }
@@ -155,112 +155,125 @@ if ($mayaRows.Count -gt 0) {
     } else { Write-Host "  WARNING: Maya CSAT markers not found" -ForegroundColor Yellow }
 }
 
-# Step 8: Query FeedbackReminder + CustomerName, then enrich with ADO CreatedDate for TTR
-# Load ADO credentials from ado_config.ps1 (gitignored — never commit that file)
+# Step 8: Query ADO directly for ALL closed tickets in 2026 (accurate monthly TTR)
+# Load ADO credentials from ado_config.ps1 (gitignored - never commit that file)
 $AdoConfigFile = Join-Path $DashboardDir "ado_config.ps1"
 $AdoPat = ""; $AdoOrg = "https://sanacommerce.visualstudio.com"; $AdoProj = "Sana%20Projects"
 if (Test-Path $AdoConfigFile) { . $AdoConfigFile } else {
-    Write-Host "  NOTE: ado_config.ps1 not found — TTR enrichment skipped. Create it with `$AdoPat, `$AdoOrg, `$AdoProj." -ForegroundColor Yellow
+    Write-Host "  NOTE: ado_config.ps1 not found - TTR data skipped. Create it with `$AdoPat, `$AdoOrg, `$AdoProj." -ForegroundColor Yellow
 }
-$AdoToken = [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$AdoPat"))
-$AdoHeaders = @{ Authorization = "Basic $AdoToken"; "Content-Type" = "application/json" }
 
-Write-Host "  Querying closed ticket history (FeedbackReminder + CustomerName)..." -ForegroundColor Cyan
-try {
-    $frConn = OpenConn $SphereDatabase
-    $frCmd  = $frConn.CreateCommand()
-    $frCmd.CommandText = @"
-SELECT
-    fr.WorkItemId,
-    CONVERT(VARCHAR(10), fr.FirstReminderDate, 23) AS ClosedDate,
-    COALESCE(pc.FullName, pf.CustomerName, '') AS CustomerName,
-    COALESCE(NULLIF(LTRIM(RTRIM(f.[ ServiceConsultant])), ''), NULLIF(pw.AssignedToEmail, ''), '') AS SA_Email
-FROM FeedbackReminder fr
-LEFT JOIN Feedback f ON fr.WorkItemId = f.WorkItemId
-LEFT JOIN $PrismaDatabase.dbo.Customers pc ON f.CustomerId = pc.Id
-LEFT JOIN $PrismaDatabase.dbo.AzureDevopsWorkitems pw ON fr.WorkItemId = pw.WorkitemId
-LEFT JOIN $PrismaDatabase.dbo.AzureDevopsFrameworks pf ON pw.ProjectInstanceId = pf.ProjectInstanceId
-WHERE fr.FirstReminderDate >= '2025-01-01'
-ORDER BY fr.FirstReminderDate DESC
-"@
-    $frCmd.CommandTimeout = 60
-    $frDt = New-Object System.Data.DataTable
-    (New-Object System.Data.SqlClient.SqlDataAdapter($frCmd)).Fill($frDt) | Out-Null
-    $frConn.Close()
-    Write-Host "  Found $($frDt.Rows.Count) closed ticket records" -ForegroundColor Green
+if (-not $AdoPat) {
+    Write-Host "  Skipping ADO closed ticket query (no PAT configured in ado_config.ps1)" -ForegroundColor Yellow
+} else {
+    $AdoToken  = [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$AdoPat"))
+    $AdoHeaders = @{ Authorization = "Basic $AdoToken"; "Content-Type" = "application/json" }
 
-    # Build base closed rows map (wi -> row object)
-    $closedMap = @{}
-    foreach ($r in $frDt.Rows) {
-        if ($r["WorkItemId"] -is [System.DBNull]) { continue }
-        $wi      = [int]$r["WorkItemId"]
-        $closed  = [string]$r["ClosedDate"]
-        $acct    = ([string]$r["CustomerName"]).Trim()
-        $saEmail = ([string]$r["SA_Email"]).Trim().ToLower()
-        $analyst = if ($saEmail -and $emailMap.ContainsKey($saEmail)) { $emailMap[$saEmail] } else { "" }
-        $closedMap[$wi] = [ordered]@{ wi=$wi; closed=$closed; acct=$acct; c=$analyst; age=$null }
-    }
+    # Build reverse name map: lowercase display name -> canonical roster name
+    $nameMap = @{}
+    foreach ($name in $emailMap.Values) { $nameMap[$name.ToLower()] = $name }
 
-    # Step 8b: Enrich with ADO CreatedDate + LastModifiedBy (for TTR computation)
-    $allWIs  = @($closedMap.Keys)
-    if (-not $AdoPat) {
-        Write-Host "  Skipping ADO TTR enrichment (no PAT configured in ado_config.ps1)" -ForegroundColor Yellow
-    } else {
-    Write-Host "  Enriching with ADO created dates for TTR (batches of 200)..." -ForegroundColor Cyan
-    $adoOk   = 0; $adoFail = 0
-    $batchSize = 200
-    for ($i = 0; $i -lt $allWIs.Count; $i += $batchSize) {
-        $chunk  = $allWIs[$i..([Math]::Min($i + $batchSize - 1, $allWIs.Count - 1))]
-        $idsStr = $chunk -join ','
-        $fieldsUrl = "$AdoOrg/_apis/wit/workItems?ids=$idsStr&fields=System.Id,System.CreatedDate,Custom.LastModifiedBy&api-version=7.1"
-        try {
-            $resp = Invoke-RestMethod -Uri $fieldsUrl -Method GET -Headers $AdoHeaders -ErrorAction Stop
-            foreach ($item in $resp.value) {
-                $wid = [int]$item.fields.'System.Id'
-                if (-not $closedMap.ContainsKey($wid)) { continue }
-                $createdRaw = $item.fields.'System.CreatedDate'
-                $lastModBy  = [string]$item.fields.'Custom.LastModifiedBy'
-                if ($createdRaw) {
-                    $created = [datetime]$createdRaw
-                    $closedDt = [datetime]$closedMap[$wid].closed
-                    $ttr = [int]($closedDt - $created).TotalDays
-                    if ($ttr -ge 0) { $closedMap[$wid].age = $ttr }
+    Write-Host "  Querying ADO for ALL closed tickets in 2026..." -ForegroundColor Cyan
+    $adoClosedMap = @{}  # wi (int) -> {wi, closed, acct, c, age}
+
+    try {
+        # --- Part A: TicketSimple with ClosedDate in 2026 (exact close date) ---
+        Write-Host "  Part A: TicketSimple closed from 2026-01-01 onward..." -ForegroundColor Cyan
+        $gte = ">="
+        $wiqlA = @{ query = "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType]='TicketSimple' AND [Microsoft.VSTS.Common.ClosedDate] $gte '2026-01-01' ORDER BY [Microsoft.VSTS.Common.ClosedDate] DESC" } | ConvertTo-Json
+        $resultA = Invoke-RestMethod -Uri "$AdoOrg/$AdoProj/_apis/wit/wiql?api-version=7.1" -Method POST -Headers $AdoHeaders -Body $wiqlA
+        Write-Host "    Found $($resultA.workItems.Count) TicketSimple records" -ForegroundColor Green
+
+        # --- Part B: Ticket-type Created in 2026, state=Done (use ChangedDate as close date approx) ---
+        Write-Host "  Part B: Ticket type Created in 2026, state=Done..." -ForegroundColor Cyan
+        $wiqlB = @{ query = "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType]='Ticket' AND [System.State]='Done' AND [System.CreatedDate] $gte '2026-01-01' ORDER BY [System.ChangedDate] DESC" } | ConvertTo-Json
+        $resultB = Invoke-RestMethod -Uri "$AdoOrg/$AdoProj/_apis/wit/wiql?api-version=7.1" -Method POST -Headers $AdoHeaders -Body $wiqlB
+        Write-Host "    Found $($resultB.workItems.Count) Ticket (Done) records" -ForegroundColor Green
+
+        # Combine all WI IDs (deduplicated)
+        $allIds = [System.Collections.Generic.HashSet[int]]::new()
+        $resultA.workItems | ForEach-Object { $allIds.Add([int]$_.id) | Out-Null }
+        $resultB.workItems | ForEach-Object { $allIds.Add([int]$_.id) | Out-Null }
+        $allIdArr = @($allIds)
+        Write-Host "  Total unique WIs to fetch: $($allIdArr.Count)" -ForegroundColor Cyan
+
+        # Batch-fetch fields (200 per call)
+        $adoOk = 0; $adoFail = 0
+        $batchSize = 200
+        $adoFields = "System.Id,System.WorkItemType,System.CreatedDate,Microsoft.VSTS.Common.ClosedDate,System.ChangedDate,Custom.LastModifiedBy,System.AreaPath"
+        $qsep = [char]38  # URL query string separator (&) - avoids PS5.1 parser issues with & in strings
+        for ($i = 0; $i -lt $allIdArr.Count; $i += $batchSize) {
+            $chunk  = $allIdArr[$i..([Math]::Min($i + $batchSize - 1, $allIdArr.Count - 1))]
+            $idsStr = $chunk -join ','
+            $url    = $AdoOrg + "/_apis/wit/workItems?ids=" + $idsStr + $qsep + "fields=" + $adoFields + $qsep + "api-version=7.1"
+            try {
+                $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $AdoHeaders -ErrorAction Stop
+                foreach ($item in $resp.value) {
+                    $f   = $item.fields
+                    $wid = [int]$f.'System.Id'
+                    $wt  = [string]$f.'System.WorkItemType'
+
+                    # Determine close date: TicketSimple uses ClosedDate; Ticket uses ChangedDate
+                    $closedRaw = $null
+                    if ($wt -eq 'TicketSimple' -and $f.'Microsoft.VSTS.Common.ClosedDate') {
+                        $closedRaw = $f.'Microsoft.VSTS.Common.ClosedDate'
+                    } elseif ($f.'System.ChangedDate') {
+                        $closedRaw = $f.'System.ChangedDate'
+                    }
+                    if (-not $closedRaw) { $adoOk++; continue }
+
+                    $closedDt  = [datetime]$closedRaw
+                    # Skip if close date is outside 2026 (sanity guard)
+                    if ($closedDt.Year -lt 2026 -or $closedDt.Year -gt 2026) { $adoOk++; continue }
+                    $closedStr = $closedDt.ToString('yyyy-MM-dd')
+
+                    # TTR
+                    $age = $null
+                    if ($f.'System.CreatedDate') {
+                        $ttr = [int]($closedDt - [datetime]$f.'System.CreatedDate').TotalDays
+                        if ($ttr -ge 0) { $age = $ttr }
+                    }
+
+                    # SA display name → match against roster
+                    $rawSA = ([string]$f.'Custom.LastModifiedBy').Trim()
+                    $saName = if ($rawSA -and $nameMap.ContainsKey($rawSA.ToLower())) { $nameMap[$rawSA.ToLower()] } else { $rawSA }
+
+                    # Account from AreaPath last segment
+                    $areaPath = ([string]$f.'System.AreaPath').Trim()
+                    $acct = if ($areaPath) { ($areaPath -split '\\')[-1].Trim() } else { '' }
+
+                    $adoClosedMap[$wid] = [ordered]@{ wi=$wid; closed=$closedStr; acct=$acct; c=$saName; age=$age }
+                    $adoOk++
                 }
-                # Use ADO LastModifiedBy as SA name if DB email mapping gave nothing
-                if (-not $closedMap[$wid].c -and $lastModBy) {
-                    # Match display name against roster names (emailMap values)
-                    $rosterMatch = $emailMap.Values | Where-Object { $_ -eq $lastModBy } | Select-Object -First 1
-                    if ($rosterMatch) { $closedMap[$wid].c = $rosterMatch }
-                }
-                $adoOk++
+            } catch {
+                Write-Host "    Batch $i failed: $_" -ForegroundColor Yellow
+                $adoFail += $chunk.Count
             }
-        } catch {
-            $adoFail += $chunk.Count
+            if (($i / $batchSize) % 5 -eq 4) { Write-Host "    ...processed $($i + $batchSize) / $($allIdArr.Count)" -ForegroundColor Gray }
         }
-    }
-    $withTTR = ($closedMap.Values | Where-Object { $_.age -ne $null }).Count
-    Write-Host "  ADO enrichment done: $adoOk records updated, $adoFail failed, $withTTR have TTR" -ForegroundColor Green
-    } # end if $AdoPat
+        $withTTR = ($adoClosedMap.Values | Where-Object { $_.age -ne $null }).Count
+        Write-Host "  ADO fetch done: $adoOk ok, $adoFail failed, $($adoClosedMap.Count) records, $withTTR with TTR" -ForegroundColor Green
 
-    $closedRows = [System.Collections.Generic.List[object]]::new()
-    foreach ($row in $closedMap.Values) { $closedRows.Add($row) }
-    $closedRows = $closedRows | Sort-Object { $_.closed } -Descending
-    Write-Host "  Mapped $($closedRows.Count) closed rows" -ForegroundColor Green
+        $closedRows = [System.Collections.Generic.List[object]]::new()
+        foreach ($row in $adoClosedMap.Values) { $closedRows.Add($row) }
+        $closedRows = $closedRows | Sort-Object { $_.closed } -Descending
+        Write-Host "  Total closed rows to inject: $($closedRows.Count)" -ForegroundColor Green
 
-    if ($closedRows.Count -gt 0) {
-        $frJson   = $closedRows | ConvertTo-Json -Compress -Depth 3
-        $frBytes  = [System.Text.Encoding]::UTF8.GetBytes($frJson)
-        $frBase64 = [Convert]::ToBase64String($frBytes)
-        $frInject = "window._adoClosedAutoData=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob('$frBase64'),c=>c.charCodeAt(0))));"
-        $frSm = "/* ADO_CLOSED_AUTO_START */"; $frEm = "/* ADO_CLOSED_AUTO_END */"
-        $frStart = $content.IndexOf($frSm); $frEnd = $content.IndexOf($frEm)
-        if ($frStart -ge 0 -and $frEnd -ge 0) {
-            $content = $content.Substring(0, $frStart + $frSm.Length) + $frInject + $content.Substring($frEnd)
-            Write-Host "  Closed tickets injected ($($closedRows.Count) rows, $withTTR with TTR)" -ForegroundColor Green
-        } else { Write-Host "  WARNING: ADO_CLOSED_AUTO markers not found in index.html" -ForegroundColor Yellow }
+        if ($closedRows.Count -gt 0) {
+            $frJson   = $closedRows | ConvertTo-Json -Compress -Depth 3
+            $frBytes  = [System.Text.Encoding]::UTF8.GetBytes($frJson)
+            $frBase64 = [Convert]::ToBase64String($frBytes)
+            $frInject = "window._adoClosedAutoData=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob('$frBase64'),c=>c.charCodeAt(0))));"
+            $frSm = "/* ADO_CLOSED_AUTO_START */"; $frEm = "/* ADO_CLOSED_AUTO_END */"
+            $frStart = $content.IndexOf($frSm); $frEnd = $content.IndexOf($frEm)
+            if ($frStart -ge 0 -and $frEnd -ge 0) {
+                $content = $content.Substring(0, $frStart + $frSm.Length) + $frInject + $content.Substring($frEnd)
+                Write-Host "  Closed tickets injected ($($closedRows.Count) rows, $withTTR with TTR)" -ForegroundColor Green
+            } else { Write-Host "  WARNING: ADO_CLOSED_AUTO markers not found in index.html" -ForegroundColor Yellow }
+        }
+    } catch {
+        Write-Host "  WARNING: ADO closed ticket query failed: $_" -ForegroundColor Yellow
     }
-} catch {
-    Write-Host "  WARNING: Could not query closed ticket data: $_" -ForegroundColor Yellow
 }
 
 [System.IO.File]::WriteAllText($IndexHtml, $content, [System.Text.Encoding]::UTF8)
