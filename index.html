@@ -4589,6 +4589,26 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     }
     const skipped = tickets.length - openTickets.length;
 
+    // Separate call: filter out tickets where Project Release Version = Wishlist.
+    // Kept isolated from the state check so any failure here never affects ticket count.
+    try {
+      const wishlistWIs = new Set();
+      const openIds = openTickets.map(t => t.wi).filter(Boolean);
+      for (let i = 0; i < openIds.length; i += 200) {
+        try {
+          const rvData = await adoFetch('/_apis/wit/workItems?ids=' + openIds.slice(i, i+200).join(',') + '&fields=Custom.ProjectReleaseVersion&api-version=7.0');
+          (rvData.value || []).forEach(item => {
+            if ((item.fields['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim() === 'wishlist') {
+              wishlistWIs.add(item.id);
+            }
+          });
+        } catch(e) { /* skip chunk silently */ }
+      }
+      if (wishlistWIs.size) {
+        openTickets.splice(0, openTickets.length, ...openTickets.filter(t => !wishlistWIs.has(t.wi)));
+      }
+    } catch(e) { /* if whole block fails, proceed without filter */ }
+
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
     const hibobMap = getHiBobNameSet();
     const customTags = getTeamTagsSet();
