@@ -941,23 +941,10 @@
       <div id="csatScores"></div>
 
       <details class="csat-panel" open style="margin-top:10px;">
-        <summary class="dd-section-title">Above Target — Replicate Their Approach</summary>
-        <div id="csatTopPerformers" style="padding-top:8px;"></div>
-      </details>
-
-      <details class="csat-panel" open style="margin-top:10px;">
         <summary class="dd-section-title">Analyst Performance vs Target</summary>
         <div id="csatOffPerf" style="padding-top:8px;"></div>
         <div id="csatAnalystTable" style="padding-top:8px;"></div>
         <div id="csatRespRate" style="padding-top:8px;"></div>
-      </details>
-
-      <details class="csat-panel" open style="margin-top:10px;">
-        <summary class="dd-section-title">CET &amp; Top Accounts</summary>
-        <div class="deep-grid" style="padding-top:8px;">
-          <div><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">CET Rating distribution</h3><div id="csatCet"></div></div>
-          <div><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Top 5 accounts by response rate</h3><div id="csatAccounts"></div></div>
-        </div>
       </details>
 
       <details class="csat-panel" open style="margin-top:10px;" id="csatCommentsPanel">
@@ -6985,7 +6972,7 @@ if(window.opener&&!window.opener.closed){
         .filter(([, s]) => s.total >= 5 && s.high / s.total >= target)
         .sort((a, b) => (b[1].high / b[1].total) - (a[1].high / a[1].total));
       if (!strong.length) {
-        $('csatTopPerformers').innerHTML = '<div class="cat-empty">No analysts with ≥ 5 responses at or above the CSAT target in this period.</div>';
+        if ($('csatTopPerformers')) $('csatTopPerformers').innerHTML = '<div class="cat-empty">No analysts with ≥ 5 responses at or above the CSAT target in this period.</div>';
       } else {
         const _cBy = (arr, fn) => { const m = {}; arr.forEach(x => { const k = fn(x)||''; if (k) m[k]=(m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); };
         let h = '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
@@ -7001,7 +6988,7 @@ if(window.opener&&!window.opener.closed){
         });
         h += '</div>';
         h += '<div style="font-size:11px;color:var(--muted);margin-top:10px;">Analysts with ≥ 5 responses meeting the ' + (target*100).toFixed(0) + '% target. Top reason = most cited positive feedback.</div>';
-        $('csatTopPerformers').innerHTML = h;
+        if ($('csatTopPerformers')) $('csatTopPerformers').innerHTML = h;
       }
     }
 
@@ -7125,7 +7112,7 @@ if(window.opener&&!window.opener.closed){
           '<div>Based on <b>' + cesN.toLocaleString() + '</b> rated responses &nbsp;·&nbsp; Higher score = lower effort &nbsp;·&nbsp; CSAT = avg satisfaction (1–5) per category</div>' +
         '</div>' +
       '</div>';
-    $('csatCet').innerHTML = cetItems.length
+    if ($('csatCet')) $('csatCet').innerHTML = cetItems.length
       ? cesHtml + svgBars(cetItems, { width: 700, barH: 26, labelW: 115, padR: 220,
           formatter: (v, it) => {
             const cesScore = it ? CET_NUM[(it.label||'').toLowerCase().trim()] : null;
@@ -7222,10 +7209,10 @@ if(window.opener&&!window.opener.closed){
 
       if (top5.length === 0) {
         const noAccts = Object.keys(acctMap).length === 0;
-        $('csatAccounts').innerHTML = '<div class="cat-empty">' + (noAccts ? 'No CSAT responses with known accounts in scope.' : 'Upload closed tickets to calculate response rates.') + '</div>';
+        if ($('csatAccounts')) $('csatAccounts').innerHTML = '<div class="cat-empty">' + (noAccts ? 'No CSAT responses with known accounts in scope.' : 'Upload closed tickets to calculate response rates.') + '</div>';
       } else {
         const fallbackNote = fallback ? '<div style="font-size:10px;color:#9ca3af;margin-top:4px;">* Based on all available data — select a specific period for filtered results</div>' : '';
-        $('csatAccounts').innerHTML =
+        if ($('csatAccounts')) $('csatAccounts').innerHTML =
           '<table class="acct-table"><thead><tr>' +
             '<th>Account</th>' +
             '<th class="num">Responses</th>' +
