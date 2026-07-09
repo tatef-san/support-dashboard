@@ -4519,15 +4519,15 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         const adoProj = adoCfg.project || 'Sana Projects';
         const adoClosedStates = (adoCfg.closedStates && adoCfg.closedStates.length ? adoCfg.closedStates : ['Closed','Resolved','Done']).map(function(s){ return "'"+s+"'"; }).join(',');
         const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
-        const cutoff = new Date(Date.now() - 365*86400000).toISOString().split('T')[0];
+        const cutoff = new Date(Date.now() - 730*86400000).toISOString().split('T')[0]; // 2 years back
         const wiqlResp = await fetch(wiqlUrl, {
           method: 'POST',
           headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] DESC" })
+          body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] ASC" })
         });
         if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
         const wiqlRes = await wiqlResp.json();
-        const ids = (wiqlRes.workItems || []).map(function(w){ return w.id; }).slice(0,1000);
+        const ids = (wiqlRes.workItems || []).map(function(w){ return w.id; });
         if (!ids.length) {
           el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ No active tickets found in ADO. Check your ADO connection settings.</div>';
           return;
@@ -4590,8 +4590,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
     const hibobMap = getHiBobNameSet();
     const customTags = getTeamTagsSet();
-    el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Fetching comments for <b>' + openTickets.length + '</b> open tickets' + (skipped ? ' · <span style="color:#6b7280;">' + skipped + ' closed/done skipped</span>' : '') + '…</div>';
-    tickets = openTickets;
+    // Scope comment scan to roster members only — other analysts' tickets still appear
+    // in actPendUpload via liveRows below, but we only need pending-ownership data for our team.
+    const rosterTickets = openTickets.filter(t => !t.c || rosterNames.has((t.c || '').toLowerCase().trim()));
+    el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Fetching comments for <b>' + rosterTickets.length + '</b> roster tickets' + (skipped ? ' · <span style="color:#6b7280;">' + skipped + ' closed/done skipped</span>' : '') + ' (of ' + openTickets.length + ' total open)…</div>';
+    tickets = rosterTickets;
     const result = {};
     let done = 0, errCount = 0, firstErr = '';
     const CONC = 20;
