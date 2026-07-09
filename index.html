@@ -2108,6 +2108,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         DATA[s.key] = JSON.parse(JSON.stringify(EMBEDDED[s.key]));
       }
     });
+    // Exclude tickets in terminal/non-active states from the active pool
+    if (DATA.active && DATA.active.length) {
+      const EXCL_STATES = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix']);
+      DATA.active = DATA.active.filter(r => !EXCL_STATES.has((r.state || '').toLowerCase().trim()));
+    }
     // When a closed upload is active, supplement with EMBEDDED records not in the upload.
     // This prevents a partial or bad upload from wiping out TTR/age data for the embedded period.
     if (used.closed && EMBEDDED.closed && EMBEDDED.closed.length) {
