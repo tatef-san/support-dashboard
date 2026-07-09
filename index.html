@@ -4500,40 +4500,39 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ ADO token not set — click ⚙ Connect in the top bar and enter your PAT.</div>';
       return;
     }
-    const up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
-    // Fall back to live ADO-synced DATA.active when no uploaded file exists
+    // Always fetch a fresh ticket list from ADO via WIQL on every Sync.
+    // (Do NOT use actPendUpload as the source — it could be stale from a previous sync.)
+    // If WIQL fails, fall back to the existing actPendUpload rows so the tab still works.
     let tickets;
-    if (up && up.rows && up.rows.length) {
-      tickets = up.rows;
-    } else if (DATA.active && DATA.active.length) {
-      tickets = DATA.active.map(function(r) { return { wi: r.id ? Number(r.id) : null, acct: r.acct || '', c: r.c || '' }; })
-                           .filter(function(r) { return r.wi; });
-    }
-    if (!tickets || !tickets.length) {
-      // Auto-fetch active ticket IDs directly from ADO via WIQL (no full sync needed)
-      el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Fetching active ticket list from ADO…</div>';
-      try {
-        let adoCfg = {}; try { adoCfg = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); } catch(e) {}
-        const adoPat = adoCfg.pat || pat || '';
-        const adoOrg = (adoCfg.org || 'https://sanacommerce.visualstudio.com').replace(/\/+$/, '');
-        const adoProj = adoCfg.project || 'Sana Projects';
-        const adoClosedStates = (adoCfg.closedStates && adoCfg.closedStates.length ? adoCfg.closedStates : ['Closed','Resolved','Done']).map(function(s){ return "'"+s+"'"; }).join(',');
-        const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
-        const cutoff = new Date(Date.now() - 730*86400000).toISOString().split('T')[0]; // 2 years back
-        const wiqlResp = await fetch(wiqlUrl, {
-          method: 'POST',
-          headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] ASC" })
-        });
-        if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
-        const wiqlRes = await wiqlResp.json();
-        const ids = (wiqlRes.workItems || []).map(function(w){ return w.id; });
-        if (!ids.length) {
-          el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ No active tickets found in ADO. Check your ADO connection settings.</div>';
-          return;
-        }
-        tickets = ids.map(function(id){ return { wi: id, acct: '', c: '' }; });
-      } catch(fetchErr) {
+    el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Fetching active ticket list from ADO…</div>';
+    try {
+      let adoCfg = {}; try { adoCfg = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); } catch(e) {}
+      const adoPat = adoCfg.pat || pat || '';
+      const adoOrg = (adoCfg.org || 'https://sanacommerce.visualstudio.com').replace(/\/+$/, '');
+      const adoProj = adoCfg.project || 'Sana Projects';
+      const adoClosedStates = (adoCfg.closedStates && adoCfg.closedStates.length ? adoCfg.closedStates : ['Closed','Resolved','Done']).map(function(s){ return "'"+s+"'"; }).join(',');
+      const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
+      const cutoff = new Date(Date.now() - 730*86400000).toISOString().split('T')[0]; // 2 years back
+      const wiqlResp = await fetch(wiqlUrl, {
+        method: 'POST',
+        headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] ASC" })
+      });
+      if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
+      const wiqlRes = await wiqlResp.json();
+      const ids = (wiqlRes.workItems || []).map(function(w){ return w.id; });
+      if (!ids.length) {
+        el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ No active tickets found in ADO. Check your ADO connection settings.</div>';
+        return;
+      }
+      tickets = ids.map(function(id){ return { wi: id, acct: '', c: '' }; });
+    } catch(fetchErr) {
+      // WIQL failed — fall back to cached actPendUpload rows so the tab isn't left blank
+      const up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
+      if (up && up.rows && up.rows.length) {
+        tickets = up.rows;
+        el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ Could not fetch fresh ticket list (' + esc(fetchErr.message) + ') — using cached data.</div>';
+      } else {
         el.innerHTML = '<div style="padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">⚠ Could not fetch active tickets from ADO: ' + esc(fetchErr.message) + '</div>';
         return;
       }
