@@ -7755,8 +7755,21 @@ if(window.opener&&!window.opener.closed){
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const inScope = inScopeFilter(region, analyst);
 
-    // Use Power BI upload as authoritative source when available; fall back to ADO sync
+    // If actPendUpload came from a file upload (not a live ADO Sync), auto-trigger a fresh
+    // ADO state check so Done/Wishlist tickets are removed without any manual action.
+    // Guard flags prevent re-entry and re-triggering after the clean completes.
     const upload = JSON.parse(localStorage.getItem('actPendUpload')||'null');
+    if (upload && upload.filename !== 'ADO Live Sync' && window._autoCleanActPend && !window._actAutoCleanDone && !window._actAutoCleanInProgress) {
+      window._actAutoCleanInProgress = true;
+      const _bannerEl = $('actSummary');
+      if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Verifying ticket states from ADO — Done/Wishlist tickets will be removed automatically…</div>';
+      window._autoCleanActPend().finally(() => {
+        window._actAutoCleanInProgress = false;
+        window._actAutoCleanDone = true;
+        try { render(); } catch(e) {}
+      });
+      return;
+    }
     const EXCL_ACTIVE = new Set(['done','wishlist','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix','duplicate']);
     const excludedWIs = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
     // actMentions was already filtered against ADO states — use its WIs as an allowlist if available
@@ -11058,7 +11071,7 @@ if(window.opener&&!window.opener.closed){
         render();
       } catch(e) {}
     };
-    window._autoCleanActPend();
+    window._autoCleanActPend().finally(() => { window._actAutoCleanDone = true; });
     const _dedicatedSrc = localStorage.getItem('dedicatedSource');
     if (_dedicatedSrc === 'file') renderDedicatedSourceBadge('file');
     const _savedTeamTags = localStorage.getItem('customTeamTags');
