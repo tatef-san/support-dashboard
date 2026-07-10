@@ -4600,6 +4600,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && isCustomerSupport) {
             _prvStats.included++;
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
+            t.sc = scMap[t.wi] || ''; // always store raw SC field separately
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
             if (typeMap[t.wi]) t._wiType = typeMap[t.wi];
@@ -4678,7 +4679,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           wi: t.wi,
           acct: t.acct || '',
           title: t.title || '',
-          analyst: (() => { const _rL = new Set((DATA.roster||[]).map(r=>r[0].toLowerCase())); const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const raw = t.analyst || t.c || ''; if (raw && !_NON_A.has(raw.toLowerCase().trim())) return _normName(raw); if (scan.pendingAnalyst && _rL.has(_normName(scan.pendingAnalyst).toLowerCase())) return _normName(scan.pendingAnalyst); return ''; })(),
+          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const sc = (t.sc || '').trim(); if (sc && !_NON_A.has(sc.toLowerCase())) return _normName(sc); return ''; })(),
           age: typeof t.age === 'number' ? t.age : 0,
           state: t._adoState || 'Active',
           lastTeam: scan.lastTeam || t.lastTeam || null,
