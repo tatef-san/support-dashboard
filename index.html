@@ -7868,7 +7868,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => upload.filename === 'ADO Live Sync' || !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
         .filter(r => !r.age || r.age <= Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000))
-        .filter(r => { const a = (r.analyst || '').trim().toLowerCase(); const _PH = new Set(['customer','@customer','partner','@partner','team','@team','-']); return a && !_PH.has(a); })
+        .filter(r => { if (analyst === 'All' && region === 'All') return true; const a = (r.analyst || '').trim().toLowerCase(); const _PH = new Set(['customer','@customer','partner','@partner','team','@team','-']); return a && !_PH.has(a); })
         .map(r => {
           const ado = adoMap[+r.wi] || {};
           return {
