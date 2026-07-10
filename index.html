@@ -4561,6 +4561,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const openTickets = [];
     const _rosterSCSet = new Set((DATA.roster || []).map(r => r[0].toLowerCase().trim()));
     const allIds = tickets.map(t => t.wi).filter(Boolean);
+    // PRV diagnostic — accumulate across all chunks
+    const _prvStats = { included: 0, excluded: 0, emptyPrv: 0, values: {} };
     for (let i = 0; i < allIds.length; i += 200) {
       const chunk = allIds.slice(i, i + 200);
       try {
@@ -4589,8 +4591,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           // Match Power BI "Customer Support": ProjectReleaseVersion starts with 'support',
           // excluding 'support - wishlist' and 'support - partner support'
           const prv = prvMap[t.wi] || '';
+          if (!prv) _prvStats.emptyPrv++;
+          _prvStats.values[prv || '(empty)'] = (_prvStats.values[prv || '(empty)'] || 0) + 1;
           const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && hasSC && isCustomerSupport) {
+            _prvStats.included++;
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
@@ -4687,10 +4692,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const typeCounts = {};
     openTickets.forEach(t => { const ty = t._wiType || 'Unknown'; typeCounts[ty] = (typeCounts[ty]||0)+1; });
     const typeBreakdown = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+': '+v).join(' · ');
+    const prvTopValues = Object.entries(_prvStats.values).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>'"'+k+'":'+v).join(' · ');
     if (errCount && scanned === 0) {
       el.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;color:#dc2626;">⚠ All ' + errCount + ' requests failed — ' + (firstErr || 'check your PAT in ⚙ Connect') + '. Open ⚙ Connect, re-enter your PAT and click Save, then try again.</div>';
     } else {
-      el.innerHTML = '<div style="padding:8px 12px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:6px;font-size:12px;color:#065f46;">✅ Done — ' + scanned + ' tickets scanned' + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + ' · <b>B:</b> ' + nTeam + ' pending team · <b>A:</b> ' + nCust + ' pending customer · <b>C:</b> ' + nAnal + ' pending analyst' + (typeBreakdown ? '<br><span style="color:#065f46;opacity:0.8;">Types: ' + typeBreakdown + '</span>' : '') + '</div>';
+      el.innerHTML = '<div style="padding:8px 12px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:6px;font-size:12px;color:#065f46;">✅ Done — ' + scanned + ' tickets scanned · included: ' + _prvStats.included + ' · empty PRV: ' + _prvStats.emptyPrv + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + ' · <b>B:</b> ' + nTeam + ' pending team · <b>A:</b> ' + nCust + ' pending customer · <b>C:</b> ' + nAnal + ' pending analyst' + (prvTopValues ? '<br><span style="color:#065f46;opacity:0.8;word-break:break-all;">PRV values: ' + prvTopValues + '</span>' : '') + (typeBreakdown ? '<br><span style="color:#065f46;opacity:0.8;">Types: ' + typeBreakdown + '</span>' : '') + '</div>';
     }
     renderActMentionSummary(); renderActTeamPending(); renderActPendingCustomer(); renderActPendingAnalyst(); renderActNoMention();
     try { render(); } catch(e) {}
