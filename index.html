@@ -4521,12 +4521,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const adoOrg = (adoCfg.org || 'https://sanacommerce.visualstudio.com').replace(/\/+$/, '');
       const adoProj = adoCfg.project || 'Sana Projects';
       const adoClosedStates = (adoCfg.closedStates && adoCfg.closedStates.length ? adoCfg.closedStates : ['Closed','Resolved','Done','Wishlist','Wish List']).map(function(s){ return "'"+s+"'"; }).join(',');
+      const adoTypes = (adoCfg.types && adoCfg.types.length ? adoCfg.types : ['Issue','Request','Question']).map(function(s){ return "'" + s.replace(/'/g,"''") + "'"; }).join(',');
       const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
       const cutoff = '2026-01-01'; // align with Power BI — only tickets created in 2026+
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] ASC" })
+        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.WorkItemType] IN (" + adoTypes + ") AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] ASC" })
       });
       if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
       const wiqlRes = await wiqlResp.json();
