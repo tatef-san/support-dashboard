@@ -903,12 +903,16 @@
       <!-- Overall scores — top of page -->
       <div id="csatScores"></div>
 
-      <!-- Monthly trend chart + Rating Distribution side by side -->
+      <!-- Monthly trend chart + Rating Distribution + Worst Accounts side by side -->
       <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;margin-top:14px;">
         <div style="flex:1;min-width:440px;" id="csatRespBar"></div>
         <div style="min-width:240px;max-width:300px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
           <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution</div>
           <div id="csatRatingDist"></div>
+        </div>
+        <div style="min-width:260px;max-width:340px;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;background:var(--panel);">
+          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:8px;">Top 7 Accounts — Bad Responses</div>
+          <div id="csatWorstAccounts"></div>
         </div>
       </div>
 
@@ -7122,6 +7126,60 @@ if(window.opener&&!window.opener.closed){
           });
           _h += '</tbody></table>';
           _rdEl.innerHTML = _h;
+        }
+      }
+    }
+
+    // ---- Top 7 accounts with worst CSAT ----
+    {
+      const _waEl = $('csatWorstAccounts');
+      if (_waEl) {
+        const _acctStats = {};
+        rows.forEach(r => {
+          if (!r.acct) return;
+          const num = RATING_NUM[String(r.rating||'').trim().toLowerCase()];
+          if (!num) return;
+          if (!_acctStats[r.acct]) _acctStats[r.acct] = { bad:0, total:0, sum:0, vd:0, d:0, wis:[] };
+          const s = _acctStats[r.acct];
+          s.total++; s.sum += num;
+          if (num <= 2) { s.bad++; if (num === 1) s.vd++; else s.d++; if (r.wi) s.wis.push(r.wi); }
+        });
+        const worst = Object.entries(_acctStats)
+          .filter(([, s]) => s.bad > 0)
+          .sort((a, b) => b[1].bad - a[1].bad || (a[1].sum/a[1].total) - (b[1].sum/b[1].total))
+          .slice(0, 7);
+        if (!worst.length) {
+          _waEl.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No negative responses in this period.</div>';
+        } else {
+          const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+          let _h = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+          _h += '<thead><tr style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
+          _h += '<th style="text-align:left;padding:3px 0;">Account</th>';
+          _h += '<th style="text-align:right;padding:3px 6px;" title="Bad responses (Dissatisfied + Very Dissatisfied)">Bad</th>';
+          _h += '<th style="text-align:right;padding:3px 6px;" title="Average CSAT score (1–5)">Avg</th>';
+          _h += '<th style="text-align:left;padding:3px 6px;">Breakdown</th>';
+          _h += '</tr></thead><tbody>';
+          worst.forEach(([acct, s]) => {
+            const avg = (s.sum / s.total).toFixed(1);
+            const bd = [s.vd ? s.vd+'× VD' : '', s.d ? s.d+'× D' : ''].filter(Boolean).join(', ');
+            const safeAcct = acct.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+            const filterLink = "var _s=document.getElementById('csatCustomerFilter');if(_s){_s.value='"+safeAcct+"';_s.dispatchEvent(new Event('change'));}var _t=document.getElementById('csatRawTable');if(_t)_t.closest('details,section,[data-tab]') && _t.scrollIntoView({behavior:'smooth'});";
+            // Ticket links: direct ADO links if WIs available, else filter CSAT table
+            const ticketLinks = s.wis.length
+              ? s.wis.slice(0,3).map(wi => '<a href="'+ADO_BASE+wi+'" target="_blank" style="color:var(--primary);font-size:11px;margin-right:4px;">#'+wi+'</a>').join('')
+              : '<a href="#" onclick="'+filterLink.replace(/"/g,'&quot;')+'return false;" style="color:var(--primary);font-size:11px;">view →</a>';
+            _h += '<tr style="border-top:1px solid var(--border);">';
+            _h += '<td style="padding:5px 0;max-width:130px;">';
+            _h += '<div style="font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+acct+'">'+acct+'</div>';
+            _h += '<div style="margin-top:2px;">'+ticketLinks+'</div>';
+            _h += '</td>';
+            _h += '<td style="text-align:right;padding:5px 6px;color:#dc2626;font-weight:800;font-size:14px;">'+s.bad+'</td>';
+            _h += '<td style="text-align:right;padding:5px 6px;color:var(--muted);">'+avg+'★</td>';
+            _h += '<td style="padding:5px 6px;color:#b91c1c;font-size:11px;white-space:nowrap;">'+bd+'</td>';
+            _h += '</tr>';
+          });
+          _h += '</tbody></table>';
+          _waEl.innerHTML = _h;
         }
       }
     }
