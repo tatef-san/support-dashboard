@@ -6746,8 +6746,13 @@ if(window.opener&&!window.opener.closed){
     // Build normalised → canonical name map: strips spaces + punctuation so
     // "HygienaLLC" → "hygienallc" matches "Hygiena, LLC" → "hygienallc"
     const _acctNormKey = s => s.replace(/[\s,.\-_&'"/\\()]/g,'').toLowerCase();
+    // Quality score: prefer names with more spaces/punctuation (more formatted), then longer
+    const _acctQuality = s => (s.match(/[\s,.]/g)||[]).length * 100 + s.length;
     const _acctNormMap = {};
-    Object.values(_wiToAcct).forEach(acct => { if (acct) { const k = _acctNormKey(acct); if (!_acctNormMap[k]) _acctNormMap[k] = acct; } });
+    const _acctSeed = name => { if (!name) return; const k = _acctNormKey(name); if (!_acctNormMap[k] || _acctQuality(name) > _acctQuality(_acctNormMap[k])) _acctNormMap[k] = name; };
+    // Seed from ticket data first (most authoritative), then from CSAT data itself
+    Object.values(_wiToAcct).forEach(_acctSeed);
+    (DATA.csat || []).forEach(r => { if (r.acct) _acctSeed(r.acct); });
     const _canonAcct = name => { if (!name) return name; const k = _acctNormKey(name); return _acctNormMap[k] || name; };
     // Filter CSAT to in-scope, in-period, scored; enrich missing account names from ticket lookup
     const rows = DATA.csat
