@@ -4563,6 +4563,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const allIds = tickets.map(t => t.wi).filter(Boolean);
     // PRV diagnostic — accumulate across all chunks
     const _prvStats = { included: 0, excluded: 0, emptyPrv: 0, values: {} };
+    const _scStats = { empty: 0, values: {} }; // SC diagnostic
     for (let i = 0; i < allIds.length; i += 200) {
       const chunk = allIds.slice(i, i + 200);
       try {
@@ -4584,6 +4585,9 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           dateMap[item.id]   = f['System.CreatedDate'] || null;
           typeMap[item.id]   = f['System.WorkItemType'] || '';
           prvMap[item.id]    = (f['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
+          // SC diagnostic
+          const _scVal = scRaw.trim() || '(empty)';
+          if (!scRaw.trim()) _scStats.empty++; else _scStats.values[_scVal] = (_scStats.values[_scVal] || 0) + 1;
         });
         tickets.filter(t => chunk.includes(t.wi)).forEach(t => {
           // Exclude tickets with no SC — matches Power BI (SC cleared when moved to wishlist)
@@ -4692,10 +4696,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     openTickets.forEach(t => { const ty = t._wiType || 'Unknown'; typeCounts[ty] = (typeCounts[ty]||0)+1; });
     const typeBreakdown = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+': '+v).join(' · ');
     const prvTopValues = Object.entries(_prvStats.values).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>'"'+k+'":'+v).join(' · ');
+    const scTopValues = Object.entries(_scStats.values).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>'"'+k+'":'+v).join(' · ');
     if (errCount && scanned === 0) {
       el.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;color:#dc2626;">⚠ All ' + errCount + ' requests failed — ' + (firstErr || 'check your PAT in ⚙ Connect') + '. Open ⚙ Connect, re-enter your PAT and click Save, then try again.</div>';
     } else {
-      el.innerHTML = '<div style="padding:8px 12px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:6px;font-size:12px;color:#065f46;">✅ Done — ' + scanned + ' tickets scanned · included: ' + _prvStats.included + ' · empty PRV: ' + _prvStats.emptyPrv + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + ' · <b>B:</b> ' + nTeam + ' pending team · <b>A:</b> ' + nCust + ' pending customer · <b>C:</b> ' + nAnal + ' pending analyst' + (prvTopValues ? '<br><span style="color:#065f46;opacity:0.8;word-break:break-all;">PRV values: ' + prvTopValues + '</span>' : '') + (typeBreakdown ? '<br><span style="color:#065f46;opacity:0.8;">Types: ' + typeBreakdown + '</span>' : '') + '</div>';
+      el.innerHTML = '<div style="padding:8px 12px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:6px;font-size:12px;color:#065f46;">✅ Done — ' + scanned + ' tickets scanned · included: ' + _prvStats.included + ' · empty PRV: ' + _prvStats.emptyPrv + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + ' · <b>B:</b> ' + nTeam + ' pending team · <b>A:</b> ' + nCust + ' pending customer · <b>C:</b> ' + nAnal + ' pending analyst' + (prvTopValues ? '<br><span style="color:#065f46;opacity:0.8;word-break:break-all;">PRV values: ' + prvTopValues + '</span>' : '') + (typeBreakdown ? '<br><span style="color:#065f46;opacity:0.8;">Types: ' + typeBreakdown + '</span>' : '') + '<br><span style="color:#065f46;opacity:0.8;">SC empty: ' + _scStats.empty + (scTopValues ? ' · SC values: ' + scTopValues : '') + '</span>' + '</div>';
     }
     renderActMentionSummary(); renderActTeamPending(); renderActPendingCustomer(); renderActPendingAnalyst(); renderActNoMention();
     try { render(); } catch(e) {}
