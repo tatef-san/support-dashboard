@@ -2178,7 +2178,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       } catch(e) {}
     }
     const _vfCsat = (window._vfCsatAutoData && window._vfCsatAutoData.length ? window._vfCsatAutoData : null) || loadVoiceflowCsat();
-    if (_vfCsat && _vfCsat.length) { DATA.csat = _vfCsat.map(r => ({...r, c: _normName((r.c||'').replace(/\s+/g,' ').trim())})); used.csat = 'voiceflow'; }
+    if (_vfCsat && _vfCsat.length) { DATA.csat = _vfCsat.map(r => { const _rc = (r.c||'').replace(/\s+/g,' ').trim(); return {...r, c: _normName(_rc.includes('@') ? '' : _rc)}; }); used.csat = 'voiceflow'; }
     // Cache _adoClosedAutoData to localStorage for use in Section F (Top 5 accounts).
     if (window._adoClosedAutoData && window._adoClosedAutoData.length) {
       try { localStorage.setItem('adoClosedAutoData', JSON.stringify(window._adoClosedAutoData)); } catch(e) {}
