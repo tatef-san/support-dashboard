@@ -4587,14 +4587,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         });
         tickets.filter(t => chunk.includes(t.wi)).forEach(t => {
           // Exclude tickets with no SC — matches Power BI (SC cleared when moved to wishlist)
-          const hasSC = !!scMap[t.wi] && _rosterSCSet.has(scMap[t.wi].toLowerCase().trim());
           // Match Power BI "Customer Support": ProjectReleaseVersion starts with 'support',
           // excluding 'support - wishlist' and 'support - partner support'
           const prv = prvMap[t.wi] || '';
           if (!prv) _prvStats.emptyPrv++;
           _prvStats.values[prv || '(empty)'] = (_prvStats.values[prv || '(empty)'] || 0) + 1;
           const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
-          if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && hasSC && isCustomerSupport) {
+          if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && isCustomerSupport) {
             _prvStats.included++;
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
