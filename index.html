@@ -900,18 +900,25 @@
 
       <div id="csatTargetBadge"></div>
 
-
-      <!-- Q1 / Q2 Summary Bar (no labels) -->
-      <div id="csatQ1Q2Summary" style="margin-bottom:14px;"></div>
+      <!-- Overall scores — top of page -->
+      <div id="csatScores"></div>
 
       <!-- Monthly trend chart + Rating Distribution side by side -->
-      <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;margin-top:14px;">
         <div style="flex:1;min-width:440px;" id="csatRespBar"></div>
         <div style="min-width:240px;max-width:300px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
           <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution</div>
           <div id="csatRatingDist"></div>
         </div>
       </div>
+
+      <!-- Q1 / Q2 Summary Bar — collapsible -->
+      <details class="csat-panel" style="margin-bottom:14px;">
+        <summary class="dd-section-title">Q1 / Q2 — Satisfaction &amp; Ease of Resolution</summary>
+        <div style="padding-top:10px;">
+          <div id="csatQ1Q2Summary"></div>
+        </div>
+      </details>
 
       <!-- Raw Responses Filter + Table -->
       <details class="csat-panel" open style="margin-bottom:14px;">
@@ -943,8 +950,6 @@
           <div id="csatRawTable" style="overflow-x:auto;font-size:12px;"></div>
         </div>
       </details>
-
-      <div id="csatScores"></div>
 
       <details class="csat-panel" open style="margin-top:10px;">
         <summary class="dd-section-title">Analyst Performance vs Target</summary>
