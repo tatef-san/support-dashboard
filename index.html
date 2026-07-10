@@ -4573,8 +4573,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const f = item.fields || {};
           stateMap[item.id] = (f['System.State'] || '').toLowerCase().trim();
           stateRawMap[item.id] = f['System.State'] || '';
-          const scRaw = (typeof f['Custom.ServiceConsultant'] === 'object' ? f['Custom.ServiceConsultant'].displayName : f['Custom.ServiceConsultant']) || '';
-          scMap[item.id] = scRaw.trim();
+          const _scF = f['Custom.ServiceConsultant'];
+          const _scDisp = typeof _scF === 'object' ? (_scF.displayName || '') : (_scF || '');
+          const _scUniq = typeof _scF === 'object' ? (_scF.uniqueName || '') : '';
+          // Convert email like "archana.chakravarty@sana-commerce.com" → "Archana Chakravarty"
+          const _emailToName = e => { if (!e || !e.includes('@')) return e||''; const p = e.split('@')[0].split('.').map(s=>s.charAt(0).toUpperCase()+s.slice(1)); return _normName(p.join(' '))||p.join(' '); };
+          const scRaw = (_scDisp || _emailToName(_scUniq)).trim();
+          scMap[item.id] = scRaw;
           const raw = (typeof f['System.AssignedTo'] === 'object' ? f['System.AssignedTo'].displayName : f['System.AssignedTo']) || '';
           const NON_A = ['customer','@customer','partner','@partner','team','@team'];
           analystMap[item.id] = NON_A.includes(raw.toLowerCase().trim())
