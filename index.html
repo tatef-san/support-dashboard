@@ -1625,6 +1625,9 @@
         <div id="mayaAgentVersion" style="margin-left:auto;font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:12px;font-weight:600;"></div>
       </div>
 
+      <!-- Score boxes (Overall CSAT + Avg Rating) -->
+      <div id="mayaScores" style="margin-bottom:14px;"></div>
+
       <!-- Q1 Summary (same style as CSAT) -->
       <div id="mayaKpiRow" style="margin-bottom:14px;"></div>
 
@@ -9810,6 +9813,28 @@ if(window.opener&&!window.opener.closed){
       acctMap[domain].rows.push(r);
     });
     var acctList = Object.values(acctMap).sort(function(a,b){ return b.total-a.total; });
+
+    // ── Score boxes: Overall CSAT + Avg Rating (matches main CSAT stat cards) ──
+    var mayaScoresEl = document.getElementById('mayaScores');
+    if (mayaScoresEl) {
+      var _MAYA_TARGET = 0.80;
+      var csatCol = csatPct == null ? 'var(--primary)' : csatPct >= _MAYA_TARGET ? '#047857' : csatPct >= _MAYA_TARGET * 0.85 ? '#b45309' : '#b91c1c';
+      var avgCol2 = avgR == null ? 'var(--primary)' : avgR >= 4 ? '#047857' : avgR >= 3 ? '#b45309' : '#b91c1c';
+      mayaScoresEl.innerHTML =
+        '<div class="stat-row" style="grid-template-columns:1fr 1fr;">' +
+          '<div class="stat-card focus" style="border-color:var(--primary);">' +
+            '<div class="l">Maya AI &mdash; CSAT</div>' +
+            '<div class="v" style="color:'+csatCol+';">' + fmtP(csatPct) + '</div>' +
+            '<div class="sub">' + total + ' responses (target &ge; ' + (_MAYA_TARGET*100).toFixed(0) + '%)</div>' +
+          '</div>' +
+          '<div class="stat-card" style="border-color:#0891b2;">' +
+            '<div class="l">Average Rating</div>' +
+            '<div class="v" style="color:'+avgCol2+';">' + fmtA(avgR) + '</div>' +
+            '<div style="font-size:13px;font-weight:600;color:#0891b2;margin:-4px 0 4px 0;">' + total + ' conversations</div>' +
+            '<div class="sub">Rating scale 1&ndash;5</div>' +
+          '</div>' +
+        '</div>';
+    }
 
     // ── Q1 Summary Bar (same style as CSAT page) ─────────────────────────────
     var RCOLM={5:'#059669',4:'#16a34a',3:'#6b7280',2:'#dc2626',1:'#991b1b'};
