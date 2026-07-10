@@ -6743,10 +6743,12 @@ if(window.opener&&!window.opener.closed){
     const _wiToAcct = {};
     (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _wiToAcct[r.wi] = r.acct; });
     try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_wiToAcct[r.wi]) _wiToAcct[r.wi] = r.acct; }); } catch(e) {}
-    // Build space-stripped → canonical name map so "AcuneedsAustralia" resolves to "Acuneeds Australia"
+    // Build normalised → canonical name map: strips spaces + punctuation so
+    // "HygienaLLC" → "hygienallc" matches "Hygiena, LLC" → "hygienallc"
+    const _acctNormKey = s => s.replace(/[\s,.\-_&'"/\\()]/g,'').toLowerCase();
     const _acctNormMap = {};
-    Object.values(_wiToAcct).forEach(acct => { if (acct) { const k = acct.replace(/\s+/g,'').toLowerCase(); if (!_acctNormMap[k]) _acctNormMap[k] = acct; } });
-    const _canonAcct = name => { if (!name) return name; const k = name.replace(/\s+/g,'').toLowerCase(); return _acctNormMap[k] || name; };
+    Object.values(_wiToAcct).forEach(acct => { if (acct) { const k = _acctNormKey(acct); if (!_acctNormMap[k]) _acctNormMap[k] = acct; } });
+    const _canonAcct = name => { if (!name) return name; const k = _acctNormKey(name); return _acctNormMap[k] || name; };
     // Filter CSAT to in-scope, in-period, scored; enrich missing account names from ticket lookup
     const rows = DATA.csat
       .map(r => {
