@@ -4532,7 +4532,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' ORDER BY [System.CreatedDate] ASC" })
+        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' AND [System.WorkItemType] = 'Ticket' AND [Custom.ProjectReleaseVersion] Contains 'support' AND [Custom.ProjectReleaseVersion] Not In ('support - wishlist','support - partner support') AND NOT [System.AreaPath] Contains 'test' ORDER BY [System.CreatedDate] ASC" })
       });
       if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
       const wiqlRes = await wiqlResp.json();
