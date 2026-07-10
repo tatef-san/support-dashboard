@@ -9881,7 +9881,7 @@ if(window.opener&&!window.opener.closed){
       var _n=_mFiltered.length;
       var _step=_n>1?_iW/_n:_iW;
       var _bW=_step*0.55;
-      var _svg='<svg width="'+_W+'" height="'+_H+'" viewBox="0 0 '+_W+' '+_H+'" style="display:block;overflow:visible;">';
+      var _svg='<svg width="100%" height="'+_H+'" viewBox="0 0 '+_W+' '+_H+'" style="display:block;">';
       for (var _g=0;_g<=4;_g++){
         var _gy=_pT+_iH*_g/4,_gv=100*(1-_g/4);
         _svg+='<line x1="'+_pL+'" y1="'+_gy+'" x2="'+(_W-_pR)+'" y2="'+_gy+'" stroke="#e5e7eb" stroke-width="0.5"/>';
@@ -9923,8 +9923,8 @@ if(window.opener&&!window.opener.closed){
       [5,4,3,2,1].forEach(function(star){
         var cnt=ac[star]||0; var pct=at?cnt/at:0; var bar=Math.round(pct*100);
         h+='<tr style="border-top:1px solid var(--border);">';
-        h+='<td style="padding:5px 0;font-weight:600;color:'+rCol[star]+';">'+star+' ★ '+lbl[star]+'</td>';
-        h+='<td style="text-align:right;padding:5px 6px;color:var(--muted);">'+cnt+' ('+bar+'%)</td>';
+        h+='<td style="padding:5px 0;font-weight:600;color:'+rCol[star]+';white-space:nowrap;font-size:11.5px;">'+star+' ★ '+lbl[star]+'</td>';
+        h+='<td style="text-align:right;padding:5px 6px;color:var(--muted);white-space:nowrap;">'+cnt+' ('+bar+'%)</td>';
         h+='<td style="padding:5px 6px;"><div style="background:#e5e7eb;border-radius:4px;height:9px;overflow:hidden;"><div style="width:'+bar+'%;height:9px;background:'+rCol[star]+';border-radius:4px;"></div></div></td>';
         h+='</tr>';
       });
