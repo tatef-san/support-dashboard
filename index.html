@@ -4678,7 +4678,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           wi: t.wi,
           acct: t.acct || '',
           title: t.title || '',
-          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const raw = t.analyst || t.c || scan.analyst || ''; return _normName(_NON_A.has(raw.toLowerCase().trim()) ? '' : raw); })(),
+          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const raw = t.analyst || t.c || ''; const resolved = (!raw || _NON_A.has(raw.toLowerCase().trim())) ? (scan.pendingAnalyst || '') : raw; return _normName(resolved); })(),
           age: typeof t.age === 'number' ? t.age : 0,
           state: t._adoState || 'Active',
           lastTeam: scan.lastTeam || t.lastTeam || null,
@@ -7868,7 +7868,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => upload.filename === 'ADO Live Sync' || !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
         .filter(r => !r.age || r.age <= Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000))
-        .filter(r => { const a = (r.analyst || '').trim(); return a && a !== '-'; })
+        .filter(r => { const a = (r.analyst || '').trim().toLowerCase(); const _PH = new Set(['customer','@customer','partner','@partner','team','@team','-']); return a && !_PH.has(a); })
         .map(r => {
           const ado = adoMap[+r.wi] || {};
           return {
