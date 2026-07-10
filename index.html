@@ -1628,12 +1628,16 @@
       <!-- Q1 Summary (same style as CSAT) -->
       <div id="mayaKpiRow" style="margin-bottom:14px;"></div>
 
-      <!-- Monthly CSAT % trend chart + Rating Distribution side by side -->
+      <!-- Monthly CSAT % trend chart + Rating Distribution + Top 10 Accounts side by side -->
       <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:440px;" id="mayaRespBar"></div>
         <div style="min-width:240px;max-width:300px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
-          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution (All-Time)</div>
+          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Rating Distribution</div>
           <div id="mayaRatingDist"></div>
+        </div>
+        <div style="min-width:260px;max-width:340px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
+          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">Top 10 Accounts by Responses</div>
+          <div id="mayaWorstAccounts"></div>
         </div>
       </div>
 
@@ -9879,23 +9883,58 @@ if(window.opener&&!window.opener.closed){
         '</div>';
     }
 
-    // ── Rating Distribution ───────────────────────────────────────────────────
+    // ── Rating Distribution (period-filtered, matches main CSAT) ─────────────
     if (distEl) {
       var lbl={5:'Very Satisfied',4:'Satisfied',3:'Neutral',2:'Unsatisfied',1:'Very Unsatisfied'};
       var ac={1:0,2:0,3:0,4:0,5:0};
-      raw.forEach(function(r){ if(ac[r.rating]!==undefined) ac[r.rating]++; });
-      var at=raw.length;
-      var h='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-      h+='<tr style="color:var(--muted);font-size:11px;"><th style="text-align:left;padding:4px 0;">Rating</th><th style="text-align:right;padding:4px 8px;">Count</th><th style="width:55%;padding:4px 8px;">Bar</th></tr>';
+      filtered.forEach(function(r){ if(ac[r.rating]!==undefined) ac[r.rating]++; });
+      var at=filtered.length;
+      var h='<table style="width:100%;border-collapse:collapse;font-size:12.5px;">';
+      h+='<thead><tr style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;"><th style="text-align:left;padding:3px 0;">Rating</th><th style="text-align:right;padding:3px 6px;">Count</th><th style="width:50%;padding:3px 6px;">Bar</th></tr></thead><tbody>';
       [5,4,3,2,1].forEach(function(star){
         var cnt=ac[star]||0; var pct=at?cnt/at:0; var bar=Math.round(pct*100);
         h+='<tr style="border-top:1px solid var(--border);">';
-        h+='<td style="padding:7px 0;font-weight:500;color:'+rCol[star]+';">'+star+' &#9733; '+lbl[star]+'</td>';
-        h+='<td style="text-align:right;padding:7px 8px;color:var(--muted);">'+cnt+' ('+Math.round(pct*100)+'%)</td>';
-        h+='<td style="padding:7px 8px;"><div style="background:#e5e7eb;border-radius:4px;height:10px;overflow:hidden;"><div style="width:'+bar+'%;height:10px;background:'+rCol[star]+';border-radius:4px;"></div></div></td>';
+        h+='<td style="padding:5px 0;font-weight:600;color:'+rCol[star]+';">'+star+' ★ '+lbl[star]+'</td>';
+        h+='<td style="text-align:right;padding:5px 6px;color:var(--muted);">'+cnt+' ('+bar+'%)</td>';
+        h+='<td style="padding:5px 6px;"><div style="background:#e5e7eb;border-radius:4px;height:9px;overflow:hidden;"><div style="width:'+bar+'%;height:9px;background:'+rCol[star]+';border-radius:4px;"></div></div></td>';
         h+='</tr>';
       });
-      distEl.innerHTML=h+'</table>';
+      distEl.innerHTML=h+'</tbody></table>';
+    }
+
+    // ── Top 10 accounts by response count (matches main CSAT panel) ───────────
+    var mayaWaEl = document.getElementById('mayaWorstAccounts');
+    if (mayaWaEl) {
+      var top10m = acctList.slice(0, 10);
+      if (!top10m.length) {
+        mayaWaEl.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No data in this period.</div>';
+      } else {
+        var scoreColM = function(avg){ return avg >= 4 ? '#059669' : avg >= 3 ? '#6b7280' : '#dc2626'; };
+        var hm = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+        hm += '<thead><tr style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
+        hm += '<th style="text-align:left;padding:3px 0;">#&nbsp;&nbsp;Account</th>';
+        hm += '<th style="text-align:right;padding:3px 6px;">Resp</th>';
+        hm += '<th style="text-align:right;padding:3px 6px;">Avg</th>';
+        hm += '</tr></thead><tbody>';
+        top10m.forEach(function(a, i){
+          var avg = a.total ? a.sumR / a.total : 0;
+          var col = scoreColM(avg);
+          var safeLabel = a.label.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          var filterFn = "var _s=document.getElementById('mayaCustomerFilter');if(_s){_s.value='"+safeLabel+"';_s.dispatchEvent(new Event('change'));}var _t=document.getElementById('mayaConversations');if(_t)_t.scrollIntoView({behavior:'smooth'});return false;";
+          var nameLink = '<a href="#" onclick="'+filterFn.replace(/"/g,'&quot;')+'" style="color:var(--primary);text-decoration:none;font-weight:600;" title="'+esc(a.label)+'">'+esc(a.label)+'</a>';
+          hm += '<tr style="border-top:1px solid var(--border);">';
+          hm += '<td style="padding:5px 0;max-width:150px;">';
+          hm += '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:10px;color:var(--muted);min-width:14px;">'+(i+1)+'.</span>';
+          hm += '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+nameLink+'</div></div>';
+          hm += '<div style="padding-left:18px;margin-top:1px;font-size:10px;color:var(--muted);">'+esc(a.domain)+'</div>';
+          hm += '</td>';
+          hm += '<td style="text-align:right;padding:5px 6px;font-weight:700;color:var(--text);">'+a.total+'</td>';
+          hm += '<td style="text-align:right;padding:5px 6px;font-weight:700;color:'+col+';">'+avg.toFixed(1)+'★</td>';
+          hm += '</tr>';
+        });
+        hm += '</tbody></table>';
+        mayaWaEl.innerHTML = hm;
+      }
     }
 
     // ── Monthly Trend ─────────────────────────────────────────────────────────
