@@ -4675,6 +4675,9 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Scanning… (' + done + ' / ' + tickets.length + ')' + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + '</div>';
     }
     localStorage.setItem('actMentions', JSON.stringify({ at: Date.now(), v: 2, data: result }));
+    // Preserve analyst names from a prior Excel upload so the Sync doesn't wipe them
+    const _excelAnalysts = {};
+    try { const _ex = JSON.parse(localStorage.getItem('actPendUpload')||'null'); if (_ex && _ex.filename !== 'ADO Live Sync' && _ex.rows) _ex.rows.forEach(r => { if (r.wi && (r.analyst||r.c)) _excelAnalysts[r.wi] = r.analyst || r.c; }); } catch(e) {}
     // Always write live ADO-verified open tickets to actPendUpload — this is the authoritative
     // source for the Active Tickets tab and requires no file upload.
     try {
@@ -4684,7 +4687,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           wi: t.wi,
           acct: t.acct || '',
           title: t.title || '',
-          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const sc = (t.sc || '').trim(); if (sc && !_NON_A.has(sc.toLowerCase())) return _normName(sc); return ''; })(),
+          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const sc = (t.sc || '').trim(); if (sc && !_NON_A.has(sc.toLowerCase())) return _normName(sc); return _normName(_excelAnalysts[t.wi] || ''); })(),
           age: typeof t.age === 'number' ? t.age : 0,
           state: t._adoState || 'Active',
           lastTeam: scan.lastTeam || t.lastTeam || null,
@@ -6740,9 +6743,17 @@ if(window.opener&&!window.opener.closed){
     const _wiToAcct = {};
     (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _wiToAcct[r.wi] = r.acct; });
     try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_wiToAcct[r.wi]) _wiToAcct[r.wi] = r.acct; }); } catch(e) {}
+    // Build space-stripped → canonical name map so "AcuneedsAustralia" resolves to "Acuneeds Australia"
+    const _acctNormMap = {};
+    Object.values(_wiToAcct).forEach(acct => { if (acct) { const k = acct.replace(/\s+/g,'').toLowerCase(); if (!_acctNormMap[k]) _acctNormMap[k] = acct; } });
+    const _canonAcct = name => { if (!name) return name; const k = name.replace(/\s+/g,'').toLowerCase(); return _acctNormMap[k] || name; };
     // Filter CSAT to in-scope, in-period, scored; enrich missing account names from ticket lookup
     const rows = DATA.csat
-      .map(r => (!r.acct && r.wi && _wiToAcct[r.wi]) ? Object.assign({}, r, { acct: _wiToAcct[r.wi] }) : r)
+      .map(r => {
+        let e = (!r.acct && r.wi && _wiToAcct[r.wi]) ? Object.assign({}, r, { acct: _wiToAcct[r.wi] }) : r;
+        const canon = _canonAcct(e.acct);
+        return canon !== e.acct ? Object.assign({}, e, { acct: canon }) : e;
+      })
       .filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
 
     // ── Q1 / Q2 Summary Bar (stats + pills, no label box) ────────────────────
