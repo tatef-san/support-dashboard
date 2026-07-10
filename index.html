@@ -4674,7 +4674,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           wi: t.wi,
           acct: t.acct || '',
           title: t.title || '',
-          analyst: _normName(t.analyst || t.c || scan.analyst || ''),
+          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const raw = t.analyst || t.c || scan.analyst || ''; return _normName(_NON_A.has(raw.toLowerCase().trim()) ? '' : raw); })(),
           age: typeof t.age === 'number' ? t.age : 0,
           state: t._adoState || 'Active',
           lastTeam: scan.lastTeam || t.lastTeam || null,
@@ -7860,7 +7860,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => (r.mainCat || '').toLowerCase().trim() !== 'internal')
         .filter(r => (r.title   || '').toLowerCase().trim() !== 'internal')
         .filter(r => !excludedWIs.has(r.wi))
-        .filter(r => !_actMentWIs || _actMentWIs.has(r.wi))
+        .filter(r => upload.filename === 'ADO Live Sync' || !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
         .filter(r => !r.age || r.age <= Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000))
         .filter(r => { const a = (r.analyst || '').trim(); return a && a !== '-'; })
@@ -7890,7 +7890,7 @@ if(window.opener&&!window.opener.closed){
     renderActCatInsight(rows);
 
     // ---- A. Open tickets — single scope + offenders/performers ----
-    const _actTotal = DATA.active.length;
+    const _actTotal = (upload && upload.rows && upload.rows.length) ? upload.rows.length : DATA.active.length;
     const _actPct   = _actTotal > 0 ? (rows.length / _actTotal * 100).toFixed(1) : null;
     $('actSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
       '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — open tickets</div>' +
