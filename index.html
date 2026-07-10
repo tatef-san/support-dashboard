@@ -1861,7 +1861,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const ciExact = k => { const i = hdrL.findIndex(h => h === k); return i >= 0 ? i : null; };
       const ci      = k => { const i = hdrL.findIndex(h => h.includes(k)); return i >= 0 ? i : null; };
       const dateC    = ciExact('rating date') ?? ci('date')                ?? 0;
-      const acctC    = ci('account') ?? ci('customer') ?? ci('client')     ?? 1;
+      const acctC    = ciExact('account name') ?? ciExact('customer name') ?? ciExact('company name') ?? ci('account') ?? ci('customer') ?? ci('client') ?? ci('company') ?? 1;
       const wiC      = ci('work item') ?? ci('ticket') ?? ci('id')         ?? 2;
       const analystC = ci('service consultant') ?? ci('analyst') ?? ci('assigned') ?? ci('owner') ?? 3;
       // Use exact 'csat rating' first, then fallback — avoids 'rating date' stealing the match
@@ -1872,8 +1872,9 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const subCatC  = ciExact('sub category') ?? ci('sub cat') ?? ci('subcategory') ?? 8;
       const cetC     = ciExact('cet rating') ?? ci('cet') ?? ci('customer effort') ?? 9;
       const notCsatFooter = r => {
+        if (/^applied filters/i.test(_str(r[0])) || /^applied filters/i.test(_str(r[dateC]))) return false;
         const acct = _str(r[acctC]);
-        return acct && !/^total$/i.test(acct) && !/^applied filters/i.test(_str(r[dateC]));
+        return !acct || !/^(total|sub.?total)$/i.test(acct);
       };
       return rawRows.slice(1).filter(notCsatFooter).map(r => ({
         d:       _date(r[dateC]),
@@ -6715,8 +6716,14 @@ if(window.opener&&!window.opener.closed){
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const inScope = inScopeFilter(region, analyst);
 
-    // Filter CSAT to in-scope, in-period, scored
-    const rows = DATA.csat.filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
+    // Build wi→acct lookup from closed + active tickets to fill blank CSAT account names
+    const _wiToAcct = {};
+    (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _wiToAcct[r.wi] = r.acct; });
+    try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_wiToAcct[r.wi]) _wiToAcct[r.wi] = r.acct; }); } catch(e) {}
+    // Filter CSAT to in-scope, in-period, scored; enrich missing account names from ticket lookup
+    const rows = DATA.csat
+      .map(r => (!r.acct && r.wi && _wiToAcct[r.wi]) ? Object.assign({}, r, { acct: _wiToAcct[r.wi] }) : r)
+      .filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
 
     // ── Q1 / Q2 Summary Bar (stats + pills, no label box) ────────────────────
     (function() {
