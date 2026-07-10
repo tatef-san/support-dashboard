@@ -4522,7 +4522,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const adoProj = adoCfg.project || 'Sana Projects';
       const adoClosedStates = (adoCfg.closedStates && adoCfg.closedStates.length ? adoCfg.closedStates : ['Closed','Resolved','Done','Wishlist','Wish List']).map(function(s){ return "'"+s+"'"; }).join(',');
       const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
-      const cutoff = new Date(Date.now() - 365*86400000).toISOString().split('T')[0]; // 1 year back
+      const cutoff = '2026-01-01'; // align with Power BI — only tickets created in 2026+
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': 'Basic ' + btoa(':' + adoPat), 'Content-Type': 'application/json' },
@@ -7835,7 +7835,7 @@ if(window.opener&&!window.opener.closed){
         .filter(r => !excludedWIs.has(r.wi))
         .filter(r => !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
-        .filter(r => !r.age || r.age <= 365)
+        .filter(r => !r.age || r.age <= Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000))
         .filter(r => { const a = (r.analyst || '').trim(); return a && a !== '-'; })
         .map(r => {
           const ado = adoMap[+r.wi] || {};
@@ -7865,16 +7865,10 @@ if(window.opener&&!window.opener.closed){
     // ---- A. Open tickets — single scope + offenders/performers ----
     const _actTotal = DATA.active.length;
     const _actPct   = _actTotal > 0 ? (rows.length / _actTotal * 100).toFixed(1) : null;
-    const _daysSinceJan2026 = Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000);
-    const _pre2026 = rows.filter(r => typeof r.age === 'number' && r.age > _daysSinceJan2026);
-    const _pre2026Note = _pre2026.length > 0
-      ? ' <span style="display:inline-block;margin-left:10px;padding:2px 8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;font-weight:500;color:#92400e;">⚠ ' + _pre2026.length + ' from 2025 (not in Power BI)</span>'
-      : '';
     $('actSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
       '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — open tickets</div>' +
       '<div class="v">' + intg(rows.length) +
         (_actPct !== null ? ' <span style="font-size:16px;font-weight:500;color:var(--muted);">(' + _actPct + '%)</span>' : '') +
-        _pre2026Note +
       '</div>' +
       '<div class="sub">snapshot of currently open tickets in scope' +
         (_actTotal > 0 ? ' · out of <b>' + _actTotal + '</b> total' : '') +
