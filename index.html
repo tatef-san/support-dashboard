@@ -4564,8 +4564,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     for (let i = 0; i < allIds.length; i += 200) {
       const chunk = allIds.slice(i, i + 200);
       try {
-        const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate,System.WorkItemType&api-version=7.0');
-        const stateMap = {}, stateRawMap = {}, analystMap = {}, scMap = {}, acctMap = {}, titleMap = {}, dateMap = {}, typeMap = {};
+        const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate,System.WorkItemType,Custom.ProjectReleaseVersion&api-version=7.0');
+        const stateMap = {}, stateRawMap = {}, analystMap = {}, scMap = {}, acctMap = {}, titleMap = {}, dateMap = {}, typeMap = {}, prvMap = {};
         (stateData.value || []).forEach(item => {
           const f = item.fields || {};
           stateMap[item.id] = (f['System.State'] || '').toLowerCase().trim();
@@ -4581,12 +4581,16 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           titleMap[item.id]  = f['System.Title'] || '';
           dateMap[item.id]   = f['System.CreatedDate'] || null;
           typeMap[item.id]   = f['System.WorkItemType'] || '';
+          prvMap[item.id]    = (f['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
         });
         tickets.filter(t => chunk.includes(t.wi)).forEach(t => {
-          // Exclude tickets with no Service Consultant — matches Power BI behaviour:
-          // when a ticket is moved to wishlist the SC field is cleared.
+          // Exclude tickets with no SC — matches Power BI (SC cleared when moved to wishlist)
           const hasSC = !!scMap[t.wi] && _rosterSCSet.has(scMap[t.wi].toLowerCase().trim());
-          if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && hasSC) {
+          // Match Power BI "Customer Support": ProjectReleaseVersion starts with 'support',
+          // excluding 'support - wishlist' and 'support - partner support'
+          const prv = prvMap[t.wi] || '';
+          const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
+          if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && hasSC && isCustomerSupport) {
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
