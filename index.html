@@ -6874,7 +6874,7 @@ if(window.opener&&!window.opener.closed){
         const total = visible.length;
         if (cntEl) cntEl.textContent = intg(total)+' rows';
         const show = visible.slice(0,500);
-        const COLS = ['Date','Account','Consultant','Rating','Score','Ease of Resolution','Main Category','Sub Category','Ticket','Comment'];
+        const COLS = ['Date','Ticket','Account','Consultant','Rating','Score','Ease of Resolution','Main Category','Sub Category','Comment'];
         let h = '<table style="width:100%;border-collapse:collapse;min-width:900px;"><thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
         COLS.forEach(c => { h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap;">'+c+'</th>'; });
         h += '</tr></thead><tbody>';
@@ -6883,10 +6883,11 @@ if(window.opener&&!window.opener.closed){
           const score = RATING_NUM[(r.rating||'').trim().toLowerCase()] || '';
           const rcol = SCORE_COL[rlabel] || 'var(--text)';
           const cetcol = CET_COL[r.cet] || 'var(--text)';
-          const wiLink = r.wi ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);font-weight:600;">#'+r.wi+'</a>' : '';
+          const wiLink = r.wi ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);font-weight:600;font-family:monospace;">#'+r.wi+'</a>' : '<span style="color:var(--muted);font-size:11px;">—</span>';
           const comment = r.comment ? '<span title="'+esc(r.comment)+'" style="cursor:help;color:var(--muted);">'+esc((r.comment||'').slice(0,60))+(r.comment.length>60?'…':'')+'</span>' : '';
           h += '<tr style="border-bottom:1px solid var(--border);background:'+(i%2===0?'var(--panel)':'var(--bg)')+';">' +
             '<td style="padding:7px 10px;white-space:nowrap;color:var(--muted);">'+esc(r.d||'')+'</td>' +
+            '<td style="padding:7px 10px;white-space:nowrap;">'+wiLink+'</td>' +
             '<td style="padding:7px 10px;font-weight:600;">'+esc(r.acct||'')+'</td>' +
             '<td style="padding:7px 10px;">'+esc(r.c||'')+'</td>' +
             '<td style="padding:7px 10px;font-weight:700;color:'+rcol+';">'+esc(rlabel)+'</td>' +
@@ -6894,7 +6895,6 @@ if(window.opener&&!window.opener.closed){
             '<td style="padding:7px 10px;color:'+cetcol+';font-weight:600;">'+esc(r.cet||'')+'</td>' +
             '<td style="padding:7px 10px;color:var(--muted);">'+esc(r.mainCat||'')+'</td>' +
             '<td style="padding:7px 10px;color:var(--muted);">'+esc(r.subCat||'')+'</td>' +
-            '<td style="padding:7px 10px;">'+wiLink+'</td>' +
             '<td style="padding:7px 10px;max-width:220px;">'+comment+'</td>' +
           '</tr>';
         });
