@@ -7049,7 +7049,7 @@ if(window.opener&&!window.opener.closed){
           const _n = monthly.length;
           const _step = _n > 1 ? _iW / _n : _iW;
           const _bW = _step * 0.55;
-          let _svg = '<svg width="' + _W + '" height="' + _H + '" viewBox="0 0 ' + _W + ' ' + _H + '" style="display:block;overflow:visible;">';
+          let _svg = '<svg width="100%" height="' + _H + '" viewBox="0 0 ' + _W + ' ' + _H + '" style="display:block;">';
           // Grid lines + Y labels (0-100%)
           for (let g = 0; g <= 4; g++) {
             const _y = _pT + _iH * g / 4, _v = 100 * (1 - g/4);
@@ -7068,7 +7068,13 @@ if(window.opener&&!window.opener.closed){
             const _y = _pT + _iH - _bH;
             const _col = m.pct == null ? '#e5e7eb' : m.pct >= _tgt ? '#16a34a' : m.pct >= _tgt * 0.85 ? '#f59e0b' : '#ef4444';
             _svg += '<rect x="' + _x.toFixed(1) + '" y="' + _y.toFixed(1) + '" width="' + _bW.toFixed(1) + '" height="' + _bH.toFixed(1) + '" fill="' + _col + '" rx="3" opacity="0.85"/>';
-            if (m.pct != null) _svg += '<text x="' + (_x + _bW/2).toFixed(1) + '" y="' + (_y - 4).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + _col + '">' + (m.pct*100).toFixed(0) + '%</text>';
+            if (m.pct != null) {
+              if (_bH > 22) {
+                _svg += '<text x="' + (_x + _bW/2).toFixed(1) + '" y="' + (_y + _bH/2 + 4).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">' + (m.pct*100).toFixed(0) + '%</text>';
+              } else {
+                _svg += '<text x="' + (_x + _bW/2).toFixed(1) + '" y="' + (_y - 4).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + _col + '">' + (m.pct*100).toFixed(0) + '%</text>';
+              }
+            }
             _svg += '<text x="' + (_x + _bW/2).toFixed(1) + '" y="' + (_pT + _iH + 14) + '" text-anchor="middle" font-size="10" fill="#374151">' + esc(m.month) + '</text>';
           });
           // Response rate line
