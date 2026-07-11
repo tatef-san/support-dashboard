@@ -9899,6 +9899,7 @@ if(window.opener&&!window.opener.closed){
         _svg+='<rect x="'+_x.toFixed(1)+'" y="'+_y.toFixed(1)+'" width="'+_bW.toFixed(1)+'" height="'+_bH.toFixed(1)+'" fill="'+_col+'" rx="3" opacity="0.85"/>';
         if (m.pct!=null) _svg+='<text x="'+(_x+_bW/2).toFixed(1)+'" y="'+(_y-4).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
         _svg+='<text x="'+(_x+_bW/2).toFixed(1)+'" y="'+(_pT+_iH+14)+'" text-anchor="middle" font-size="10" fill="#374151">'+esc(m.month)+'</text>';
+        _svg+='<text x="'+(_x+_bW/2).toFixed(1)+'" y="'+(_pT+_iH+26)+'" text-anchor="middle" font-size="9" fill="#6b7280">'+m.n+' resp</text>';
       });
       _svg+='</svg>';
       mayaRespBarEl.innerHTML =
