@@ -1284,6 +1284,15 @@
       <div id="cloAnalystTable" style="margin-top:14px;"></div>
     </div>
 
+    <!-- Monthly TTR Trend 2026 -->
+    <div class="dd-section">
+      <div class="dd-section-hd">
+        <div class="dd-icon amber">📈</div>
+        <div><div class="dd-section-label">Monthly TTR Trend — 2026</div><div class="dd-section-desc">Median days to resolve (bars) and % of tickets closed within 7 days (line), per month</div></div>
+      </div>
+      <div id="ttrMonthlyChart" style="overflow-x:auto;"></div>
+    </div>
+
     <!-- SLA & Resolution Time -->
     <div class="dd-section">
       <div class="dd-section-hd">
@@ -8788,6 +8797,110 @@ if(window.opener&&!window.opener.closed){
       '<div class="v" style="color:' + (avgTTR != null && avgTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (avgTTR != null ? avgTTR.toFixed(1) + 'd' : '-') + '</div>' +
       '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
       '</div>';
+
+    // ---- Monthly TTR trend chart (Jan–Dec 2026) ----
+    (function() {
+      const el = $('ttrMonthlyChart'); if (!el) return;
+      const _ups = loadUploads();
+      const _yr = 2026;
+      const _MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const _tgtDays = DATA.targets.fixAvg || 7;
+      const _tgtPct  = DATA.targets.closedSlaMet || 0.53;
+      const today = new Date().toISOString().slice(0,10);
+
+      const _months = _MNAMES.map((mName, mi) => {
+        const mStart = _yr + '-' + String(mi+1).padStart(2,'0') + '-01';
+        const mEnd   = new Date(Date.UTC(_yr, mi+1, 0)).toISOString().slice(0,10);
+        // Median TTR: prefer upload Total row, fall back to computed
+        let medDays = null;
+        const upKey  = makeUploadKey('medianFix','Monthly', String(mi).padStart(2,'0'));
+        const upData = _ups[upKey] && _ups[upKey].data;
+        if (upData) {
+          const tr = upData.find(r => /^total$/i.test((r.acct||'').trim()));
+          if (tr && typeof tr.medianDays === 'number') medDays = tr.medianDays;
+        }
+        if (medDays == null && mEnd <= today) {
+          const mRows = closedInScope({start:mStart,end:mEnd}, region, analyst);
+          const ages  = mRows.filter(r=>typeof r.age==='number').map(r=>r.age).sort((a,b)=>a-b);
+          if (ages.length) medDays = ages.length%2 ? ages[Math.floor(ages.length/2)] : (ages[ages.length/2-1]+ages[ages.length/2])/2;
+        }
+        // % within 7 days from DATA.closed
+        let pct7 = null;
+        if (mEnd <= today) {
+          const cr = closedInScope({start:mStart,end:mEnd}, region, analyst);
+          const wa = cr.filter(r=>typeof r.age==='number');
+          if (wa.length) pct7 = wa.filter(r=>r.age<=_tgtDays).length / wa.length;
+        }
+        return { month: mName, medDays, pct7, future: mStart > today };
+      });
+
+      const _W=800, _H=230, _pL=42, _pR=48, _pT=22, _pB=50;
+      const _cW=_W-_pL-_pR, _cH=_H-_pT-_pB;
+      const _maxD = Math.max(_tgtDays+2, ..._months.map(m=>m.medDays||0)) * 1.15;
+      const _bW = Math.floor(_cW/12*0.52), _slot = _cW/12;
+      const dy = d => _pT+_cH - (d/_maxD)*_cH;
+      const py = p => _pT+_cH - p*_cH;
+
+      let s = '<svg width="100%" viewBox="0 0 '+_W+' '+_H+'" xmlns="http://www.w3.org/2000/svg" style="display:block;">';
+
+      // grid + left axis (days)
+      [0,3,6,9,12,15,20,25,30].filter(d=>d<=_maxD).forEach(d=>{
+        const y=dy(d).toFixed(1);
+        s+='<line x1="'+_pL+'" y1="'+y+'" x2="'+(_W-_pR)+'" y2="'+y+'" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3,3"/>';
+        s+='<text x="'+(_pL-4)+'" y="'+(+y+3.5).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--muted)">'+d+'d</text>';
+      });
+      // right axis (%)
+      [0,25,50,75,100].forEach(p=>{
+        const y=py(p/100).toFixed(1);
+        s+='<text x="'+(_W-_pR+4)+'" y="'+(+y+3.5).toFixed(1)+'" text-anchor="start" font-size="9" fill="#3b82f6">'+p+'%</text>';
+      });
+      // target lines
+      const _tDY=dy(_tgtDays).toFixed(1);
+      s+='<line x1="'+_pL+'" y1="'+_tDY+'" x2="'+(_W-_pR)+'" y2="'+_tDY+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>';
+      s+='<text x="'+(_pL+3)+'" y="'+(+_tDY-3).toFixed(1)+'" font-size="8.5" fill="#f59e0b">'+_tgtDays+'d target</text>';
+      const _tPY=py(_tgtPct).toFixed(1);
+      s+='<line x1="'+_pL+'" y1="'+_tPY+'" x2="'+(_W-_pR)+'" y2="'+_tPY+'" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,3"/>';
+      s+='<text x="'+(_W-_pR-52)+'" y="'+(+_tPY-3).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
+
+      // bars + month labels
+      _months.forEach((m,i)=>{
+        const bx = (_pL + i*_slot + (_slot-_bW)/2).toFixed(1);
+        const mx = (_pL + i*_slot + _slot/2).toFixed(1);
+        s+='<text x="'+mx+'" y="'+(_H-_pB+14)+'" text-anchor="middle" font-size="10" fill="var(--text)">'+m.month+'</text>';
+        if (m.medDays!=null) {
+          const bH = Math.max(2, (m.medDays/_maxD)*_cH);
+          const by = (_pT+_cH-bH).toFixed(1);
+          const col = m.medDays<=_tgtDays ? '#22c55e' : '#ef4444';
+          s+='<rect x="'+bx+'" y="'+by+'" width="'+_bW+'" height="'+bH.toFixed(1)+'" fill="'+col+'" rx="2" opacity="0.85"/>';
+          s+='<text x="'+mx+'" y="'+(+by-3).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="600" fill="var(--text)">'+m.medDays.toFixed(1)+'d</text>';
+        } else if (!m.future) {
+          s+='<text x="'+mx+'" y="'+(_pT+_cH/2)+'" text-anchor="middle" font-size="9" fill="var(--muted)">–</text>';
+        }
+      });
+
+      // % line + dots
+      const pts = _months.map((m,i)=>({ x:_pL+i*_slot+_slot/2, y:m.pct7!=null?py(m.pct7):null, pct7:m.pct7 }));
+      for (let i=0;i<pts.length-1;i++) {
+        if (pts[i].y!=null&&pts[i+1].y!=null)
+          s+='<line x1="'+pts[i].x.toFixed(1)+'" y1="'+pts[i].y.toFixed(1)+'" x2="'+pts[i+1].x.toFixed(1)+'" y2="'+pts[i+1].y.toFixed(1)+'" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>';
+      }
+      pts.forEach(p=>{
+        if (p.y!=null) {
+          s+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="'+( p.pct7>=_tgtPct?'#22c55e':'#ef4444')+'" stroke="#fff" stroke-width="1.5"/>';
+          s+='<text x="'+p.x.toFixed(1)+'" y="'+(p.y-7).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#3b82f6">'+(p.pct7*100).toFixed(0)+'%</text>';
+        }
+      });
+
+      // legend
+      const _ly=_H-_pB+30;
+      s+='<rect x="'+_pL+'" y="'+(_ly-9)+'" width="11" height="9" fill="#22c55e" rx="1.5"/><text x="'+(_pL+14)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">Median TTR ≤ target</text>';
+      s+='<rect x="'+(_pL+120)+'" y="'+(_ly-9)+'" width="11" height="9" fill="#ef4444" rx="1.5"/><text x="'+(_pL+134)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">Median TTR > target</text>';
+      s+='<circle cx="'+(_pL+250)+'" cy="'+(_ly-4)+'" r="4" fill="#22c55e" stroke="#fff" stroke-width="1.5"/><text x="'+(_pL+257)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">% within 7d ≥ SLA</text>';
+      s+='<circle cx="'+(_pL+360)+'" cy="'+(_ly-4)+'" r="4" fill="#ef4444" stroke="#fff" stroke-width="1.5"/><text x="'+(_pL+367)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">% within 7d &lt; SLA</text>';
+      s+='<line x1="'+(_pL+240)+'" y1="'+(_ly-4)+'" x2="'+(_pL+490)+'" y2="'+(_ly-4)+'" stroke="#3b82f6" stroke-width="2"/>';
+      s+='</svg>';
+      el.innerHTML = s;
+    })();
 
     // ---- Per-analyst TTR SLA ranking ----
     renderOffPerf('cloOffPerf', { key: 'slaMetPct', label: '% met 7-day SLA', dir: 'higher', minN: 'closed', fmt: v => (v * 100).toFixed(1) + '%', numKey: 'slaMet', denKey: 'slaN', fracLabel: 'met SLA' });
