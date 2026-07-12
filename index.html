@@ -2002,7 +2002,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const titleC = hdr.findIndex(h => /\btitle\b|\bsubject\b/.test(h));
       const typeC  = hdr.findIndex(h => /\btype\b|\bcategory\b|\bsupport.type\b/.test(h));
       const cntC   = hdr.findIndex(h => /\bcount\b|\bcases\b|\btickets?\b|\bwith.?resp\b/.test(h));
-      const avgC   = hdr.findIndex(h => /\bavg\b|\baverage\b|\bhours?\b|\bresponse\b/.test(h));
+      const avgC   = hdr.findIndex(h => /\bavg\b|\baverage\b|\bhours?\b/.test(h));
       const urlC   = hdr.findIndex(h => /\burl\b|\blink\b|\bwi\b|\bid\b/.test(h));
       const tC  = titleC >= 0 ? titleC : 1;
       const tyC = typeC  >= 0 ? typeC  : 2;
