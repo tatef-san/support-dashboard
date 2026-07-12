@@ -8847,7 +8847,7 @@ if(window.opener&&!window.opener.closed){
   // ===========================================================================
   // KPI DEEP-DIVE: AVG RESPONSE / FIX TIME
   // ===========================================================================
-  function renderKpiResp() {
+  function renderKpiResp(overrides) {
     renderTargetBadge('rspTargetBadge', r => r.respMetPct != null && r.respMetPct >= (DATA.targets.respMet || 0.9), r => r.closed === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
@@ -8860,11 +8860,11 @@ if(window.opener&&!window.opener.closed){
     }
 
     // ---- Summary: avg response — single scope ----
-    const scopeAvgResp = avg(rows.map(r => r.resp));
+    let scopeAvgResp = (overrides && overrides.resp != null) ? overrides.resp : avg(rows.map(r => r.resp));
     $('rspSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
       '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — avg response</div>' +
       '<div class="v">' + (scopeAvgResp != null ? scopeAvgResp.toFixed(1) + 'h' : '-') + '</div>' +
-      '<div class="sub">target ≤ ' + DATA.targets.resp + 'h</div>' +
+      '<div class="sub">target ≤ ' + DATA.targets.resp + 'h · from upload</div>' +
       '</div></div>' +
       '<div id="rspOffPerf" style="margin-top:14px;"></div>';
 
@@ -9789,7 +9789,7 @@ if(window.opener&&!window.opener.closed){
     renderKpiActive();
     renderKpiClosed();
     renderKpiTTR(stdOv);
-    renderKpiResp();
+    renderKpiResp(stdOv);
     renderKpiEsc();
     renderKpiUtil();
     renderClosedDropBadge();       // Closed tickets upload zone status badge
