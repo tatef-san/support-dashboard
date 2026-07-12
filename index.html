@@ -3012,6 +3012,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           '<div class="ov-sublabel">'+cfg.sub+'</div>' +
         '</div>'+badge+'</div>' +
         '<div class="ov-main">'+fp(curVal)+(curPeriodLabel ? '<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:6px;">'+curPeriodLabel+'</span>' : '')+'</div>' +
+        (cfg.key === 'ttrSla' && t.fix != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Median TTR: <strong style="color:var(--text);font-size:13px;">'+t.fix.toFixed(1)+'d</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.fixAvg+'d</div>' : '') +
         trendHtml +
         '<div class="ov-stats-row">' +
           '<div class="ov-stat"><span class="ov-stat-label">YTD</span><span class="ov-stat-val">'+fp(ytdVal)+'</span></div>' +
