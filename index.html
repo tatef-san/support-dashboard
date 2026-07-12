@@ -1414,7 +1414,6 @@
       <div class="panel-sub">Period filter is applied by <b>closure date</b>. Region and Analyst filters apply.</div>
       <div id="rspTargetBadge"></div>
       <div id="rspSummary"></div>
-      <div style="margin-top:14px;"><div id="rspMonthlyChart" style="overflow-x:auto;"></div></div>
       <div id="rspAnalystTable" style="margin-top:14px;"></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Response SLA — met vs breached (≤ 2hrs)</h3><div id="rspSla"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Support type breakdown</h3><div id="rspSupport"></div></div>
@@ -8988,6 +8987,7 @@ if(window.opener&&!window.opener.closed){
       '<div class="v">' + (scopeAvgResp != null ? scopeAvgResp.toFixed(1) + 'h' : '-') + '</div>' +
       '<div class="sub">target ≤ ' + DATA.targets.resp + 'h · from upload</div>' +
       '</div></div>' +
+      '<div id="rspMonthlyChart" style="overflow-x:auto;margin-top:14px;"></div>' +
       '<div id="rspOffPerf" style="margin-top:14px;"></div>';
 
     // ---- Monthly Response Time trend chart (Jan–Dec 2026) ----
