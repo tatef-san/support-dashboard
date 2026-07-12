@@ -2018,7 +2018,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           withResp: _num(r[cnC]) || 0, avgHours: _num(r[avC]),
           wi: wiMatch ? +wiMatch[1] : null,
         };
-      }).filter(x => NOT_TOTAL(x) && x.withResp > 0);
+      }).filter(x => x.acct && x.withResp > 0);
     }
     return [];
   }
@@ -6449,13 +6449,19 @@ if(window.opener&&!window.opener.closed){
         );
       }
       if (respPick.src === 'period' || !hasRespData) {
-        let totC = 0, totH = 0;
-        respPick.upload.data.forEach(r => {
-          if (closedWiSet && r.wi != null && !closedWiSet.has(r.wi)) return;
-          const c = r.withResp || 0;
-          if (typeof r.avgHours === 'number' && c > 0) { totH += r.avgHours * c; totC += c; }
-        });
-        if (totC > 0) out.resp = totH / totC;
+        const _rTotalRow = respPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
+        if (_rTotalRow && typeof _rTotalRow.avgHours === 'number') {
+          out.resp = _rTotalRow.avgHours;
+        } else {
+          let totC = 0, totH = 0;
+          respPick.upload.data.forEach(r => {
+            if (/^total$/i.test((r.acct || '').trim())) return;
+            if (closedWiSet && r.wi != null && !closedWiSet.has(r.wi)) return;
+            const c = r.withResp || 0;
+            if (typeof r.avgHours === 'number' && c > 0) { totH += r.avgHours * c; totC += c; }
+          });
+          if (totC > 0) out.resp = totH / totC;
+        }
       }
     }
     return out;
