@@ -6405,12 +6405,25 @@ if(window.opener&&!window.opener.closed){
         inRange(r.closed, range) && scopeFilter2(r.c) && typeof r.age === 'number'
       );
       if (medPick.src === 'period' || !hasAgeData) {
-        let totC = 0, totD = 0;
+        const _mPairs = []; let _mTotal = 0;
         medPick.upload.data.forEach(r => {
-          const c = r.completed || 0;
-          if (typeof r.medianDays === 'number' && c > 0) { totD += r.medianDays * c; totC += c; }
+          const c = Math.round(r.completed || 0);
+          if (typeof r.medianDays === 'number' && c > 0) { _mPairs.push([r.medianDays, c]); _mTotal += c; }
         });
-        if (totC > 0) out.fix = totD / totC;
+        if (_mTotal > 0) {
+          _mPairs.sort((a, b) => a[0] - b[0]);
+          const _half = _mTotal / 2; let _cum = 0;
+          for (let _i = 0; _i < _mPairs.length; _i++) {
+            _cum += _mPairs[_i][1];
+            if (_cum >= _half) {
+              if (_mTotal % 2 === 0 && _cum === _half && _i + 1 < _mPairs.length)
+                out.fix = (_mPairs[_i][0] + _mPairs[_i + 1][0]) / 2;
+              else
+                out.fix = _mPairs[_i][0];
+              break;
+            }
+          }
+        }
       }
     }
     const respPick = pickUpload('respTime', period);
