@@ -1983,10 +1983,16 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       }).filter(x => NOT_TOTAL(x) && (x.completed > 0 || x.escaped > 0));
     }
     if (kind === 'medianFix') {
+      const hdr = (rawRows[0] || []).map(h => (_str(h)||'').toLowerCase());
+      const acctC2 = Math.max(0, hdr.findIndex(h => /\baccount\b|\bcustomer\b|\bclient\b/.test(h)));
+      const compC2 = hdr.findIndex(h => /\bcompleted\b|\bfinished\b|\btickets?\b|\bcount\b/.test(h));
+      const medC2  = hdr.findIndex(h => /\bmedian\b/.test(h));
+      const cC2 = compC2 >= 0 ? compC2 : 3;
+      const mC2 = medC2  >= 0 ? medC2  : 4;
       return rawRows.slice(1).map(r => ({
-        acct: _str(r[0]), title: _str(r[1]),
+        acct: _str(r[acctC2]), title: _str(r[1]),
         supportType: _str(r[2]),
-        completed: _num(r[3]) || 0, medianDays: _num(r[4]),
+        completed: _num(r[cC2]) || 0, medianDays: _num(r[mC2]),
       })).filter(x => NOT_TOTAL(x) && x.completed > 0);
     }
     if (kind === 'respTime') {
@@ -1996,7 +2002,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const titleC = hdr.findIndex(h => /\btitle\b|\bsubject\b/.test(h));
       const typeC  = hdr.findIndex(h => /\btype\b|\bcategory\b|\bsupport.type\b/.test(h));
       const cntC   = hdr.findIndex(h => /\bcount\b|\bcases\b|\btickets?\b|\bwith.?resp\b/.test(h));
-      const avgC   = hdr.findIndex(h => /\bavg\b|\baverage\b|\bhours?\b|\btime\b|\bresponse\b/.test(h));
+      const avgC   = hdr.findIndex(h => /\bavg\b|\baverage\b|\bhours?\b|\bresponse\b/.test(h));
       const urlC   = hdr.findIndex(h => /\burl\b|\blink\b|\bwi\b|\bid\b/.test(h));
       const tC  = titleC >= 0 ? titleC : 1;
       const tyC = typeC  >= 0 ? typeC  : 2;
@@ -6391,38 +6397,47 @@ if(window.opener&&!window.opener.closed){
     // inside computeKPIs — no sheet override needed.
     const medPick = pickUpload('medianFix', period);
     if (medPick) {
-      let totC = 0, totD = 0;
-      medPick.upload.data.forEach(r => {
-        const c = r.completed || 0;
-        if (typeof r.medianDays === 'number' && c > 0) { totD += r.medianDays * c; totC += c; }
-      });
-      if (totC > 0) out.fix = totD / totC;
+      // Only apply Y2D upload when no per-period age data exists in actual closed tickets.
+      // If we have real ticket ages for this period, compute median directly from those
+      // (avoids the Y2D aggregate overriding accurate per-month values).
+      const scopeFilter2 = inScopeFilter(region || 'All', analyst || 'All');
+      const hasAgeData = range && DATA.closed && DATA.closed.some(r =>
+        inRange(r.closed, range) && scopeFilter2(r.c) && typeof r.age === 'number'
+      );
+      if (medPick.src === 'period' || !hasAgeData) {
+        let totC = 0, totD = 0;
+        medPick.upload.data.forEach(r => {
+          const c = r.completed || 0;
+          if (typeof r.medianDays === 'number' && c > 0) { totD += r.medianDays * c; totC += c; }
+        });
+        if (totC > 0) out.fix = totD / totC;
+      }
     }
     const respPick = pickUpload('respTime', period);
     if (respPick) {
-      // Build a Set of WI IDs from closed tickets that fall in the current period
-      // and scope — same filter used for the closed-ticket count — so response time
-      // only covers the same tickets Power BI counts.
+      // Only apply Y2D upload when no per-period resp data exists in actual closed tickets.
+      const scopeFilter3 = inScopeFilter(region || 'All', analyst || 'All');
+      const hasRespData = range && DATA.closed && DATA.closed.some(r =>
+        inRange(r.closed, range) && scopeFilter3(r.c) && typeof r.resp === 'number'
+      );
       let closedWiSet = null;
       if (range && DATA.closed && DATA.closed.length) {
-        const scopeFilter = inScopeFilter(region || 'All', analyst || 'All');
         closedWiSet = new Set(
           DATA.closed
-            .filter(r => inRange(r.closed, range) && scopeFilter(r.c))
+            .filter(r => inRange(r.closed, range) && scopeFilter3(r.c))
             .map(r => r.id || r.wi)
             .filter(Boolean)
         );
       }
-      let totC = 0, totH = 0;
-      respPick.upload.data.forEach(r => {
-        // If we have a closed WI set and this record has a WI ID, filter to only
-        // tickets in scope. Records with no WI (wi === null) are always included
-        // as a fallback so the KPI never goes blank unexpectedly.
-        if (closedWiSet && r.wi != null && !closedWiSet.has(r.wi)) return;
-        const c = r.withResp || 0;
-        if (typeof r.avgHours === 'number' && c > 0) { totH += r.avgHours * c; totC += c; }
-      });
-      if (totC > 0) out.resp = totH / totC;
+      if (respPick.src === 'period' || !hasRespData) {
+        let totC = 0, totH = 0;
+        respPick.upload.data.forEach(r => {
+          if (closedWiSet && r.wi != null && !closedWiSet.has(r.wi)) return;
+          const c = r.withResp || 0;
+          if (typeof r.avgHours === 'number' && c > 0) { totH += r.avgHours * c; totC += c; }
+        });
+        if (totC > 0) out.resp = totH / totC;
+      }
     }
     return out;
   }
