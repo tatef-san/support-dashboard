@@ -8765,23 +8765,24 @@ if(window.opener&&!window.opener.closed){
   // ===========================================================================
   // KPI DEEP-DIVE: TTR — TIME TO RESOLVE
   // ===========================================================================
-  function renderKpiTTR() {
+  function renderKpiTTR(overrides) {
     renderTargetBadge('ttrTargetBadge', r => r.slaMetPct != null && r.slaMetPct >= DATA.targets.closedSlaMet, r => r.closed === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const rows = closedInScope(range, region, analyst);
     const withAge = rows.filter(r => typeof r.age === 'number');
     const _ageVals = withAge.map(r => r.age).sort((a, b) => a - b);
-    const medianTTR = _ageVals.length
+    let medianTTR = _ageVals.length
       ? (_ageVals.length % 2 ? _ageVals[Math.floor(_ageVals.length / 2)] : (_ageVals[_ageVals.length / 2 - 1] + _ageVals[_ageVals.length / 2]) / 2)
       : null;
+    if (overrides && overrides.fix != null) medianTTR = overrides.fix;
     const avgTTR = _ageVals.length ? _ageVals.reduce((a, b) => a + b, 0) / _ageVals.length : null;
 
     // ---- Summary: median + avg TTR ----
     $('ttrSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:repeat(2,1fr);">' +
       '<div class="stat-card"><div class="l">Median Time to Resolve</div>' +
       '<div class="v" style="color:' + (medianTTR != null && medianTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (medianTTR != null ? medianTTR.toFixed(1) + 'd' : '-') + '</div>' +
-      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
+      '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from upload</div></div>' +
       '<div class="stat-card"><div class="l">Avg Time to Resolve</div>' +
       '<div class="v" style="color:' + (avgTTR != null && avgTTR <= DATA.targets.fixAvg ? 'var(--good)' : 'var(--bad)') + ';">' + (avgTTR != null ? avgTTR.toFixed(1) + 'd' : '-') + '</div>' +
       '<div class="sub">target ≤ ' + DATA.targets.fixAvg + 'd · from ADO dates</div></div>' +
@@ -9787,7 +9788,7 @@ if(window.opener&&!window.opener.closed){
     renderKpiCsat();
     renderKpiActive();
     renderKpiClosed();
-    renderKpiTTR();
+    renderKpiTTR(stdOv);
     renderKpiResp();
     renderKpiEsc();
     renderKpiUtil();
