@@ -6397,18 +6397,17 @@ if(window.opener&&!window.opener.closed){
     // inside computeKPIs — no sheet override needed.
     const medPick = pickUpload('medianFix', period);
     if (medPick) {
-      // Only apply Y2D upload when no per-period age data exists in actual closed tickets.
-      // If we have real ticket ages for this period, compute median directly from those
-      // (avoids the Y2D aggregate overriding accurate per-month values).
-      const scopeFilter2 = inScopeFilter(region || 'All', analyst || 'All');
-      const hasAgeData = range && DATA.closed && DATA.closed.some(r =>
-        inRange(r.closed, range) && scopeFilter2(r.c) && typeof r.age === 'number'
-      );
-      if (medPick.src === 'period' || !hasAgeData) {
-        const _totalRow = medPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
-        if (_totalRow && typeof _totalRow.medianDays === 'number') {
-          out.fix = _totalRow.medianDays;
-        } else {
+      // Total row from Power BI export always wins — use it directly regardless of source or local data.
+      const _totalRow = medPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
+      if (_totalRow && typeof _totalRow.medianDays === 'number') {
+        out.fix = _totalRow.medianDays;
+      } else {
+        // No Total row — fall back to weighted median only when no better local data exists.
+        const scopeFilter2 = inScopeFilter(region || 'All', analyst || 'All');
+        const hasAgeData = range && DATA.closed && DATA.closed.some(r =>
+          inRange(r.closed, range) && scopeFilter2(r.c) && typeof r.age === 'number'
+        );
+        if (medPick.src === 'period' || !hasAgeData) {
           const _mPairs = []; let _mTotal = 0;
           medPick.upload.data.forEach(r => {
             if (/^total$/i.test((r.acct || '').trim())) return;
@@ -6434,25 +6433,26 @@ if(window.opener&&!window.opener.closed){
     }
     const respPick = pickUpload('respTime', period);
     if (respPick) {
-      // Only apply Y2D upload when no per-period resp data exists in actual closed tickets.
-      const scopeFilter3 = inScopeFilter(region || 'All', analyst || 'All');
-      const hasRespData = range && DATA.closed && DATA.closed.some(r =>
-        inRange(r.closed, range) && scopeFilter3(r.c) && typeof r.resp === 'number'
-      );
-      let closedWiSet = null;
-      if (range && DATA.closed && DATA.closed.length) {
-        closedWiSet = new Set(
-          DATA.closed
-            .filter(r => inRange(r.closed, range) && scopeFilter3(r.c))
-            .map(r => r.id || r.wi)
-            .filter(Boolean)
+      // Total row from Power BI export always wins — use it directly regardless of source or local data.
+      const _rTotalRow = respPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
+      if (_rTotalRow && typeof _rTotalRow.avgHours === 'number') {
+        out.resp = _rTotalRow.avgHours;
+      } else {
+        // No Total row — fall back to weighted mean only when no better local data exists.
+        const scopeFilter3 = inScopeFilter(region || 'All', analyst || 'All');
+        const hasRespData = range && DATA.closed && DATA.closed.some(r =>
+          inRange(r.closed, range) && scopeFilter3(r.c) && typeof r.resp === 'number'
         );
-      }
-      if (respPick.src === 'period' || !hasRespData) {
-        const _rTotalRow = respPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
-        if (_rTotalRow && typeof _rTotalRow.avgHours === 'number') {
-          out.resp = _rTotalRow.avgHours;
-        } else {
+        if (respPick.src === 'period' || !hasRespData) {
+          let closedWiSet = null;
+          if (range && DATA.closed && DATA.closed.length) {
+            closedWiSet = new Set(
+              DATA.closed
+                .filter(r => inRange(r.closed, range) && scopeFilter3(r.c))
+                .map(r => r.id || r.wi)
+                .filter(Boolean)
+            );
+          }
           let totC = 0, totH = 0;
           respPick.upload.data.forEach(r => {
             if (/^total$/i.test((r.acct || '').trim())) return;
