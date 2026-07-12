@@ -2002,7 +2002,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         acct: _str(r[acctC2]), title: _str(r[1]),
         supportType: _str(r[2]),
         completed: _num(r[cC2]) || 0, medianDays: _num(r[mC2]),
-      })).filter(x => x.acct && x.completed > 0);
+      })).filter(x => x.acct && (x.completed > 0 || /^total$/i.test(x.acct.trim())));
     }
     if (kind === 'respTime') {
       const hdr = (rawRows[0] || []).map(h => (_str(h)||'').toLowerCase());
@@ -2027,7 +2027,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           withResp: _num(r[cnC]) || 0, avgHours: _num(r[avC]),
           wi: wiMatch ? +wiMatch[1] : null,
         };
-      }).filter(x => x.acct && x.withResp > 0);
+      }).filter(x => x.acct && (x.withResp > 0 || /^total$/i.test(x.acct.trim())));
     }
     return [];
   }
