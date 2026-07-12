@@ -1273,6 +1273,15 @@
     <!-- Target badge -->
     <div id="ttrTargetBadge"></div>
 
+    <!-- Monthly TTR Trend 2026 -->
+    <div class="dd-section">
+      <div class="dd-section-hd">
+        <div class="dd-icon amber">📈</div>
+        <div><div class="dd-section-label">Monthly TTR Trend — 2026</div><div class="dd-section-desc">Median days to resolve (bars) and % of tickets closed within 7 days (line), per month</div></div>
+      </div>
+      <div id="ttrMonthlyChart" style="overflow-x:auto;"></div>
+    </div>
+
     <!-- Resolution Time Summary + per-analyst TTR SLA -->
     <div class="dd-section">
       <div class="dd-section-hd">
@@ -1282,15 +1291,6 @@
       <div id="ttrSummary"></div>
       <div id="cloOffPerf" style="margin-top:14px;"></div>
       <div id="cloAnalystTable" style="margin-top:14px;"></div>
-    </div>
-
-    <!-- Monthly TTR Trend 2026 -->
-    <div class="dd-section">
-      <div class="dd-section-hd">
-        <div class="dd-icon amber">📈</div>
-        <div><div class="dd-section-label">Monthly TTR Trend — 2026</div><div class="dd-section-desc">Median days to resolve (bars) and % of tickets closed within 7 days (line), per month</div></div>
-      </div>
-      <div id="ttrMonthlyChart" style="overflow-x:auto;"></div>
     </div>
 
     <!-- SLA & Resolution Time -->
@@ -8857,7 +8857,7 @@ if(window.opener&&!window.opener.closed){
       // target lines
       const _tDY=dy(_tgtDays).toFixed(1);
       s+='<line x1="'+_pL+'" y1="'+_tDY+'" x2="'+(_W-_pR)+'" y2="'+_tDY+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>';
-      s+='<text x="'+(_pL+3)+'" y="'+(+_tDY-3).toFixed(1)+'" font-size="8.5" fill="#f59e0b">'+_tgtDays+'d target</text>';
+      s+='<text x="'+(_W-_pR-3)+'" y="'+(+_tDY-3).toFixed(1)+'" text-anchor="end" font-size="8.5" fill="#f59e0b">'+_tgtDays+'d target</text>';
       const _tPY=py(_tgtPct).toFixed(1);
       s+='<line x1="'+_pL+'" y1="'+_tPY+'" x2="'+(_W-_pR)+'" y2="'+_tPY+'" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,3"/>';
       s+='<text x="'+(_W-_pR-52)+'" y="'+(+_tPY-3).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
@@ -8872,7 +8872,11 @@ if(window.opener&&!window.opener.closed){
           const by = (_pT+_cH-bH).toFixed(1);
           const col = m.medDays<=_tgtDays ? '#22c55e' : '#ef4444';
           s+='<rect x="'+bx+'" y="'+by+'" width="'+_bW+'" height="'+bH.toFixed(1)+'" fill="'+col+'" rx="2" opacity="0.85"/>';
-          s+='<text x="'+mx+'" y="'+(+by-3).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="600" fill="var(--text)">'+m.medDays.toFixed(1)+'d</text>';
+          if (bH > 16) {
+            s+='<text x="'+mx+'" y="'+(+by+Math.min(bH*0.55,14)).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">'+m.medDays.toFixed(1)+'d</text>';
+          } else {
+            s+='<text x="'+mx+'" y="'+(+by-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="600" fill="var(--text)">'+m.medDays.toFixed(1)+'d</text>';
+          }
         } else if (!m.future) {
           s+='<text x="'+mx+'" y="'+(_pT+_cH/2)+'" text-anchor="middle" font-size="9" fill="var(--muted)">–</text>';
         }
@@ -8887,7 +8891,8 @@ if(window.opener&&!window.opener.closed){
       pts.forEach(p=>{
         if (p.y!=null) {
           s+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="'+( p.pct7>=_tgtPct?'#22c55e':'#ef4444')+'" stroke="#fff" stroke-width="1.5"/>';
-          s+='<text x="'+p.x.toFixed(1)+'" y="'+(p.y-7).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#3b82f6">'+(p.pct7*100).toFixed(0)+'%</text>';
+          const _pctLblY = (p.y+15 < _pT+_cH-2) ? (p.y+15) : (p.y-8);
+          s+='<text x="'+p.x.toFixed(1)+'" y="'+_pctLblY.toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1d4ed8">'+(p.pct7*100).toFixed(0)+'%</text>';
         }
       });
 
