@@ -1414,6 +1414,7 @@
       <div class="panel-sub">Period filter is applied by <b>closure date</b>. Region and Analyst filters apply.</div>
       <div id="rspTargetBadge"></div>
       <div id="rspSummary"></div>
+      <div style="margin-top:14px;"><div id="rspMonthlyChart" style="overflow-x:auto;"></div></div>
       <div id="rspAnalystTable" style="margin-top:14px;"></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Response SLA — met vs breached (≤ 2hrs)</h3><div id="rspSla"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Support type breakdown</h3><div id="rspSupport"></div></div>
@@ -2976,7 +2977,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
 
     var CARDS = [
       { key:'csatPct', label:'CSAT',            sub:'Customer Satisfaction',   goal: DATA.targets.csat,                  color:'#3b82f6', get: function(m){return m.csatPct;} },
-      { key:'frtSla',  label:'FRT SLA',          sub:'First Response Time 24h', goal: DATA.targets.respMet || 0.9,        color:'#8b5cf6', get: function(m){return m.frtSla;}  },
+      { key:'frtSla',  label:'FRT SLA',          sub:'First Response Time ≤2h · 90% goal', goal: DATA.targets.respMet || 0.9,        color:'#8b5cf6', get: function(m){return m.frtSla;}  },
       { key:'ttrSla',  label:'TTR SLA',          sub:'Time to Resolve 7 days',  goal: DATA.targets.closedSlaMet || 0.53,  color:'#f59e0b', get: function(m){return m.ttrSla;}  },
       { key:'aiFirst', label:'AI-First Support', sub:'Maya / All Created',      goal: null,                               color:'#10b981', get: function(m){return m.aiFirst;} }
     ];
@@ -8988,6 +8989,129 @@ if(window.opener&&!window.opener.closed){
       '<div class="sub">target ≤ ' + DATA.targets.resp + 'h · from upload</div>' +
       '</div></div>' +
       '<div id="rspOffPerf" style="margin-top:14px;"></div>';
+
+    // ---- Monthly Response Time trend chart (Jan–Dec 2026) ----
+    (function() {
+      const el = $('rspMonthlyChart'); if (!el) return;
+      const _ups = loadUploads();
+      const _yr = 2026;
+      const _MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const _tgtH = DATA.targets.resp || 2;
+      const _tgtPct = DATA.targets.respMet || 0.9;
+      const today = new Date().toISOString().slice(0,10);
+
+      const _months = _MNAMES.map(function(mn, mi) {
+        const mStart = _yr + '-' + String(mi+1).padStart(2,'0') + '-01';
+        const lastDay = new Date(_yr, mi+1, 0).getDate();
+        const mEnd = _yr + '-' + String(mi+1).padStart(2,'0') + '-' + String(lastDay).padStart(2,'0');
+        if (mStart > today) return { month: mn, avgH: null, pct2h: null, future: true };
+
+        // avg hours: prefer Total row from monthly upload
+        let avgH = null;
+        const upKey = makeUploadKey('respTime', 'Monthly', String(mi).padStart(2,'0'));
+        if (_ups[upKey]) {
+          const tr = _ups[upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
+          if (tr && typeof tr.avgHours === 'number') avgH = tr.avgHours;
+        }
+        // fallback: compute from raw data
+        if (avgH == null && DATA.closed) {
+          let sum = 0, cnt = 0;
+          DATA.closed.forEach(function(r) {
+            if (!inRange(r.closed, {start:mStart,end:mEnd})) return;
+            if (typeof r.resp !== 'number') return;
+            sum += r.resp; cnt++;
+          });
+          if (cnt > 0) avgH = sum / cnt;
+        }
+
+        // % within 2h from raw data
+        let met = 0, tot = 0;
+        if (DATA.closed) {
+          DATA.closed.forEach(function(r) {
+            if (!inRange(r.closed, {start:mStart,end:mEnd})) return;
+            if (typeof r.resp !== 'number') return;
+            tot++; if (r.resp <= _tgtH) met++;
+          });
+        }
+        return { month: mn, avgH: avgH, pct2h: tot > 0 ? met/tot : null, future: false };
+      });
+
+      const _W=800, _H=230, _pL=44, _pR=50, _pT=22, _pB=50;
+      const _cH = _H - _pT - _pB;
+      const _slot = (_W - _pL - _pR) / 12;
+      const _bW = _slot * 0.55;
+      const _nonNull = _months.filter(function(m){ return m.avgH != null; }).map(function(m){ return m.avgH; });
+      const _maxH = _nonNull.length ? Math.max(_tgtH * 1.5, Math.max.apply(null, _nonNull)) : _tgtH * 2;
+      const dy = function(v){ return _pT + _cH * (1 - v / _maxH); };
+      const py = function(v){ return _pT + _cH * (1 - v); };
+
+      let s = '<svg viewBox="0 0 '+_W+' '+_H+'" style="width:100%;max-width:'+_W+'px;display:block;">';
+
+      // grid + left axis (hours)
+      const hTicks = [0, +(_maxH*0.25).toFixed(1), +(_maxH*0.5).toFixed(1), +(_maxH*0.75).toFixed(1), +_maxH.toFixed(1)];
+      hTicks.forEach(function(h) {
+        const y = dy(h).toFixed(1);
+        s+='<line x1="'+_pL+'" y1="'+y+'" x2="'+(_W-_pR)+'" y2="'+y+'" stroke="var(--border)" stroke-width="0.5"/>';
+        s+='<text x="'+(_pL-4)+'" y="'+(+y+3.5).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--muted)">'+h+'h</text>';
+      });
+      // right axis (%)
+      [0,25,50,75,100].forEach(function(p) {
+        const y = py(p/100).toFixed(1);
+        s+='<text x="'+(_W-_pR+4)+'" y="'+(+y+3.5).toFixed(1)+'" text-anchor="start" font-size="9" fill="#3b82f6">'+p+'%</text>';
+      });
+
+      // target lines
+      const _tDY = dy(_tgtH).toFixed(1);
+      s+='<line x1="'+_pL+'" y1="'+_tDY+'" x2="'+(_W-_pR)+'" y2="'+_tDY+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>';
+      s+='<text x="'+(_W-_pR-3)+'" y="'+(+_tDY-3).toFixed(1)+'" text-anchor="end" font-size="8.5" fill="#f59e0b">'+_tgtH+'h target</text>';
+      const _tPY = py(_tgtPct).toFixed(1);
+      s+='<line x1="'+_pL+'" y1="'+_tPY+'" x2="'+(_W-_pR)+'" y2="'+_tPY+'" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,3"/>';
+      s+='<text x="'+(_W-_pR-55)+'" y="'+(+_tPY-3).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
+
+      // bars + labels
+      _months.forEach(function(m, i) {
+        const bx = (_pL + i*_slot + (_slot-_bW)/2).toFixed(1);
+        const mx = (_pL + i*_slot + _slot/2).toFixed(1);
+        s+='<text x="'+mx+'" y="'+(_H-_pB+14)+'" text-anchor="middle" font-size="10" fill="var(--text)">'+m.month+'</text>';
+        if (m.avgH != null) {
+          const bH = Math.max(2, (m.avgH/_maxH)*_cH);
+          const by = (_pT+_cH-bH).toFixed(1);
+          const col = m.avgH <= _tgtH ? '#22c55e' : '#ef4444';
+          s+='<rect x="'+bx+'" y="'+by+'" width="'+_bW+'" height="'+bH.toFixed(1)+'" fill="'+col+'" rx="2" opacity="0.85"/>';
+          if (bH > 16) {
+            s+='<text x="'+mx+'" y="'+(+by+Math.min(bH*0.55,14)).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">'+m.avgH.toFixed(1)+'h</text>';
+          } else {
+            s+='<text x="'+mx+'" y="'+(+by-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="600" fill="var(--text)">'+m.avgH.toFixed(1)+'h</text>';
+          }
+        } else if (!m.future) {
+          s+='<text x="'+mx+'" y="'+(_pT+_cH/2)+'" text-anchor="middle" font-size="9" fill="var(--muted)">–</text>';
+        }
+      });
+
+      // % line + dots
+      const pts = _months.map(function(m,i){ return { x:_pL+i*_slot+_slot/2, y:m.pct2h!=null?py(m.pct2h):null, pct2h:m.pct2h }; });
+      for (let i=0;i<pts.length-1;i++) {
+        if (pts[i].y!=null&&pts[i+1].y!=null)
+          s+='<line x1="'+pts[i].x.toFixed(1)+'" y1="'+pts[i].y.toFixed(1)+'" x2="'+pts[i+1].x.toFixed(1)+'" y2="'+pts[i+1].y.toFixed(1)+'" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>';
+      }
+      pts.forEach(function(p) {
+        if (p.y!=null) {
+          s+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="'+(p.pct2h>=_tgtPct?'#22c55e':'#ef4444')+'" stroke="#fff" stroke-width="1.5"/>';
+          const _ly2 = (p.y+15 < _pT+_cH-2) ? (p.y+15) : (p.y-8);
+          s+='<text x="'+p.x.toFixed(1)+'" y="'+_ly2.toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1d4ed8">'+(p.pct2h*100).toFixed(0)+'%</text>';
+        }
+      });
+
+      // legend
+      const _ly = _H - _pB + 30;
+      s+='<rect x="'+_pL+'" y="'+(_ly-9)+'" width="11" height="9" fill="#22c55e" rx="1.5"/><text x="'+(_pL+14)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">Avg resp ≤ 2h</text>';
+      s+='<rect x="'+(_pL+100)+'" y="'+(_ly-9)+'" width="11" height="9" fill="#ef4444" rx="1.5"/><text x="'+(_pL+114)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">Avg resp &gt; 2h</text>';
+      s+='<circle cx="'+(_pL+215)+'" cy="'+(_ly-4)+'" r="4" fill="#22c55e" stroke="#fff" stroke-width="1.5"/><text x="'+(_pL+222)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">% within 2h ≥ 90%</text>';
+      s+='<circle cx="'+(_pL+340)+'" cy="'+(_ly-4)+'" r="4" fill="#ef4444" stroke="#fff" stroke-width="1.5"/><text x="'+(_pL+347)+'" y="'+_ly+'" font-size="9" fill="var(--muted)">% within 2h &lt; 90%</text>';
+      s+='<line x1="'+(_pL+205)+'" y1="'+(_ly-4)+'" x2="'+(_pL+455)+'" y2="'+(_ly-4)+'" stroke="#3b82f6" stroke-width="2"/>';
+      s+='</svg>';
+      el.innerHTML = s;
+    })();
 
     // Off/Perf: rank analysts by % of their tickets meeting the 2-hour response SLA
     renderOffPerf('rspOffPerf', { key: 'respMetPct', label: '% met 2h response SLA', dir: 'higher', minN: 'closed', fmt: v => (v*100).toFixed(1) + '%', numKey: 'respMet', denKey: 'respMetN', fracLabel: 'met SLA' });
