@@ -1993,7 +1993,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         acct: _str(r[acctC2]), title: _str(r[1]),
         supportType: _str(r[2]),
         completed: _num(r[cC2]) || 0, medianDays: _num(r[mC2]),
-      })).filter(x => NOT_TOTAL(x) && x.completed > 0);
+      })).filter(x => x.acct && x.completed > 0);
     }
     if (kind === 'respTime') {
       const hdr = (rawRows[0] || []).map(h => (_str(h)||'').toLowerCase());
@@ -6405,22 +6405,28 @@ if(window.opener&&!window.opener.closed){
         inRange(r.closed, range) && scopeFilter2(r.c) && typeof r.age === 'number'
       );
       if (medPick.src === 'period' || !hasAgeData) {
-        const _mPairs = []; let _mTotal = 0;
-        medPick.upload.data.forEach(r => {
-          const c = Math.round(r.completed || 0);
-          if (typeof r.medianDays === 'number' && c > 0) { _mPairs.push([r.medianDays, c]); _mTotal += c; }
-        });
-        if (_mTotal > 0) {
-          _mPairs.sort((a, b) => a[0] - b[0]);
-          const _half = _mTotal / 2; let _cum = 0;
-          for (let _i = 0; _i < _mPairs.length; _i++) {
-            _cum += _mPairs[_i][1];
-            if (_cum >= _half) {
-              if (_mTotal % 2 === 0 && _cum === _half && _i + 1 < _mPairs.length)
-                out.fix = (_mPairs[_i][0] + _mPairs[_i + 1][0]) / 2;
-              else
-                out.fix = _mPairs[_i][0];
-              break;
+        const _totalRow = medPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
+        if (_totalRow && typeof _totalRow.medianDays === 'number') {
+          out.fix = _totalRow.medianDays;
+        } else {
+          const _mPairs = []; let _mTotal = 0;
+          medPick.upload.data.forEach(r => {
+            if (/^total$/i.test((r.acct || '').trim())) return;
+            const c = Math.round(r.completed || 0);
+            if (typeof r.medianDays === 'number' && c > 0) { _mPairs.push([r.medianDays, c]); _mTotal += c; }
+          });
+          if (_mTotal > 0) {
+            _mPairs.sort((a, b) => a[0] - b[0]);
+            const _half = _mTotal / 2; let _cum = 0;
+            for (let _i = 0; _i < _mPairs.length; _i++) {
+              _cum += _mPairs[_i][1];
+              if (_cum >= _half) {
+                if (_mTotal % 2 === 0 && _cum === _half && _i + 1 < _mPairs.length)
+                  out.fix = (_mPairs[_i][0] + _mPairs[_i + 1][0]) / 2;
+                else
+                  out.fix = _mPairs[_i][0];
+                break;
+              }
             }
           }
         }
