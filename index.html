@@ -2968,7 +2968,14 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         var _upKey = makeUploadKey('respTime', 'Monthly', String(mi).padStart(2,'0'));
         if (_ups[_upKey]) {
           var _tr = _ups[_upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
-          if (_tr && typeof _tr.slaPct === 'number') frtSla = _tr.slaPct;
+          if (_tr && typeof _tr.slaPct === 'number') {
+            frtSla = _tr.slaPct;
+          } else {
+            var _eTgt = (typeof DATA !== 'undefined' && DATA.targets && DATA.targets.resp) || 2;
+            var _eTix = _ups[_upKey].data.filter(function(r){ return !(/^total$/i.test((r.acct||'').trim())) && r.withResp > 0; });
+            var _eMet = _eTix.filter(function(r){ return typeof r.avgHours === 'number' && r.avgHours <= _eTgt; });
+            if (_eTix.length > 0) frtSla = _eMet.length / _eTix.length;
+          }
         }
       }
       return {
@@ -6465,8 +6472,16 @@ if(window.opener&&!window.opener.closed){
       if (_rTotalRow && typeof _rTotalRow.avgHours === 'number') {
         out.resp = _rTotalRow.avgHours;
       }
-      if (_rTotalRow && typeof _rTotalRow.slaPct === 'number') {
-        out.frtSla = _rTotalRow.slaPct;
+      // FRT SLA %: count per-ticket rows (withResp > 0, not Total) where avgHours <= target
+      if (out.frtSla == null) {
+        if (_rTotalRow && typeof _rTotalRow.slaPct === 'number') {
+          out.frtSla = _rTotalRow.slaPct;
+        } else {
+          const _fTgt = DATA.targets.resp || 2;
+          const _fTix = respPick.upload.data.filter(r => !(/^total$/i.test((r.acct||'').trim())) && r.withResp > 0);
+          const _fMet = _fTix.filter(r => typeof r.avgHours === 'number' && r.avgHours <= _fTgt);
+          if (_fTix.length > 0) out.frtSla = _fMet.length / _fTix.length;
+        }
       }
       if (!(_rTotalRow && typeof _rTotalRow.avgHours === 'number')) {
         // No Total row — fall back to weighted mean only when no better local data exists.
@@ -9043,11 +9058,17 @@ if(window.opener&&!window.opener.closed){
           if (cnt > 0) avgH = sum / cnt;
         }
 
-        // % within 2h: prefer upload Total row slaPct, fall back to raw data
+        // % within 2h: count per-ticket rows from upload, fall back to raw data
         let pct2h = null;
         if (_ups[upKey]) {
           const _slaTr = _ups[upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
-          if (_slaTr && typeof _slaTr.slaPct === 'number') pct2h = _slaTr.slaPct;
+          if (_slaTr && typeof _slaTr.slaPct === 'number') {
+            pct2h = _slaTr.slaPct;
+          } else {
+            const _cTix = _ups[upKey].data.filter(function(r){ return !(/^total$/i.test((r.acct||'').trim())) && r.withResp > 0; });
+            const _cMet = _cTix.filter(function(r){ return typeof r.avgHours === 'number' && r.avgHours <= _tgtH; });
+            if (_cTix.length > 0) pct2h = _cMet.length / _cTix.length;
+          }
         }
         if (pct2h == null && DATA.closed) {
           let met = 0, tot = 0;
