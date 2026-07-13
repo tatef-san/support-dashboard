@@ -7183,30 +7183,32 @@ if(window.opener&&!window.opener.closed){
           const _tgtY = _cy2y(_tgt).toFixed(1);
           _s += '<line x1="'+_pL+'" y1="'+_tgtY+'" x2="'+(_W-_pR)+'" y2="'+_tgtY+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>';
           _s += '<text x="'+(_W-_pR+3)+'" y="'+(parseFloat(_tgtY)-3).toFixed(1)+'" font-size="8.5" fill="#f59e0b">'+(_tgt*100).toFixed(0)+'% target</text>';
-          // Bars (CSAT %)
+          // Bars (CSAT %) — store barTopY for dot label placement
+          const _barTopY = {};
           _fullY.forEach(function(m, i) {
             const _mx = (_pL + i*_step + _step/2);
             const _bx = _mx - _bW/2;
             const _pct = m.pct != null ? m.pct : 0;
             const _bH = _iH * _pct;
             const _by = _pT + _iH - _bH;
+            _barTopY[i] = _by;
             const _col = m.pct == null ? '#e5e7eb' : m.pct >= _tgt ? '#22c55e' : '#ef4444';
             const _op = m.pct == null ? '0.25' : '1';
             _s += '<rect x="'+_bx.toFixed(1)+'" y="'+_by.toFixed(1)+'" width="'+_bW.toFixed(1)+'" height="'+_bH.toFixed(1)+'" fill="'+_col+'" rx="3" opacity="'+_op+'"/>';
             if (m.pct != null) {
               if (_bH > 16) {
-                _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_by+Math.min(_bH*0.55,14)).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">'+(m.pct*100).toFixed(0)+'%</text>';
+                _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_by+Math.min(_bH*0.55,16)).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">'+(m.pct*100).toFixed(0)+'%</text>';
               } else {
-                _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_by-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
+                _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_by-5).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
               }
             }
-            _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+15)+'" text-anchor="middle" font-size="10" fill="#374151">'+esc(m.month)+'</text>';
+            _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+16)+'" text-anchor="middle" font-size="11" fill="#374151">'+esc(m.month)+'</text>';
           });
           // Response rate line + dots
           const _rpts = [];
           _fullY.forEach(function(m, i) {
             if (m.respRate == null) return;
-            _rpts.push({ x: _pL+i*_step+_step/2, y: _cy2y(m.respRate), v: m.respRate });
+            _rpts.push({ x: _pL+i*_step+_step/2, y: _cy2y(m.respRate), v: m.respRate, barTopY: _barTopY[i] });
           });
           for (let pi=1; pi<_rpts.length; pi++) {
             const p0=_rpts[pi-1], p1=_rpts[pi];
@@ -7214,8 +7216,9 @@ if(window.opener&&!window.opener.closed){
           }
           _rpts.forEach(function(p) {
             _s += '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="#fff" stroke="#1d4ed8" stroke-width="2"/>';
-            const _lblY = p.y+15 < _pT+_iH-2 ? p.y+15 : p.y-8;
-            _s += '<text x="'+p.x.toFixed(1)+'" y="'+_lblY.toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1d4ed8">'+(p.v*100).toFixed(0)+'%</text>';
+            const _dotInBar = p.barTopY != null && p.y >= p.barTopY - 4;
+            const _lblY = _dotInBar ? (p.y - 10) : (p.y + 16 < _pT + _iH - 2 ? p.y + 16 : p.y - 10);
+            _s += '<text x="'+p.x.toFixed(1)+'" y="'+_lblY.toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">'+(p.v*100).toFixed(0)+'%</text>';
           });
           _s += '</svg>';
           _barEl.innerHTML =
@@ -10269,37 +10272,39 @@ if(window.opener&&!window.opener.closed){
       for (var _g=0; _g<=4; _g++) {
         var _gy=_pT+_iH*_g/4, _gv=100*(1-_g/4);
         _svg += '<line x1="'+_pL+'" y1="'+_gy.toFixed(1)+'" x2="'+(_W-_pR)+'" y2="'+_gy.toFixed(1)+'" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="'+(_g>0?'3,3':'')+'" />';
-        _svg += '<text x="'+(_pL-4)+'" y="'+(_gy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="#9ca3af">'+_gv.toFixed(0)+'%</text>';
-        _svg += '<text x="'+(_W-_pR+4)+'" y="'+(_gy+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="#1d4ed8">'+Math.round(_maxN*(1-_g/4))+'</text>';
+        _svg += '<text x="'+(_pL-4)+'" y="'+(_gy+3.5).toFixed(1)+'" text-anchor="end" font-size="11" fill="#9ca3af">'+_gv.toFixed(0)+'%</text>';
+        _svg += '<text x="'+(_W-_pR+4)+'" y="'+(_gy+3.5).toFixed(1)+'" text-anchor="start" font-size="11" fill="#1d4ed8">'+Math.round(_maxN*(1-_g/4))+'</text>';
       }
       // Amber target line
       var _tgtY = _cy2y(_mTgt).toFixed(1);
       _svg += '<line x1="'+_pL+'" y1="'+_tgtY+'" x2="'+(_W-_pR)+'" y2="'+_tgtY+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>';
-      _svg += '<text x="'+(_W-_pR+3)+'" y="'+(parseFloat(_tgtY)-3).toFixed(1)+'" font-size="8.5" fill="#f59e0b">'+(_mTgt*100).toFixed(0)+'% target</text>';
-      // Bars (CSAT %)
+      _svg += '<text x="'+(_W-_pR+3)+'" y="'+(parseFloat(_tgtY)-3).toFixed(1)+'" font-size="10" fill="#f59e0b">'+(_mTgt*100).toFixed(0)+'% target</text>';
+      // Bars (CSAT %) — store barTopY for dot label placement
+      var _mBarTopY = {};
       _fullMaya.forEach(function(m, i) {
         var _mx = _pL + i*_step + _step/2;
         var _bx = _mx - _bW/2;
         var _pct = m.pct != null ? m.pct : 0;
         var _bH = _iH * _pct;
         var _by = _pT + _iH - _bH;
+        _mBarTopY[i] = _by;
         var _col = m.pct == null ? '#e5e7eb' : m.pct >= _mTgt ? '#22c55e' : '#ef4444';
         var _op = m.pct == null ? '0.25' : '1';
         _svg += '<rect x="'+_bx.toFixed(1)+'" y="'+_by.toFixed(1)+'" width="'+_bW.toFixed(1)+'" height="'+_bH.toFixed(1)+'" fill="'+_col+'" rx="3" opacity="'+_op+'"/>';
         if (m.pct != null) {
           if (_bH > 16) {
-            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by+Math.min(_bH*0.55,14)).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">'+(m.pct*100).toFixed(0)+'%</text>';
+            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by+Math.min(_bH*0.55,16)).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">'+(m.pct*100).toFixed(0)+'%</text>';
           } else {
-            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
+            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by-5).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
           }
         }
-        _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+15)+'" text-anchor="middle" font-size="10" fill="#374151">'+esc(m.month)+'</text>';
+        _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+16)+'" text-anchor="middle" font-size="11" fill="#374151">'+esc(m.month)+'</text>';
       });
       // Response count line + dots (right axis)
       var _npts = [];
       _fullMaya.forEach(function(m, i) {
         if (!m.n) return;
-        _npts.push({ x: _pL+i*_step+_step/2, y: _ny2y(m.n), n: m.n });
+        _npts.push({ x: _pL+i*_step+_step/2, y: _ny2y(m.n), n: m.n, barTopY: _mBarTopY[i] });
       });
       for (var _pi=1; _pi<_npts.length; _pi++) {
         var _p0=_npts[_pi-1], _p1=_npts[_pi];
@@ -10307,8 +10312,9 @@ if(window.opener&&!window.opener.closed){
       }
       _npts.forEach(function(p) {
         _svg += '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="#fff" stroke="#1d4ed8" stroke-width="2"/>';
-        var _lblY = p.y+15 < _pT+_iH-2 ? p.y+15 : p.y-8;
-        _svg += '<text x="'+p.x.toFixed(1)+'" y="'+_lblY.toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1d4ed8">'+p.n+'</text>';
+        var _dotInBar = p.barTopY != null && p.y >= p.barTopY - 4;
+        var _lblY = _dotInBar ? (p.y - 10) : (p.y + 16 < _pT + _iH - 2 ? p.y + 16 : p.y - 10);
+        _svg += '<text x="'+p.x.toFixed(1)+'" y="'+_lblY.toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">'+p.n+'</text>';
       });
       _svg += '</svg>';
       mayaRespBarEl.innerHTML =
