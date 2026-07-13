@@ -4584,19 +4584,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     return resp.json();
   }
 
-  // ── ADO Analytics OData fetch (Bearer token or PAT) ──────────────────────────
+  // ── ADO Analytics OData fetch (Bearer token only — PAT blocked by CORS) ─────
   async function adoODataFetch(url) {
-    let authHeader = '';
-    if (window._adoAccessToken) {
-      authHeader = 'Bearer ' + window._adoAccessToken;
-    } else {
-      let pat2 = '';
-      try { const cfg2 = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); pat2 = cfg2.pat || ''; } catch(e2) {}
-      if (!pat2) pat2 = localStorage.getItem('adoPAT') || '';
-      if (!pat2) throw new Error('Not authenticated — sign in with Microsoft or set a PAT');
-      authHeader = 'Basic ' + btoa(':' + pat2);
-    }
-    const r = await fetch(url, { headers: { 'Authorization': authHeader, 'Accept': 'application/json' } });
+    if (!window._adoAccessToken) throw new Error('Sign in with Microsoft to sync — the Analytics OData endpoint requires a Bearer token (PAT is blocked by CORS)');
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + window._adoAccessToken, 'Accept': 'application/json' } });
     if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('OData ' + r.status + (t ? ': ' + t.slice(0,120) : '')); }
     return r.json();
   }
