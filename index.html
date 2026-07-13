@@ -2923,9 +2923,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
   // ===========================================================================
   function renderKPIs(t, overrides) {
     overrides = overrides || {};
-    if (overrides.escPct != null) t.escPct = overrides.escPct;
-    if (overrides.fix    != null) t.fix    = overrides.fix;
-    if (overrides.resp   != null) t.resp   = overrides.resp;
+    if (overrides.escPct  != null) t.escPct  = overrides.escPct;
+    if (overrides.fix     != null) t.fix     = overrides.fix;
+    if (overrides.resp    != null) t.resp    = overrides.resp;
+    if (overrides.frtSla  != null) t.frtSla  = overrides.frtSla;
 
     var today    = new Date();
     var todayISO = today.toISOString().slice(0, 10);
@@ -2963,11 +2964,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       var mayaN = (window._mayaCsatData||[]).filter(function(r){return inRange(r.d, range);}).length;
       var frtSla = rMetN ? rMet/rMetN : null;
       // Override frtSla from monthly respTime upload Total row if available
+      var avgResp = null;
       if (mi != null && mi >= 0 && mi <= 11) {
         var _ups = loadUploads();
         var _upKey = makeUploadKey('respTime', 'Monthly', String(mi).padStart(2,'0'));
         if (_ups[_upKey]) {
           var _tr = _ups[_upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
+          if (_tr && typeof _tr.avgHours === 'number') avgResp = _tr.avgHours;
           if (_tr && typeof _tr.slaPct === 'number') {
             frtSla = _tr.slaPct;
           } else {
@@ -2978,9 +2981,18 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           }
         }
       }
+      if (avgResp == null) {
+        var _rS = 0, _rN = 0;
+        (DATA.closed||[]).forEach(function(r){
+          if (!inRange(r.closed, range) || typeof r.resp !== 'number') return;
+          _rS += r.resp; _rN++;
+        });
+        if (_rN > 0) avgResp = _rS / _rN;
+      }
       return {
         csatPct: k.orgTotal.csatPct,
         frtSla:  frtSla,
+        avgResp: avgResp,
         ttrSla:  sN    ? sMet/sN    : null,
         aiFirst: k.orgTotal.closed  ? mayaN/k.orgTotal.closed : null
       };
@@ -3010,6 +3022,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       var ytdVal  = cfg.get(ytd);
       var spark   = monthly.map(function(m){return cfg.get(m);});
       var goal    = cfg.goal;
+      // For FRT SLA, prefer period-upload value over calendar-month computed value
+      if (cfg.key === 'frtSla' && t.frtSla != null) curVal = t.frtSla;
       var onTrack = (goal != null && curVal != null) ? curVal >= goal : null;
 
       var badge = onTrack === null ? ''
@@ -3027,16 +3041,33 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         trendHtml = '<div class="ov-trend trend-neutral">No prior month data</div>';
       }
 
-      var sparkNonNull = spark.filter(function(v){return v!=null;});
-      var sparkMax = sparkNonNull.length ? Math.max.apply(null, sparkNonNull.map(function(v){return v*100;})) : 1;
-      if (sparkMax < 0.01) sparkMax = 1;
-      var sparkHtml = spark.map(function(v, idx) {
-        var h = v != null ? Math.max(5, Math.round((v*100) / sparkMax * 46)) : 5;
-        var c = goal != null ? (v != null && v >= goal ? '#22c55e' : '#ef4444') : cfg.color;
-        var o = v != null ? '1' : '0.2';
-        var isCur = idx === 5;
-        return '<div style="width:13px;height:'+h+'px;background:'+c+';border-radius:3px 3px 0 0;opacity:'+o+';flex-shrink:0;'+(isCur?'outline:2px solid '+c+';outline-offset:1px;':'')+';"></div>';
-      }).join('');
+      var sparkHtml;
+      if (cfg.key === 'frtSla') {
+        // Bars = avg response hours per month; color = green if % met target, red otherwise
+        var hSpark = monthly.map(function(m){ return m.avgResp; });
+        var pSpark = monthly.map(function(m){ return m.frtSla; });
+        var hMax = Math.max.apply(null, hSpark.filter(Boolean).concat([DATA.targets.resp||2])) || 4;
+        sparkHtml = hSpark.map(function(v, idx) {
+          var h = v != null ? Math.max(5, Math.round(v / hMax * 46)) : 5;
+          var pct = pSpark[idx];
+          var c = pct != null ? (pct >= goal ? '#22c55e' : '#ef4444') : (v != null ? '#ef4444' : '#ef4444');
+          var o = v != null ? '1' : '0.2';
+          var isCur = idx === 5;
+          var tip = v != null ? v.toFixed(1)+'h · '+(pct!=null?(pct*100).toFixed(0)+'% within 2h':'no % data') : '–';
+          return '<div title="'+tip+'" style="width:13px;height:'+h+'px;background:'+c+';border-radius:3px 3px 0 0;opacity:'+o+';flex-shrink:0;'+(isCur?'outline:2px solid '+c+';outline-offset:1px;':'')+';"></div>';
+        }).join('');
+      } else {
+        var sparkNonNull = spark.filter(function(v){return v!=null;});
+        var sparkMax = sparkNonNull.length ? Math.max.apply(null, sparkNonNull.map(function(v){return v*100;})) : 1;
+        if (sparkMax < 0.01) sparkMax = 1;
+        sparkHtml = spark.map(function(v, idx) {
+          var h = v != null ? Math.max(5, Math.round((v*100) / sparkMax * 46)) : 5;
+          var c = goal != null ? (v != null && v >= goal ? '#22c55e' : '#ef4444') : cfg.color;
+          var o = v != null ? '1' : '0.2';
+          var isCur = idx === 5;
+          return '<div style="width:13px;height:'+h+'px;background:'+c+';border-radius:3px 3px 0 0;opacity:'+o+';flex-shrink:0;'+(isCur?'outline:2px solid '+c+';outline-offset:1px;':'')+';"></div>';
+        }).join('');
+      }
 
       var curPeriodLabel = period === 'Monthly' ? mRange(yr, curM).label + ' ' + yr : '';
       html += '<div class="ov-kpi-card" style="--card-color:'+cfg.color+'">' +
@@ -3046,6 +3077,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         '</div>'+badge+'</div>' +
         '<div class="ov-main">'+fp(curVal)+(curPeriodLabel ? '<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:6px;">'+curPeriodLabel+'</span>' : '')+'</div>' +
         (cfg.key === 'ttrSla' && t.fix != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Median TTR: <strong style="color:var(--text);font-size:13px;">'+t.fix.toFixed(1)+'d</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.fixAvg+'d</div>' : '') +
+        (cfg.key === 'frtSla' && t.resp != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Avg response: <strong style="color:var(--text);font-size:13px;">'+t.resp.toFixed(1)+'h</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.resp+'h</div>' : '') +
         trendHtml +
         '<div class="ov-stats-row">' +
           '<div class="ov-stat"><span class="ov-stat-label">YTD</span><span class="ov-stat-val">'+fp(ytdVal)+'</span></div>' +
