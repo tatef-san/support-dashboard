@@ -1418,7 +1418,6 @@
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Response SLA — met vs breached (≤ 2hrs)</h3><div id="rspSla"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Support type breakdown</h3><div id="rspSupport"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Top 5 longest response times</h3><div id="rspTopLong"></div></div>
-      <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Avg response MoM</h3><div id="rspMom"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Insights to improve</h3><div id="rspInsights"></div></div>
     </div>
   </div>
@@ -9247,9 +9246,7 @@ if(window.opener&&!window.opener.closed){
       $('rspTopLong').innerHTML = '<div class="cat-empty">no tickets in scope</div>';
     }
 
-    // ---- F. MoM (avg resp) ----
-    const series = buildScopeMoM('resp');
-    $('rspMom').innerHTML = svgMultiLine(series, { width: 800, height: 220, formatY: v => v != null ? v.toFixed(1) : '-' });
+
 
     // ---- E. Insights ----
     const tips = [];
