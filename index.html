@@ -12548,10 +12548,15 @@ if(window.opener&&!window.opener.closed){
         var _ODATA_SELECT = '$select=WorkItemId,Title,WorkItemType,State,CreatedDate,CompletedDate,ChangedDate,Custom_ServiceConsultant,Custom_ProjectReleaseVersion,Custom_TicketMainCategory,Custom_TicketSubCategory';
         var _ODATA_EXPAND = '$expand=AssignedTo($select=UserName),Area($select=AreaPath)';
 
-        // Match PowerBI TicketType=Customer Support filter exactly
+        // Match PowerBI TicketType=Customer Support filter exactly (from DimTicket.pbix)
+        // Also excludes cancelled state and test area paths (matching DimTicket M query)
         function _isCustSupport(item) {
           var prv = (item.Custom_ProjectReleaseVersion || '').toLowerCase().trim();
-          return prv.indexOf('support') === 0 && prv !== 'support - wishlist' && prv !== 'support - partner support';
+          if (prv.indexOf('support') !== 0) return false;
+          if (prv === 'support - wishlist' || prv === 'support - partner support') return false;
+          var ap = ((item.Area && item.Area.AreaPath) || '').toLowerCase();
+          if (ap.indexOf('test') !== -1) return false;
+          return true;
         }
 
         var _CUST_STATES = ['on customer','on-customer','waiting customer','pending customer','waiting for customer','pending update','pending client','awaiting customer','awaiting client','customer response','waiting response'];
@@ -12612,7 +12617,7 @@ if(window.opener&&!window.opener.closed){
         }
 
         lf('Querying active tickets via Analytics OData…');
-        var _activeFilter = encodeURIComponent("WorkItemType eq 'Ticket' and CompletedDate eq null and CreatedDate ge 2026-01-01T00:00:00Z");
+        var _activeFilter = encodeURIComponent("WorkItemType eq 'Ticket' and State ne 'Cancelled' and CompletedDate eq null and CreatedDate ge 2026-01-01T00:00:00Z");
         var _activeUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _activeFilter + '&$top=10000';
         var _aRaw = await fetchODataAll(_activeUrl, lf);
         var _aFiltered = _aRaw.filter(_isCustSupport);
@@ -12627,7 +12632,7 @@ if(window.opener&&!window.opener.closed){
         console.log('[ADO OData] Active analyst counts:', _aNameCounts);
 
         lf('Querying closed tickets (since 1 Jan 2026)…');
-        var _closedFilter = encodeURIComponent("WorkItemType eq 'Ticket' and CompletedDate ge 2026-01-01T00:00:00Z");
+        var _closedFilter = encodeURIComponent("WorkItemType eq 'Ticket' and State ne 'Cancelled' and CompletedDate ge 2026-01-01T00:00:00Z");
         var _closedUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _closedFilter + '&$top=10000';
         var _cRaw = await fetchODataAll(_closedUrl, lf);
         var _cFiltered = _cRaw.filter(_isCustSupport);
