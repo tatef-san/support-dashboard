@@ -10261,70 +10261,53 @@ if(window.opener&&!window.opener.closed){
         var d = _mbm[key];
         return { month: mn, pct: d && d.n ? d.pos/d.n : null, n: d ? d.n : 0 };
       });
-      var _maxN = Math.max.apply(null, _fullMaya.map(function(m){ return m.n || 0; }).concat([1]));
-      var _W=800, _H=230, _pL=42, _pR=52, _pT=22, _pB=50;
+      var _W=800, _H=240, _pL=42, _pR=20, _pT=22, _pB=60;
       var _iW=_W-_pL-_pR, _iH=_H-_pT-_pB;
-      var _step=_iW/12, _bW=_step*0.52;
+      var _step=_iW/12, _bW=_step*0.55;
       var _cy2y = function(v){ return _pT + _iH*(1 - Math.min(Math.max(v||0,0),1)); };
-      var _ny2y = function(n){ return _pT + _iH*(1 - (n||0)/_maxN); };
       var _svg = '<svg width="100%" height="'+_H+'" viewBox="0 0 '+_W+' '+_H+'" style="display:block;">';
-      // Grid + left axis (CSAT %) + right axis (response count)
+      // Grid + left Y-axis (CSAT %)
       for (var _g=0; _g<=4; _g++) {
         var _gy=_pT+_iH*_g/4, _gv=100*(1-_g/4);
         _svg += '<line x1="'+_pL+'" y1="'+_gy.toFixed(1)+'" x2="'+(_W-_pR)+'" y2="'+_gy.toFixed(1)+'" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="'+(_g>0?'3,3':'')+'" />';
         _svg += '<text x="'+(_pL-4)+'" y="'+(_gy+3.5).toFixed(1)+'" text-anchor="end" font-size="11" fill="#9ca3af">'+_gv.toFixed(0)+'%</text>';
-        _svg += '<text x="'+(_W-_pR+4)+'" y="'+(_gy+3.5).toFixed(1)+'" text-anchor="start" font-size="11" fill="#1d4ed8">'+Math.round(_maxN*(1-_g/4))+'</text>';
       }
-      // Amber target line
+      // Amber 80% target line with label inside chart
       var _tgtY = _cy2y(_mTgt).toFixed(1);
       _svg += '<line x1="'+_pL+'" y1="'+_tgtY+'" x2="'+(_W-_pR)+'" y2="'+_tgtY+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>';
-      _svg += '<text x="'+(_W-_pR+3)+'" y="'+(parseFloat(_tgtY)-3).toFixed(1)+'" font-size="10" fill="#f59e0b">'+(_mTgt*100).toFixed(0)+'% target</text>';
-      // Bars (CSAT %) — store barTopY for dot label placement
-      var _mBarTopY = {};
+      _svg += '<text x="'+(_W-_pR-4)+'" y="'+(parseFloat(_tgtY)-4).toFixed(1)+'" text-anchor="end" font-size="10" fill="#f59e0b">'+(_mTgt*100).toFixed(0)+'% target</text>';
+      // Bars + x-axis labels
       _fullMaya.forEach(function(m, i) {
         var _mx = _pL + i*_step + _step/2;
         var _bx = _mx - _bW/2;
         var _pct = m.pct != null ? m.pct : 0;
         var _bH = _iH * _pct;
         var _by = _pT + _iH - _bH;
-        _mBarTopY[i] = _by;
         var _col = m.pct == null ? '#e5e7eb' : m.pct >= _mTgt ? '#22c55e' : '#ef4444';
-        var _op = m.pct == null ? '0.25' : '1';
+        var _op = m.pct == null ? '0.2' : '1';
         _svg += '<rect x="'+_bx.toFixed(1)+'" y="'+_by.toFixed(1)+'" width="'+_bW.toFixed(1)+'" height="'+_bH.toFixed(1)+'" fill="'+_col+'" rx="3" opacity="'+_op+'"/>';
         if (m.pct != null) {
-          if (_bH > 16) {
-            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by+Math.min(_bH*0.55,16)).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">'+(m.pct*100).toFixed(0)+'%</text>';
+          if (_bH > 18) {
+            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by+Math.min(_bH*0.5,18)).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">'+(m.pct*100).toFixed(0)+'%</text>';
           } else {
-            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by-5).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
+            _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_by-6).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+_col+'">'+(m.pct*100).toFixed(0)+'%</text>';
           }
         }
-        _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+16)+'" text-anchor="middle" font-size="11" fill="#374151">'+esc(m.month)+'</text>';
-      });
-      // Response count line + dots (right axis)
-      var _npts = [];
-      _fullMaya.forEach(function(m, i) {
-        if (!m.n) return;
-        _npts.push({ x: _pL+i*_step+_step/2, y: _ny2y(m.n), n: m.n, barTopY: _mBarTopY[i] });
-      });
-      for (var _pi=1; _pi<_npts.length; _pi++) {
-        var _p0=_npts[_pi-1], _p1=_npts[_pi];
-        _svg += '<line x1="'+_p0.x.toFixed(1)+'" y1="'+_p0.y.toFixed(1)+'" x2="'+_p1.x.toFixed(1)+'" y2="'+_p1.y.toFixed(1)+'" stroke="#1d4ed8" stroke-width="2"/>';
-      }
-      _npts.forEach(function(p) {
-        _svg += '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="#fff" stroke="#1d4ed8" stroke-width="2"/>';
-        var _dotInBar = p.barTopY != null && p.y >= p.barTopY - 4;
-        var _lblY = _dotInBar ? (p.y - 10) : (p.y + 16 < _pT + _iH - 2 ? p.y + 16 : p.y - 10);
-        _svg += '<text x="'+p.x.toFixed(1)+'" y="'+_lblY.toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">'+p.n+'</text>';
+        // Month name + response count below
+        _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+16)+'" text-anchor="middle" font-size="11" fill="var(--text)">'+esc(m.month)+'</text>';
+        if (m.n > 0) {
+          _svg += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+30)+'" text-anchor="middle" font-size="9.5" fill="#6b7280">n='+m.n+'</text>';
+        }
       });
       _svg += '</svg>';
       mayaRespBarEl.innerHTML =
-        '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Maya AI CSAT % &amp; Response Count — Monthly Trend '+_mYr+'</div>' +
+        '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Maya AI CSAT % — Monthly Trend '+_mYr+'</div>' +
         _svg +
         '<div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;align-items:center;">' +
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="2" fill="#22c55e"/></svg>CSAT % ≥ target</span>' +
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="2" fill="#ef4444"/></svg>CSAT % &lt; target</span>' +
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#1d4ed8;"><svg width="26" height="12" style="overflow:visible"><line x1="0" y1="6" x2="22" y2="6" stroke="#1d4ed8" stroke-width="2"/><circle cx="11" cy="6" r="3.5" fill="#fff" stroke="#1d4ed8" stroke-width="2"/></svg>Response count</span>' +
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#f59e0b;"><svg width="24" height="8" style="overflow:visible"><line x1="0" y1="4" x2="22" y2="4" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3"/></svg>'+(_mTgt*100).toFixed(0)+'% CSAT target</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="2" fill="#22c55e"/></svg>CSAT % ≥ 80% target</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#374151;"><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="2" fill="#ef4444"/></svg>CSAT % &lt; 80% target</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6b7280;">n = response count per month</span>' +
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#f59e0b;"><svg width="24" height="8" style="overflow:visible"><line x1="0" y1="4" x2="22" y2="4" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3"/></svg>80% CSAT target</span>' +
         '</div>';
     }
 
