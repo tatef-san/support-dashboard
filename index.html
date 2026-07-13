@@ -4584,6 +4584,39 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     return resp.json();
   }
 
+  // ── ADO Analytics OData fetch (Bearer token or PAT) ──────────────────────────
+  async function adoODataFetch(url) {
+    let authHeader = '';
+    if (window._adoAccessToken) {
+      authHeader = 'Bearer ' + window._adoAccessToken;
+    } else {
+      let pat2 = '';
+      try { const cfg2 = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); pat2 = cfg2.pat || ''; } catch(e2) {}
+      if (!pat2) pat2 = localStorage.getItem('adoPAT') || '';
+      if (!pat2) throw new Error('Not authenticated — sign in with Microsoft or set a PAT');
+      authHeader = 'Basic ' + btoa(':' + pat2);
+    }
+    const r = await fetch(url, { headers: { 'Authorization': authHeader, 'Accept': 'application/json' } });
+    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('OData ' + r.status + (t ? ': ' + t.slice(0,120) : '')); }
+    return r.json();
+  }
+
+  async function fetchODataAll(url, lfn) {
+    const all = [];
+    let nextUrl = url;
+    let page = 0;
+    while (nextUrl) {
+      page++;
+      if (lfn && page > 1) lfn('  Page ' + page + ' (' + all.length + ' so far)…');
+      const data = await adoODataFetch(nextUrl);
+      all.push(...(data.value || []));
+      nextUrl = data['@odata.nextLink'] || null;
+    }
+    return all;
+  }
+  window._adoODataFetch = adoODataFetch;
+  window._fetchODataAll = fetchODataAll;
+
   // Extract @mentioned display names from an ADO comment HTML string
   function extractAtMentions(html) {
     if (!html) return [];
@@ -12510,41 +12543,102 @@ if(window.opener&&!window.opener.closed){
         if (box) box.classList.remove('show');
       }
       try {
-        var closedList = (c.closedStates && c.closedStates.length) ? c.closedStates : ['Closed','Resolved','Done'];
-        // Escape apostrophes in state names for valid WIQL (e.g. "Won't Fix" → 'Won''t Fix')
-        var wqlStr = function(s) { return "'" + s.replace(/'/g, "''") + "'"; };
-        var closed = closedList.map(wqlStr).join(',');
-        var typeList  = (c.types && c.types.length) ? c.types : [];
-        var typeFilter = typeList.length ? " AND [System.WorkItemType] IN ("+typeList.map(wqlStr).join(',')+")": "";
-        var cutoff = '2026-01-01';
+        // ── ADO Analytics OData (matches PowerBI TicketType filter) ──────────────
+        var _ODATA_BASE = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
+        var _ODATA_SELECT = '$select=WorkItemId,Title,WorkItemType,State,CreatedDate,CompletedDate,ChangedDate,Custom_ServiceConsultant,Custom_ProjectReleaseVersion,Custom_TicketMainCategory,Custom_TicketSubCategory';
+        var _ODATA_EXPAND = '$expand=AssignedTo($select=UserName),Area($select=AreaPath)';
 
-        var areaFilter = '';
-        if (c.areaPath) {
-          var areaPaths = c.areaPath.split(';').map(function(p){return p.trim();}).filter(Boolean);
-          if (areaPaths.length === 1) {
-            areaFilter = " AND [System.AreaPath] UNDER '"+areaPaths[0]+"'";
-          } else if (areaPaths.length > 1) {
-            areaFilter = " AND ("+areaPaths.map(function(p){return "[System.AreaPath] UNDER '"+p+"'";}).join(' OR ')+")";
-          }
-          lf('Area path filter: '+areaPaths.join(' | '));
+        // Match PowerBI TicketType=Customer Support filter exactly
+        function _isCustSupport(item) {
+          var prv = (item.Custom_ProjectReleaseVersion || '').toLowerCase().trim();
+          return prv.indexOf('support') === 0 && prv !== 'support - wishlist' && prv !== 'support - partner support';
         }
-        if (!typeFilter) lf('Work item type: ALL (leave Work Item Types blank to query everything)');
 
-        lf('Querying active tickets (assigned to your team, last 365 days)…');
-        var activeCutoff = '2026-01-01';
-        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+typeFilter+" AND [System.State] NOT IN ("+closed+") AND [System.CreatedDate]>='"+activeCutoff+"' ORDER BY [System.CreatedDate] DESC");
-        var aIds = (ar.workItems||[]).map(function(w){return w.id;}).slice(0,2000);
-        window._adoSampleIds = aIds.slice(0,20); // store for Auto-Map field discovery
-        lf('Found '+aIds.length+' active tickets (showing up to 1000).');
-        var aItems = await getItems(c, aIds);
-        var active = mapActive(aItems, c);
+        var _CUST_STATES = ['on customer','on-customer','waiting customer','pending customer','waiting for customer','pending update','pending client','awaiting customer','awaiting client','customer response','waiting response'];
+        var _TEAM_STATES = ['on sme','on-sme','on peer','on-peer','on dev queue','on dev','escalated','with sme','with peer','with dev','hosting','platform','r&d','engineering'];
+        function _pendingFromState(state) {
+          var s = (state || '').toLowerCase();
+          if (_CUST_STATES.some(function(v){ return s.indexOf(v) !== -1; })) return 'customer';
+          if (_TEAM_STATES.some(function(v){ return s.indexOf(v) !== -1; })) return 'team';
+          return 'analyst';
+        }
+
+        function _mapODataActive(item) {
+          var analystRaw = item.Custom_ServiceConsultant || (item.AssignedTo && item.AssignedTo.UserName) || '';
+          var analystName = normalizeAnalystName(analystRaw);
+          var state = item.State || '';
+          var pending = _pendingFromState(state);
+          var areaPath = (item.Area && item.Area.AreaPath) || '';
+          return {
+            id:              String(item.WorkItemId || ''),
+            title:           item.Title || '',
+            c:               analystName,
+            created:         dStr(item.CreatedDate),
+            age:             dAge(item.CreatedDate),
+            escalated:       pending === 'team',
+            pendingCustomer: pending === 'customer',
+            region:          regionFromArea(areaPath, c.project),
+            comments:        0,
+            mainCat:         item.Custom_TicketMainCategory || '',
+            subCat:          item.Custom_TicketSubCategory  || '',
+            state:           state,
+            acct:            areaPath.split('\\').pop() || ''
+          };
+        }
+
+        function _mapODataClosed(item) {
+          var analystRaw = item.Custom_ServiceConsultant || (item.AssignedTo && item.AssignedTo.UserName) || '';
+          var analystName = normalizeAnalystName(analystRaw);
+          var areaPath = (item.Area && item.Area.AreaPath) || '';
+          var created = item.CreatedDate;
+          var closedDate = item.CompletedDate || item.ChangedDate;
+          var age = null;
+          if (created && closedDate) age = Math.max(0, Math.floor((new Date(closedDate) - new Date(created)) / 86400000));
+          return {
+            id:      String(item.WorkItemId || ''),
+            title:   item.Title || '',
+            c:       analystName,
+            created: dStr(created),
+            closed:  dStr(closedDate),
+            age:     age,
+            resp:    null,
+            solo:    1,
+            mainCat: item.Custom_TicketMainCategory || '',
+            subCat:  item.Custom_TicketSubCategory  || '',
+            region:  regionFromArea(areaPath, c.project),
+            acct:    areaPath.split('\\').pop() || '',
+            teams:   []
+          };
+        }
+
+        lf('Querying active tickets via Analytics OData…');
+        var _activeFilter = encodeURIComponent("WorkItemType eq 'Ticket' and CompletedDate eq null and CreatedDate ge 2026-01-01T00:00:00Z");
+        var _activeUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _activeFilter + '&$top=10000';
+        var _aRaw = await fetchODataAll(_activeUrl, lf);
+        var _aFiltered = _aRaw.filter(_isCustSupport);
+        window._adoSampleIds = _aFiltered.slice(0,20).map(function(i){ return i.WorkItemId; });
+        lf('Found ' + _aRaw.length + ' Ticket items → ' + _aFiltered.length + ' customer support active tickets.');
+        var _aNameCounts = {};
+        var active = _aFiltered.map(function(item) {
+          var r = _mapODataActive(item);
+          _aNameCounts[r.c] = (_aNameCounts[r.c] || 0) + 1;
+          return r;
+        });
+        console.log('[ADO OData] Active analyst counts:', _aNameCounts);
 
         lf('Querying closed tickets (since 1 Jan 2026)…');
-        var cr = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+typeFilter+" AND [System.State] IN ("+closed+") AND [System.ChangedDate]>='"+cutoff+"' ORDER BY [System.ChangedDate] DESC");
-        var cIds = (cr.workItems||[]).map(function(w){return w.id;}).slice(0,2000);
-        lf('Found '+cIds.length+' closed tickets.');
-        var cItems = await getItems(c, cIds);
-        var closedArr = mapClosed(cItems, c);
+        var _closedFilter = encodeURIComponent("WorkItemType eq 'Ticket' and CompletedDate ge 2026-01-01T00:00:00Z");
+        var _closedUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _closedFilter + '&$top=10000';
+        var _cRaw = await fetchODataAll(_closedUrl, lf);
+        var _cFiltered = _cRaw.filter(_isCustSupport);
+        lf('Found ' + _cRaw.length + ' Ticket items → ' + _cFiltered.length + ' customer support closed tickets.');
+        var _cNameCounts = {};
+        var closedArr = _cFiltered.map(function(item) {
+          var r = _mapODataClosed(item);
+          _cNameCounts[r.c] = (_cNameCounts[r.c] || 0) + 1;
+          return r;
+        });
+        console.log('[ADO OData] Closed analyst counts:', _cNameCounts);
 
         lf('Injecting into dashboard…');
         // DATA lives inside the main IIFE — access via window._dashDATA
