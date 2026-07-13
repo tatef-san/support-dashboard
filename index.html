@@ -12619,7 +12619,7 @@ if(window.opener&&!window.opener.closed){
         lf('Querying active tickets via Analytics OData…');
         var _activeFilter = encodeURIComponent("WorkItemType eq 'Ticket' and State ne 'Cancelled' and CompletedDate eq null and CreatedDate ge 2026-01-01T00:00:00Z");
         var _activeUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _activeFilter + '&$top=10000';
-        var _aRaw = await fetchODataAll(_activeUrl, lf);
+        var _aRaw = await window._fetchODataAll(_activeUrl, lf);
         var _aFiltered = _aRaw.filter(_isCustSupport);
         window._adoSampleIds = _aFiltered.slice(0,20).map(function(i){ return i.WorkItemId; });
         lf('Found ' + _aRaw.length + ' Ticket items → ' + _aFiltered.length + ' customer support active tickets.');
@@ -12634,7 +12634,7 @@ if(window.opener&&!window.opener.closed){
         lf('Querying closed tickets (since 1 Jan 2026)…');
         var _closedFilter = encodeURIComponent("WorkItemType eq 'Ticket' and State ne 'Cancelled' and CompletedDate ge 2026-01-01T00:00:00Z");
         var _closedUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _closedFilter + '&$top=10000';
-        var _cRaw = await fetchODataAll(_closedUrl, lf);
+        var _cRaw = await window._fetchODataAll(_closedUrl, lf);
         var _cFiltered = _cRaw.filter(_isCustSupport);
         lf('Found ' + _cRaw.length + ' Ticket items → ' + _cFiltered.length + ' customer support closed tickets.');
         var _cNameCounts = {};
