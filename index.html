@@ -4565,13 +4565,19 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
 
   // ── ADO HTTP helper ─────────────────────────────────────────────────────────
   async function adoFetch(path, body) {
-    // Prefer ado_cfg_v3 (active connector config), fall back to legacy adoPAT key
-    let pat = '';
-    try { const cfg = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); pat = cfg.pat || ''; } catch(e) {}
-    if (!pat) pat = localStorage.getItem('adoPAT') || '';
-    if (!pat) throw new Error('ADO PAT not configured');
+    let authHeader = '';
+    // Prefer MSAL Bearer token (Entra SSO) over PAT
+    if (window._adoAccessToken) {
+      authHeader = 'Bearer ' + window._adoAccessToken;
+    } else {
+      let pat = '';
+      try { const cfg = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); pat = cfg.pat || ''; } catch(e) {}
+      if (!pat) pat = localStorage.getItem('adoPAT') || '';
+      if (!pat) throw new Error('Not authenticated — sign in with Microsoft or configure a PAT');
+      authHeader = 'Basic ' + btoa(':' + pat);
+    }
     const base = 'https://sanacommerce.visualstudio.com/Sana%20Projects';
-    const opts = { headers: { 'Authorization': 'Basic ' + btoa(':' + pat), 'Content-Type': 'application/json' } };
+    const opts = { headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' } };
     if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
     const resp = await fetch(base + path, opts);
     if (!resp.ok) { const t = await resp.text().catch(() => ''); throw new Error('ADO ' + resp.status + (t ? ': ' + t.slice(0,80) : '')); }
@@ -12480,8 +12486,10 @@ if(window.opener&&!window.opener.closed){
 
     var _syncInProgress = false;
     window.adoSync = async function(cfg, fromModal) {
-      var c = cfg || getCfg();
-      if (!c || !c.pat || !c.org || !c.project) { setStatus('error','Not configured'); return; }
+      var c = cfg || getCfg() || {};
+      if (!c.org) c.org = 'https://sanacommerce.visualstudio.com';
+      if (!c.project) c.project = 'Sana Projects';
+      if (!c.pat && !window._adoAccessToken) { setStatus('error','Sign in with Microsoft to sync'); return; }
       // Prevent concurrent syncs — if already running and this is an auto-trigger, skip silently
       if (_syncInProgress) {
         if (fromModal) { setStatus('error','Sync already in progress — please wait'); }
@@ -13040,6 +13048,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var _CLIENT_ID = '4e71ab59-a8a6-432a-851f-e2882ed143ea';
   var _TENANT_ID = '783727bb-afca-4f4e-925b-d2df74e54c12';
   var _REDIRECT  = 'https://tatef-san.github.io/support-dashboard/';
+  var _ADO_SCOPE = '499b84ac-1321-427f-aa17-267ca6975798/user_impersonation';
+
   var _msalCfg = {
     auth: { clientId: _CLIENT_ID, authority: 'https://login.microsoftonline.com/'+_TENANT_ID, redirectUri: _REDIRECT, navigateToLoginRequestUrl: false },
     cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
@@ -13076,12 +13086,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function _setStatus(msg) { var el = document.getElementById('msalStatus'); if (el) el.textContent = msg; }
 
+  // Acquire ADO Bearer token silently; schedule refresh 5 min before expiry
+  function _acquireAdoToken(account) {
+    var app = _initMsal();
+    if (!app) return Promise.resolve();
+    return app.acquireTokenSilent({ scopes: [_ADO_SCOPE], account: account })
+      .then(function(result) {
+        if (result && result.accessToken) {
+          window._adoAccessToken = result.accessToken;
+          var expiry = result.expiresOn ? result.expiresOn.getTime() : (Date.now() + 3600000);
+          var refreshIn = Math.max(60000, expiry - Date.now() - 300000);
+          setTimeout(function() { _acquireAdoToken(account); }, refreshIn);
+        }
+      })
+      .catch(function(e) { console.warn('ADO token silent acquisition failed:', e.message); });
+  }
+
   function _doAuth(account) {
     var authObj = _mapAccount(account);
     if (window._setAuth) { window._setAuth(authObj); }
     else { try { sessionStorage.setItem('dashAuth', JSON.stringify(authObj)); } catch(e) {} }
-    if (window._applyAuth) { window._applyAuth(); }
-    else { location.reload(); }
+    _setStatus('Getting ADO access…');
+    _acquireAdoToken(account).then(function() {
+      if (window._adoAccessToken) _setStatus('Syncing data…');
+      if (window._applyAuth) { window._applyAuth(); }
+      else { location.reload(); }
+      // Auto-sync once dashboard has rendered
+      setTimeout(function() {
+        if (window.adoSync) window.adoSync(null, false);
+      }, 1200);
+    }).catch(function() {
+      if (window._applyAuth) { window._applyAuth(); }
+      else { location.reload(); }
+    });
   }
 
   function _trySilent() {
@@ -13104,7 +13141,7 @@ document.addEventListener('DOMContentLoaded', function() {
     _setStatus('Opening Microsoft sign-in…');
     var btn = document.getElementById('msalBtn');
     if (btn) btn.disabled = true;
-    app.loginPopup({ scopes: ['openid','profile'] }).then(function(result) {
+    app.loginPopup({ scopes: ['openid','profile', _ADO_SCOPE] }).then(function(result) {
       if (result && result.account) { _setStatus('Signing you in…'); _doAuth(result.account); }
     }).catch(function(e) {
       _setStatus('');
