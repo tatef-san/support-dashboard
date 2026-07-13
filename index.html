@@ -12617,7 +12617,7 @@ if(window.opener&&!window.opener.closed){
         }
 
         lf('Querying active tickets via Analytics OData…');
-        var _activeFilter = encodeURIComponent("WorkItemType eq 'Ticket' and State ne 'Cancelled' and CompletedDate eq null and CreatedDate ge 2026-01-01T00:00:00Z");
+        var _activeFilter = encodeURIComponent("WorkItemType eq 'Ticket' and State ne 'Cancelled' and CompletedDate eq null");
         var _activeUrl = _ODATA_BASE + '?' + _ODATA_SELECT + '&' + _ODATA_EXPAND + '&$filter=' + _activeFilter + '&$top=10000';
         var _aRaw = await window._fetchODataAll(_activeUrl, lf);
         var _aFiltered = _aRaw.filter(_isCustSupport);
