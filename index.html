@@ -12545,7 +12545,7 @@ if(window.opener&&!window.opener.closed){
       try {
         // ── ADO Analytics OData (matches PowerBI TicketType filter) ──────────────
         var _ODATA_BASE = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
-        var _ODATA_SELECT = '$select=WorkItemId,Title,WorkItemType,State,CreatedDate,CompletedDate,ChangedDate,Custom_ServiceConsultant,Custom_ProjectReleaseVersion,Custom_TicketMainCategory,Custom_TicketSubCategory';
+        var _ODATA_SELECT = '$select=WorkItemId,Title,WorkItemType,State,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_TicketMainCategory,Custom_TicketSubCategory';
         var _ODATA_EXPAND = '$expand=AssignedTo($select=UserName),Area($select=AreaPath)';
 
         // Match PowerBI TicketType=Customer Support filter exactly (from DimTicket.pbix)
@@ -12569,7 +12569,7 @@ if(window.opener&&!window.opener.closed){
         }
 
         function _mapODataActive(item) {
-          var analystRaw = item.Custom_ServiceConsultant || (item.AssignedTo && item.AssignedTo.UserName) || '';
+          var analystRaw = (item.AssignedTo && item.AssignedTo.UserName) || '';
           var analystName = normalizeAnalystName(analystRaw);
           var state = item.State || '';
           var pending = _pendingFromState(state);
@@ -12592,7 +12592,7 @@ if(window.opener&&!window.opener.closed){
         }
 
         function _mapODataClosed(item) {
-          var analystRaw = item.Custom_ServiceConsultant || (item.AssignedTo && item.AssignedTo.UserName) || '';
+          var analystRaw = (item.AssignedTo && item.AssignedTo.UserName) || '';
           var analystName = normalizeAnalystName(analystRaw);
           var areaPath = (item.Area && item.Area.AreaPath) || '';
           var created = item.CreatedDate;
