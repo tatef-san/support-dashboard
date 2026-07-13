@@ -12531,7 +12531,7 @@ if(window.opener&&!window.opener.closed){
         if (!typeFilter) lf('Work item type: ALL (leave Work Item Types blank to query everything)');
 
         lf('Querying active tickets (assigned to your team, last 365 days)…');
-        var activeCutoff = new Date(Date.now()-3*365*86400000).toISOString().split('T')[0];
+        var activeCutoff = '2026-01-01';
         var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+typeFilter+" AND [System.State] NOT IN ("+closed+") AND [System.CreatedDate]>='"+activeCutoff+"' ORDER BY [System.CreatedDate] DESC");
         var aIds = (ar.workItems||[]).map(function(w){return w.id;}).slice(0,2000);
         window._adoSampleIds = aIds.slice(0,20); // store for Auto-Map field discovery
