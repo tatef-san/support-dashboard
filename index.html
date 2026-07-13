@@ -2169,6 +2169,9 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const period = $('period').value;
     const used = {};
     SOURCES.forEach(s => {
+      // Preserve live ADO sync data — adoSync sets DATA._adoSync when it writes DATA.active;
+      // resolveDataForPeriod must not wipe it with stale embedded/upload data on re-render.
+      if (s.key === 'active' && DATA._adoSync) { used[s.key] = 'adosync'; return; }
       const pick = pickUpload(s.key, period);
       if (pick) {
         DATA[s.key] = pick.upload.data;
@@ -4657,11 +4660,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const adoClosedStates = (adoCfg2.closedStates && adoCfg2.closedStates.length ? adoCfg2.closedStates : ['Closed','Resolved','Done','Wishlist','Wish List']).map(function(s){ return "'"+s+"'"; }).join(',');
       const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
       const authHdr = window._adoAccessToken ? ('Bearer ' + window._adoAccessToken) : ('Basic ' + btoa(':' + pat));
-      const cutoff = '2026-01-01';
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': authHdr, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate]>='" + cutoff + "' AND [System.WorkItemType] = 'Ticket' ORDER BY [System.CreatedDate] ASC" })
+        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.WorkItemType] = 'Ticket' ORDER BY [System.CreatedDate] ASC" })
       });
       if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
       const wiqlRes = await wiqlResp.json();
@@ -4730,7 +4732,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const prv = prvMap[t.wi] || '';
           if (!prv) _prvStats.emptyPrv++;
           _prvStats.values[prv || '(empty)'] = (_prvStats.values[prv || '(empty)'] || 0) + 1;
-          const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
+          const _EXCL_PRV = new Set(['support - wishlist', 'support - partner support']);
+          const isCustomerSupport = !_EXCL_PRV.has(prv); // include all tickets unless explicitly excluded
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && isCustomerSupport) {
             _prvStats.included++;
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
@@ -8129,7 +8132,6 @@ if(window.opener&&!window.opener.closed){
         .filter(r => !excludedWIs.has(r.wi))
         .filter(r => upload.filename === 'ADO Live Sync' || !_actMentWIs || _actMentWIs.has(r.wi))
         .filter(r => inScope(r.analyst))
-        .filter(r => !r.age || r.age <= Math.floor((Date.now() - new Date('2026-01-01').getTime()) / 86400000))
         .filter(r => { if (analyst === 'All' && region === 'All') return true; const a = (r.analyst || '').trim().toLowerCase(); const _PH = new Set(['customer','@customer','partner','@partner','team','@team','-']); return a && !_PH.has(a); })
         .map(r => {
           const ado = adoMap[+r.wi] || {};
@@ -12439,10 +12441,13 @@ if(window.opener&&!window.opener.closed){
       var mapped = items.map(function(item) {
         var f = item.fields || {};
         // Always prefer Custom.ServiceConsultant (permanent SA record, never changes when
-        // ticket moves to Customer/SME). Fall back to configured fldAnalyst (AssignedTo).
-        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, c.fldAnalyst) || '';
+        // ticket moves to Customer/SME). Fall back to System.AssignedTo (hardcoded, not
+        // c.fldAnalyst which may be set to an OData name like 'AssignedTo.UserName').
+        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
         if (!analystRaw || NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
-          analystRaw = fv(item, c.fldAnalyst) || analystRaw;
+          var _ato = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
+          if (_ato && NON_ANALYST_VALUES.indexOf(_ato.toLowerCase().trim()) === -1) analystRaw = _ato;
+          else if (!analystRaw) analystRaw = '';
         }
         var analystName = normalizeAnalystName(analystRaw);
         _nameCounts[analystName] = (_nameCounts[analystName] || 0) + 1;
@@ -12478,8 +12483,14 @@ if(window.opener&&!window.opener.closed){
         var closed  = f['System.ResolvedDate'] || f['System.ClosedDate'] || f['System.ChangedDate'];
         var age = null;
         if (created && closed) age = Math.max(0, Math.floor((new Date(closed)-new Date(created))/86400000));
-        // Always prefer Custom.ServiceConsultant (permanent SA record)
-        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, c.fldAnalyst) || '';
+        // Always prefer Custom.ServiceConsultant (permanent SA record); hardcode
+        // System.AssignedTo fallback so c.fldAnalyst OData name mismatches don't break it.
+        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
+        if (!analystRaw || NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
+          var _ato2 = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
+          if (_ato2 && NON_ANALYST_VALUES.indexOf(_ato2.toLowerCase().trim()) === -1) analystRaw = _ato2;
+          else if (!analystRaw) analystRaw = '';
+        }
         var analystName = normalizeAnalystName(analystRaw);
         _closedNameCounts[analystName] = (_closedNameCounts[analystName] || 0) + 1;
         return {
