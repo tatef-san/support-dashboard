@@ -12548,12 +12548,12 @@ if(window.opener&&!window.opener.closed){
         var _ODATA_SELECT = '$select=WorkItemId,Title,WorkItemType,State,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_TicketMainCategory,Custom_TicketSubCategory';
         var _ODATA_EXPAND = '$expand=AssignedTo($select=UserName),Area($select=AreaPath)';
 
-        // Match PowerBI TicketType=Customer Support filter exactly (from DimTicket.pbix)
-        // Also excludes cancelled state and test area paths (matching DimTicket M query)
+        // Exclude known non-customer-support categories. Null/empty PRV = include.
+        // Explicit exclusions match PowerBI DimTicket logic; AreaPath "test" excluded per M query.
+        var _PRV_EXCLUDE = ['support - wishlist','support - partner support','wishlist','partner support','starter site'];
         function _isCustSupport(item) {
           var prv = (item.Custom_ProjectReleaseVersion || '').toLowerCase().trim();
-          if (prv.indexOf('support') !== 0) return false;
-          if (prv === 'support - wishlist' || prv === 'support - partner support') return false;
+          if (_PRV_EXCLUDE.indexOf(prv) !== -1) return false;
           var ap = ((item.Area && item.Area.AreaPath) || '').toLowerCase();
           if (ap.indexOf('test') !== -1) return false;
           return true;
