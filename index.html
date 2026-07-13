@@ -8953,7 +8953,10 @@ if(window.opener&&!window.opener.closed){
       });
 
       // % line + dots
-      const pts = _months.map((m,i)=>({ x:_pL+i*_slot+_slot/2, y:m.pct7!=null?py(m.pct7):null, pct7:m.pct7 }));
+      const pts = _months.map((m,i)=>{
+        const _bHt = m.medDays!=null ? Math.max(2,(m.medDays/_maxD)*_cH) : 0;
+        return { x:_pL+i*_slot+_slot/2, y:m.pct7!=null?py(m.pct7):null, pct7:m.pct7, barTopY:_pT+_cH-_bHt };
+      });
       for (let i=0;i<pts.length-1;i++) {
         if (pts[i].y!=null&&pts[i+1].y!=null)
           s+='<line x1="'+pts[i].x.toFixed(1)+'" y1="'+pts[i].y.toFixed(1)+'" x2="'+pts[i+1].x.toFixed(1)+'" y2="'+pts[i+1].y.toFixed(1)+'" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>';
@@ -8961,7 +8964,8 @@ if(window.opener&&!window.opener.closed){
       pts.forEach(p=>{
         if (p.y!=null) {
           s+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="'+( p.pct7>=_tgtPct?'#22c55e':'#ef4444')+'" stroke="#fff" stroke-width="1.5"/>';
-          const _pctLblY = (p.y+15 < _pT+_cH-2) ? (p.y+15) : (p.y-8);
+          const _dotInBar = p.y >= p.barTopY - 4;
+          const _pctLblY = _dotInBar ? (p.y-8) : (p.y+15 < _pT+_cH-2 ? p.y+15 : p.y-8);
           s+='<text x="'+p.x.toFixed(1)+'" y="'+_pctLblY.toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1d4ed8">'+(p.pct7*100).toFixed(0)+'%</text>';
         }
       });
@@ -9169,7 +9173,10 @@ if(window.opener&&!window.opener.closed){
       });
 
       // % line + dots
-      const pts = _months.map(function(m,i){ return { x:_pL+i*_slot+_slot/2, y:m.pct2h!=null?py(m.pct2h):null, pct2h:m.pct2h }; });
+      const pts = _months.map(function(m,i){
+        const _bHt = m.avgH!=null ? Math.max(2,(m.avgH/_maxH)*_cH) : 0;
+        return { x:_pL+i*_slot+_slot/2, y:m.pct2h!=null?py(m.pct2h):null, pct2h:m.pct2h, barTopY:_pT+_cH-_bHt };
+      });
       for (let i=0;i<pts.length-1;i++) {
         if (pts[i].y!=null&&pts[i+1].y!=null)
           s+='<line x1="'+pts[i].x.toFixed(1)+'" y1="'+pts[i].y.toFixed(1)+'" x2="'+pts[i+1].x.toFixed(1)+'" y2="'+pts[i+1].y.toFixed(1)+'" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>';
@@ -9177,7 +9184,8 @@ if(window.opener&&!window.opener.closed){
       pts.forEach(function(p) {
         if (p.y!=null) {
           s+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="'+(p.pct2h>=_tgtPct?'#22c55e':'#ef4444')+'" stroke="#fff" stroke-width="1.5"/>';
-          const _ly2 = (p.y+15 < _pT+_cH-2) ? (p.y+15) : (p.y-8);
+          const _dotInBar = p.y >= p.barTopY - 4;
+          const _ly2 = _dotInBar ? (p.y-8) : (p.y+15 < _pT+_cH-2 ? p.y+15 : p.y-8);
           s+='<text x="'+p.x.toFixed(1)+'" y="'+_ly2.toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1d4ed8">'+(p.pct2h*100).toFixed(0)+'%</text>';
         }
       });
