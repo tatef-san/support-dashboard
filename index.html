@@ -551,7 +551,7 @@
 
 </style>
 <!-- MSAL.js for Microsoft Entra SSO (Client ID + Tenant ID only — no secret) -->
-<script src="https://unpkg.com/@azure/msal-browser@2/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2/lib/msal-browser.min.js"></script>
 </head>
 <body>
 <div id="adoTopbar" class="ado-topbar">
@@ -12413,15 +12413,17 @@ if(window.opener&&!window.opener.closed){
         if (TEAM_STATES.some(function(v){ return s.indexOf(v) !== -1; }))     return 'team';
         return 'analyst';
       }
-      return items.map(function(item) {
+      var _nameCounts = {};
+      var mapped = items.map(function(item) {
         var f = item.fields || {};
-        var analystRaw  = fv(item, c.fldAnalyst) || '';
-        // If AssignedTo is a placeholder (Customer/Partner/Team), fall back to
-        // Custom.ServiceConsultant which always stores the SA's name permanently
-        if (NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
-          analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || analystRaw;
+        // Always prefer Custom.ServiceConsultant (permanent SA record, never changes when
+        // ticket moves to Customer/SME). Fall back to configured fldAnalyst (AssignedTo).
+        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, c.fldAnalyst) || '';
+        if (!analystRaw || NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
+          analystRaw = fv(item, c.fldAnalyst) || analystRaw;
         }
         var analystName = normalizeAnalystName(analystRaw);
+        _nameCounts[analystName] = (_nameCounts[analystName] || 0) + 1;
         var state       = f['System.State'] || '';
         // Use explicit pending field if mapped, else derive from State
         var pendingVal  = c.fldPending ? (fv(item, c.fldPending) || '').toLowerCase() : '';
@@ -12442,20 +12444,22 @@ if(window.opener&&!window.opener.closed){
           acct:           (f['System.AreaPath']||'').split('\\').pop() || ''
         };
       });
+      console.log('[ADO Sync] Active ticket analyst names:', _nameCounts);
+      return mapped;
     }
 
     function mapClosed(items, c) {
-      return items.map(function(item) {
+      var _closedNameCounts = {};
+      var closedMapped = items.map(function(item) {
         var f = item.fields || {};
         var created = f['System.CreatedDate'];
         var closed  = f['System.ResolvedDate'] || f['System.ClosedDate'] || f['System.ChangedDate'];
         var age = null;
         if (created && closed) age = Math.max(0, Math.floor((new Date(closed)-new Date(created))/86400000));
-        var analystRaw  = fv(item, c.fldAnalyst) || '';
-        if (NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
-          analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || analystRaw;
-        }
+        // Always prefer Custom.ServiceConsultant (permanent SA record)
+        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, c.fldAnalyst) || '';
         var analystName = normalizeAnalystName(analystRaw);
+        _closedNameCounts[analystName] = (_closedNameCounts[analystName] || 0) + 1;
         return {
           id:      String(f['System.Id'] || ''),
           title:   f['System.Title'] || '',
@@ -12465,11 +12469,8 @@ if(window.opener&&!window.opener.closed){
           age:     age,
           resp:    (function(){
                      if (c.fldResp) { var v=parseFloat(fv(item,c.fldResp)); if(v>0) return v; }
-                     // Check hours fields first (unit matches dashboard)
                      var rh=parseFloat(fv(item,'Custom.ResponseTimeHours')); if(rh>0) return rh;
-                     // Days fields — convert to hours
                      var rd=parseFloat(fv(item,'Custom.ResponseTimeDays')); if(rd>0) return rd*24;
-                     // Fallback: ActivatedDate - CreatedDate in hours (first-touch proxy)
                      if(f['System.ActivatedDate']&&f['System.CreatedDate'])
                        return Math.max(0,(new Date(f['System.ActivatedDate'])-new Date(f['System.CreatedDate']))/3600000);
                      return null;
@@ -12482,6 +12483,8 @@ if(window.opener&&!window.opener.closed){
           teams:   []
         };
       });
+      console.log('[ADO Sync] Closed ticket analyst names:', _closedNameCounts);
+      return closedMapped;
     }
 
     var _syncInProgress = false;
