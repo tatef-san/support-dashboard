@@ -8151,7 +8151,12 @@ if(window.opener&&!window.opener.closed){
           };
         });
     } else {
-      rows = DATA.active.filter(r => inScope(r.c)).filter(r => { const a = (r.c || '').trim(); return a && a !== '-'; });
+      if (analyst === 'All' && region === 'All') {
+        // Show all synced tickets — not filtered by analyst presence
+        rows = DATA.active;
+      } else {
+        rows = DATA.active.filter(r => inScope(r.c)).filter(r => { const a = (r.c || '').trim(); return a && a !== '-'; });
+      }
     }
 
     // Categories panel — must use the same enriched+filtered rows as the rest of this function
@@ -8159,7 +8164,7 @@ if(window.opener&&!window.opener.closed){
 
     // ---- A. Open tickets — single scope + offenders/performers ----
     const _actTotal = (upload && upload.rows && upload.rows.length) ? upload.rows.length : DATA.active.length;
-    const _actPct   = _actTotal > 0 ? (rows.length / _actTotal * 100).toFixed(1) : null;
+    const _actPct   = (_actTotal > 0 && rows.length < _actTotal) ? (rows.length / _actTotal * 100).toFixed(1) : null;
     $('actSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
       '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — open tickets</div>' +
       '<div class="v">' + intg(rows.length) +
