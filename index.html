@@ -4762,6 +4762,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const skipped = tickets.length - openTickets.length;
 
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
+    // Clear t.c if it's not a roster member — prevents non-SA team names (AssignedTo fallback) from appearing as analyst
+    openTickets.forEach(t => { if (t.c && !rosterNames.has(t.c.toLowerCase())) t.c = ''; });
     const hibobMap = getHiBobNameSet();
     const customTags = getTeamTagsSet();
     // Scan all openTickets — blank-SC tickets are already excluded above so
