@@ -8136,7 +8136,7 @@ if(window.opener&&!window.opener.closed){
           const ado = adoMap[+r.wi] || {};
           return {
             c: r.analyst,
-            age: typeof r.age === 'number' ? r.age : ado.age,
+            age: (typeof r.age === 'number' && r.age > 0) ? r.age : (typeof ado.age === 'number' ? ado.age : 0),
             wi: r.wi, id: r.wi,
             title: r.title || ado.title,
             acct: r.acct || ado.acct || ado.account,
@@ -8147,7 +8147,7 @@ if(window.opener&&!window.opener.closed){
             funcArea: ado.funcArea,
             escalated: ado.escalated,
             pendingCust: ado.pendingCust,
-            gt15: (typeof r.age === 'number' ? r.age : ado.age||0) > 15 ? 1 : 0,
+            gt15: ((typeof r.age === 'number' && r.age > 0) ? r.age : (typeof ado.age === 'number' ? ado.age : 0)) > 15 ? 1 : 0,
           };
         });
     } else {
@@ -12609,6 +12609,8 @@ if(window.opener&&!window.opener.closed){
         D.active = active;
         D.closed = closedArr;
         D._adoSync = new Date().toLocaleString();
+        // Clear stale @mention scan cache — adoSync data (with correct ages) takes priority
+        try { localStorage.removeItem('actPendUpload'); } catch(e) {}
         // Persist closed tickets to IDB so they survive page reload
         if (window._dashSaveUploads && window._dashLoadUploads) {
           try {
