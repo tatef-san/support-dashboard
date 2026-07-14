@@ -12467,6 +12467,11 @@ if(window.opener&&!window.opener.closed){
 
     // Non-analyst placeholder values that ADO puts in AssignedTo when ticket is pending
     var NON_ANALYST_VALUES = ['customer','customer support','core support','core_support','partner','team','unassigned','hosting','sci','add-on support','ax fo support','sapecc support','support planning',''];
+    function _isNonAnalyst(v) {
+      var l = (v || '').toLowerCase().trim();
+      if (!l) return true;
+      return NON_ANALYST_VALUES.some(function(n) { return n && (l === n || l.startsWith(n + ' ') || l.startsWith(n + '_') || l.startsWith(n + '@')); });
+    }
 
     function mapActive(items, c) {
       // State-to-pending mapping based on Sana Projects ADO states
@@ -12485,10 +12490,10 @@ if(window.opener&&!window.opener.closed){
         // ticket moves to Customer/SME). Fall back to System.AssignedTo (hardcoded, not
         // c.fldAnalyst which may be set to an OData name like 'AssignedTo.UserName').
         var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
-        if (!analystRaw || NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
+        if (_isNonAnalyst(analystRaw)) {
           var _ato = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
-          if (_ato && NON_ANALYST_VALUES.indexOf(_ato.toLowerCase().trim()) === -1) analystRaw = _ato;
-          else if (!analystRaw) analystRaw = '';
+          if (_ato && !_isNonAnalyst(_ato)) analystRaw = _ato;
+          else analystRaw = '';
         }
         var analystName = normalizeAnalystName(analystRaw);
         _nameCounts[analystName] = (_nameCounts[analystName] || 0) + 1;
@@ -12531,10 +12536,10 @@ if(window.opener&&!window.opener.closed){
         // Always prefer Custom.ServiceConsultant (permanent SA record); hardcode
         // System.AssignedTo fallback so c.fldAnalyst OData name mismatches don't break it.
         var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
-        if (!analystRaw || NON_ANALYST_VALUES.indexOf(analystRaw.toLowerCase().trim()) !== -1) {
+        if (_isNonAnalyst(analystRaw)) {
           var _ato2 = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
-          if (_ato2 && NON_ANALYST_VALUES.indexOf(_ato2.toLowerCase().trim()) === -1) analystRaw = _ato2;
-          else if (!analystRaw) analystRaw = '';
+          if (_ato2 && !_isNonAnalyst(_ato2)) analystRaw = _ato2;
+          else analystRaw = '';
         }
         var analystName = normalizeAnalystName(analystRaw);
         _closedNameCounts[analystName] = (_closedNameCounts[analystName] || 0) + 1;
