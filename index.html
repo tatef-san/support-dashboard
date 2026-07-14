@@ -12583,21 +12583,18 @@ if(window.opener&&!window.opener.closed){
           lf('Area path filter: '+areaPaths.join(' | '));
         }
 
-        lf('Querying all 2026 support tickets (matching PowerBI)…');
-        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+" AND [System.WorkItemType]='Ticket' AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] DESC");
+        lf('Querying open tickets…');
+        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+" AND [System.WorkItemType]='Ticket' AND [System.State] NOT IN ("+closed+") AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] DESC");
         var aIds = (ar.workItems||[]).map(function(w){return w.id;}).slice(0,2000);
         window._adoSampleIds = aIds.slice(0,20);
-        lf('Found '+aIds.length+' raw tickets.');
+        lf('Found '+aIds.length+' open tickets.');
         var aItems = await getItems(c, aIds);
-        // Match PowerBI criteria: PRV starts with 'support', exclude wishlist/partner-support, exclude test area paths
+        // Exclude test area paths
         aItems = aItems.filter(function(item) {
-          var prv  = ((item.fields||{})['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
           var area = ((item.fields||{})['System.AreaPath'] || '').toLowerCase();
-          var prvOk = !prv || prv.startsWith('support');
-          var prvExcl = prv === 'support - wishlist' || prv === 'support - partner support';
-          return prvOk && !prvExcl && !area.includes('test');
+          return !area.includes('test');
         });
-        lf('After PowerBI filter: '+aItems.length+' support tickets.');
+        lf('After area filter: '+aItems.length+' open tickets.');
         var active = mapActive(aItems, c);
 
         lf('Querying closed tickets (since 1 Jan 2026)…');
