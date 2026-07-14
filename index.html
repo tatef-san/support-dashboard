@@ -7246,6 +7246,9 @@ if(window.opener&&!window.opener.closed){
               }
             }
             _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+16)+'" text-anchor="middle" font-size="11" fill="#374151">'+esc(m.month)+'</text>';
+            if (m.n > 0) {
+              _s += '<text x="'+_mx.toFixed(1)+'" y="'+(_pT+_iH+30)+'" text-anchor="middle" font-size="9.5" fill="#6b7280">n='+m.n+'</text>';
+            }
           });
           // Response rate line + dots
           const _rpts = [];
