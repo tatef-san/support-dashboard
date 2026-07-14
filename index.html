@@ -4764,6 +4764,23 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
     // Clear t.c if it's not a roster member — prevents non-SA team names (AssignedTo fallback) from appearing as analyst
     openTickets.forEach(t => { if (t.c && !rosterNames.has(t.c.toLowerCase())) t.c = ''; });
+    // Fallback SC fetch: tickets in DATA.active whose state verification batch failed (sc === undefined)
+    // These are valid open tickets that missed enrichment — fetch just their SC field from ADO
+    const _noSC = DATA.active.filter(r => r.sc === undefined && r.id);
+    if (_noSC.length && rosterNames.size) {
+      for (let _i = 0; _i < _noSC.length; _i += 200) {
+        const _batch = _noSC.slice(_i, _i + 200);
+        try {
+          const _sd = await adoFetch('/_apis/wit/workItems?ids=' + _batch.map(r=>r.id).join(',') + '&fields=Custom.ServiceConsultant&api-version=7.0');
+          (_sd.value || []).forEach(item => {
+            const _scF = (item.fields || {})['Custom.ServiceConsultant'];
+            const _sc = (typeof _scF === 'object' ? (_scF.displayName||'') : (_scF||'')).trim();
+            const _t = _batch.find(r => String(r.id) === String(item.id));
+            if (_t) { _t.sc = _sc || ''; if (_sc && rosterNames.has(_sc.toLowerCase())) _t.c = _sc; }
+          });
+        } catch(e) {}
+      }
+    }
     const hibobMap = getHiBobNameSet();
     const customTags = getTeamTagsSet();
     // Scan all openTickets — blank-SC tickets are already excluded above so
