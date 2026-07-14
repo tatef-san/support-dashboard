@@ -8193,12 +8193,14 @@ if(window.opener&&!window.opener.closed){
       { label: '8 - 15 days',   test: a => a >= 8  && a <= 15,   color: '#b45309' },
       { label: '0 - 7 days',    test: a => a < 8,                color: '#047857' },
     ];
+    const _AGE_CLOSED = new Set(['done','closed','resolved','cancelled','canceled','rejected','removed','wontfix','won\'t fix','duplicate','wishlist']);
+    const openAgeRows = rows.filter(r => !_AGE_CLOSED.has((r.state || '').toLowerCase().trim()));
     const ageItems = ageBands.map(b => ({
       label: b.label, color: b.color,
-      value: rows.filter(r => typeof r.age === 'number' && b.test(r.age)).length,
+      value: openAgeRows.filter(r => typeof r.age === 'number' && b.test(r.age)).length,
     }));
     const ageTotal = ageItems.reduce((s,x) => s + x.value, 0);
-    const noAge = rows.filter(r => typeof r.age !== 'number').length;
+    const noAge = openAgeRows.filter(r => typeof r.age !== 'number').length;
     let agingHtml = svgBars(ageItems, { width: 600, barH: 22, labelW: 130, formatter: v => fmtCountPct(v, ageTotal) });
     if (noAge > 0) agingHtml += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + noAge + ' tickets have no Age value.</div>';
     $('actAging').innerHTML = agingHtml;
@@ -12639,7 +12641,11 @@ if(window.opener&&!window.opener.closed){
               title:          r.title || '',
               c:              r.c || '',
               created:        r.created || '',
-              age:            typeof r.age === 'number' ? r.age : 0,
+              age:            (function(){
+                var c = r.created || '';
+                if (c) { var d = Math.floor((Date.now() - new Date(c + 'T00:00:00Z').getTime()) / 86400000); if (d >= 0) return d; }
+                return typeof r.age === 'number' ? r.age : (parseInt(r.age) || 0);
+              })(),
               escalated:      !!r.escalated,
               pendingCustomer:!!r.pendingCustomer,
               region:         r.region || '',
