@@ -3794,7 +3794,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const toFetch = ticketRows.filter(r => !prevData[r.wi]);
     ticketRows.filter(r => prevData[r.wi]).forEach(r => { result[r.wi] = prevData[r.wi]; });
     let done = 0;
-    const CONC = 20;
+    const CONC = 50;
     for (let i = 0; i < toFetch.length; i += CONC) {
       const chunk = toFetch.slice(i, i + CONC);
       await Promise.allSettled(chunk.map(async row => {
@@ -4211,7 +4211,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const toFetch = escapedRows.filter(r => !prevData[r.wi]);
     escapedRows.filter(r => prevData[r.wi]).forEach(r => { result[r.wi] = prevData[r.wi]; });
     let done = 0;
-    const CONC = 20;
+    const CONC = 50;
     for (let i = 0; i < toFetch.length; i += CONC) {
       const chunk = toFetch.slice(i, i + CONC);
       await Promise.allSettled(chunk.map(async row => {
@@ -4770,7 +4770,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     tickets = openTickets;
     const result = {};
     let done = 0, errCount = 0, firstErr = '';
-    const CONC = 20;
+    const CONC = 50;
     for (let i = 0; i < tickets.length; i += CONC) {
       const chunk = tickets.slice(i, i + CONC);
       await Promise.allSettled(chunk.map(async t => {
