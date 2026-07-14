@@ -8344,7 +8344,10 @@ if(window.opener&&!window.opener.closed){
         btnStyle: 'background:#fef9c3;color:#713f12;border:1px solid #fde047;' },
     ];
 
-    const aged = rows.filter(r => typeof r.age === 'number' && r.age >= 30);
+    const _AGING_EXCL = new Set(['done','closed','resolved','cancelled','canceled','rejected','removed','wontfix','won\'t fix','duplicate','wishlist']);
+    const aged = rows
+      .filter(r => !_AGING_EXCL.has((r.state || '').toLowerCase().trim()))
+      .filter(r => typeof r.age === 'number' && r.age >= 30);
     if (!aged.length) {
       el.innerHTML = '<div style="color:var(--good);font-size:13px;padding:8px 0;">✅ No tickets open 30+ days in this scope.</div>';
       return;
@@ -8368,7 +8371,7 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:6px 10px;white-space:nowrap;font-weight:600;">' + wiLink + '</td>' +
           '<td style="padding:6px 10px;">' + esc(t.title || '-') + '</td>' +
           '<td style="padding:6px 10px;color:#6b7280;">' + esc(t.acct || t.account || '-') + '</td>' +
-          '<td style="padding:6px 10px;color:#6b7280;">' + esc(t.c || '-') + '</td>' +
+          '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
           '</tr>';
       }).join('');
@@ -12463,7 +12466,7 @@ if(window.opener&&!window.opener.closed){
     }
 
     // Non-analyst placeholder values that ADO puts in AssignedTo when ticket is pending
-    var NON_ANALYST_VALUES = ['customer','partner','team','unassigned',''];
+    var NON_ANALYST_VALUES = ['customer','customer support','core support','core_support','partner','team','unassigned','hosting','sci','add-on support','ax fo support','sapecc support','support planning',''];
 
     function mapActive(items, c) {
       // State-to-pending mapping based on Sana Projects ADO states
