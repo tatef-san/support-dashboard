@@ -12617,10 +12617,10 @@ if(window.opener&&!window.opener.closed){
         // 1) Try local SQL API (dashboard_sql_api.ps1 must be running on port 3001)
         var _sqlRows = null;
         try {
-          lf('Checking local SQL API (http://localhost:3005/api/active)…');
+          lf('Checking local SQL API (http://localhost:3007/api/active)…');
           var _sqlCtrl = new AbortController();
           var _sqlTimer = setTimeout(function(){ _sqlCtrl.abort(); }, 5000);
-          var _sqlResp = await fetch('http://localhost:3005/api/active', { signal: _sqlCtrl.signal });
+          var _sqlResp = await fetch('http://localhost:3007/api/active', { signal: _sqlCtrl.signal });
           clearTimeout(_sqlTimer);
           if (_sqlResp.ok) {
             var _sqlData = await _sqlResp.json();
