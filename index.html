@@ -12596,64 +12596,121 @@ if(window.opener&&!window.opener.closed){
           lf('Area path filter: '+areaPaths.join(' | '));
         }
 
-        // ── OData Analytics — PowerBI-matching TicketType filter ─────────────────
-        // Matches: WorkItemType=Ticket, ProjectReleaseVersion starts with 'support',
-        // excludes wishlist and partner-support variants. No state filter → all CS
-        // tickets (open + closed) so count matches PowerBI. Auth: MSAL bearer token.
-        lf('Querying Customer Support tickets via OData Analytics…');
-        var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
-        var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
-        var _odataExp  = 'AssignedTo($select=UserName),Area($select=AreaPath)';
-        var _odataFlt  = "WorkItemType eq 'Ticket'" +
-          " and Custom_ProjectReleaseVersion ne null" +
-          " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
-          " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
-          " and Custom_ProjectReleaseVersion ne 'support - partner support'" +
-          " and CreatedDate ge 2026-01-01T00:00:00Z";
-        var _odataUrl  = _odataBase
-          + '?$select=' + encodeURIComponent(_odataSel)
-          + '&$expand=' + encodeURIComponent(_odataExp)
-          + '&$filter=' + encodeURIComponent(_odataFlt);
-        var _odataRows = await window._fetchODataAll(_odataUrl, lf);
-        lf('OData: ' + _odataRows.length + ' Customer Support tickets found.');
-        _odataRows = _odataRows.filter(function(r) {
-          return !((r.Area && r.Area.AreaPath) || '').toLowerCase().includes('test');
-        });
-        lf('After area filter: ' + _odataRows.length + ' Customer Support tickets.');
-        window._adoSampleIds = _odataRows.slice(0,20).map(function(r){ return r.WorkItemId; });
-
-        // Transform OData rows → REST item format (fields dict) for mapActive/mapClosed
+        // ── Data source: local SQL API (Prisma) first, OData Analytics fallback ──────
         var _csList = (c.closedStates && c.closedStates.length)
           ? c.closedStates : ['Closed','Resolved','Done','Cancelled'];
-        var aItems = _odataRows.map(function(r) {
-          var st   = r.State || '';
-          var isCl = _csList.indexOf(st) >= 0;
-          var endD = isCl ? (r.CompletedDate || r.ChangedDate) : null;
-          return { fields: {
-            'System.Id':          r.WorkItemId,
-            'System.State':       st,
-            'System.Title':       r.Title || '',
-            'System.CreatedDate': r.CreatedDate,
-            'System.ChangedDate': r.ChangedDate,
-            'System.ResolvedDate':endD,
-            'System.ClosedDate':  endD,
-            'System.AssignedTo':  (r.AssignedTo && r.AssignedTo.UserName) || '',
-            'System.AreaPath':    (r.Area && r.Area.AreaPath) || '',
-            'Custom.ServiceConsultant':  r.Custom_ServiceConsultant || '',
-            'Custom.TicketMainCategory': r.Custom_TicketMainCategory || '',
-            'Custom.TicketSubCategory':  r.Custom_TicketSubCategory || '',
-          }};
-        });
-        // All CS tickets (open + closed) → DATA.active, matching PowerBI count
-        var active = mapActive(aItems, c);
+        var active, closedArr;
 
-        // Closed subset → DATA.closed for TTR/SLA analysis
-        lf('Splitting closed tickets from OData result…');
-        var cItems = aItems.filter(function(it) {
-          return _csList.indexOf(it.fields['System.State']) >= 0;
-        });
-        lf('Found ' + cItems.length + ' closed Customer Support tickets.');
-        var closedArr = mapClosed(cItems, c);
+        // 1) Try local SQL API (dashboard_sql_api.ps1 must be running on port 3001)
+        var _sqlRows = null;
+        try {
+          lf('Checking local SQL API (http://localhost:3001/api/active)…');
+          var _sqlCtrl = new AbortController();
+          var _sqlTimer = setTimeout(function(){ _sqlCtrl.abort(); }, 5000);
+          var _sqlResp = await fetch('http://localhost:3001/api/active', { signal: _sqlCtrl.signal });
+          clearTimeout(_sqlTimer);
+          if (_sqlResp.ok) {
+            var _sqlData = await _sqlResp.json();
+            _sqlRows = _sqlData.rows || [];
+            lf('SQL API: ' + _sqlRows.length + ' tickets loaded from Prisma database.');
+          } else {
+            lf('SQL API returned HTTP ' + _sqlResp.status + ' — falling back to OData.');
+          }
+        } catch(_sqlErr) {
+          lf('Local SQL API not available — falling back to OData Analytics.');
+        }
+
+        if (_sqlRows) {
+          // ── Path A: Prisma SQL — richer analyst names, customer names, regions ──────
+          active = _sqlRows.map(function(r) {
+            return {
+              id:             String(r.id || ''),
+              title:          r.title || '',
+              c:              r.c || '',
+              created:        r.created || '',
+              age:            typeof r.age === 'number' ? r.age : 0,
+              escalated:      !!r.escalated,
+              pendingCustomer:!!r.pendingCustomer,
+              region:         r.region || '',
+              comments:       0,
+              mainCat:        r.mainCat || '',
+              subCat:         r.subCat || '',
+              state:          r.state || '',
+              acct:           r.customer || ''
+            };
+          });
+          closedArr = _sqlRows
+            .filter(function(r) { return !!r.closed; })
+            .map(function(r) {
+              return {
+                id:      String(r.id || ''),
+                title:   r.title || '',
+                c:       r.c || '',
+                created: r.created || '',
+                closed:  r.closed || '',
+                age:     typeof r.age === 'number' ? r.age : 0,
+                resp:    null,
+                solo:    1,
+                mainCat: r.mainCat || '',
+                subCat:  r.subCat || '',
+                region:  r.region || '',
+                acct:    r.customer || '',
+                teams:   []
+              };
+            });
+          lf('Prisma data ready: ' + active.length + ' total tickets, ' + closedArr.length + ' closed.');
+          window._adoSampleIds = _sqlRows.slice(0,20).map(function(r){ return r.id; });
+        } else {
+          // ── Path B: OData Analytics — PowerBI-matching TicketType filter ────────────
+          lf('Querying Customer Support tickets via OData Analytics…');
+          var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
+          var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
+          var _odataExp  = 'AssignedTo($select=UserName),Area($select=AreaPath)';
+          var _odataFlt  = "WorkItemType eq 'Ticket'" +
+            " and Custom_ProjectReleaseVersion ne null" +
+            " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
+            " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
+            " and Custom_ProjectReleaseVersion ne 'support - partner support'" +
+            " and CreatedDate ge 2026-01-01T00:00:00Z";
+          var _odataUrl  = _odataBase
+            + '?$select=' + encodeURIComponent(_odataSel)
+            + '&$expand=' + encodeURIComponent(_odataExp)
+            + '&$filter=' + encodeURIComponent(_odataFlt);
+          var _odataRows = await window._fetchODataAll(_odataUrl, lf);
+          lf('OData: ' + _odataRows.length + ' Customer Support tickets found.');
+          _odataRows = _odataRows.filter(function(r) {
+            return !((r.Area && r.Area.AreaPath) || '').toLowerCase().includes('test');
+          });
+          lf('After area filter: ' + _odataRows.length + ' Customer Support tickets.');
+          window._adoSampleIds = _odataRows.slice(0,20).map(function(r){ return r.WorkItemId; });
+
+          var aItems = _odataRows.map(function(r) {
+            var st   = r.State || '';
+            var isCl = _csList.indexOf(st) >= 0;
+            var endD = isCl ? (r.CompletedDate || r.ChangedDate) : null;
+            return { fields: {
+              'System.Id':          r.WorkItemId,
+              'System.State':       st,
+              'System.Title':       r.Title || '',
+              'System.CreatedDate': r.CreatedDate,
+              'System.ChangedDate': r.ChangedDate,
+              'System.ResolvedDate':endD,
+              'System.ClosedDate':  endD,
+              'System.AssignedTo':  (r.AssignedTo && r.AssignedTo.UserName) || '',
+              'System.AreaPath':    (r.Area && r.Area.AreaPath) || '',
+              'Custom.ServiceConsultant':  r.Custom_ServiceConsultant || '',
+              'Custom.TicketMainCategory': r.Custom_TicketMainCategory || '',
+              'Custom.TicketSubCategory':  r.Custom_TicketSubCategory || '',
+            }};
+          });
+          active = mapActive(aItems, c);
+          lf('Splitting closed tickets from OData result…');
+          var cItems = aItems.filter(function(it) {
+            return _csList.indexOf(it.fields['System.State']) >= 0;
+          });
+          lf('Found ' + cItems.length + ' closed Customer Support tickets.');
+          closedArr = mapClosed(cItems, c);
+        }
 
         lf('Injecting into dashboard…');
         // DATA lives inside the main IIFE — access via window._dashDATA
