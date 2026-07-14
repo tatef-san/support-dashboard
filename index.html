@@ -12583,20 +12583,21 @@ if(window.opener&&!window.opener.closed){
           lf('Area path filter: '+areaPaths.join(' | '));
         }
 
-        lf('Querying active tickets…');
-        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+" AND [System.WorkItemType]='Ticket' AND [System.State] NOT IN ("+closed+") AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] DESC");
+        lf('Querying all 2026 support tickets (matching PowerBI)…');
+        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+" AND [System.WorkItemType]='Ticket' AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] DESC");
         var aIds = (ar.workItems||[]).map(function(w){return w.id;}).slice(0,2000);
         window._adoSampleIds = aIds.slice(0,20);
-        lf('Found '+aIds.length+' raw active tickets.');
+        lf('Found '+aIds.length+' raw tickets.');
         var aItems = await getItems(c, aIds);
-        // Exclude test area paths only (PRV filter omitted here — Custom.ProjectReleaseVersion is
-        // not reliably populated in REST $expand=fields and would exclude valid support tickets.
-        // PRV filtering is applied in the @mention scan which explicitly requests that field.)
+        // Match PowerBI criteria: PRV starts with 'support', exclude wishlist/partner-support, exclude test area paths
         aItems = aItems.filter(function(item) {
+          var prv  = ((item.fields||{})['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
           var area = ((item.fields||{})['System.AreaPath'] || '').toLowerCase();
-          return !area.includes('test');
+          var prvOk = !prv || prv.startsWith('support');
+          var prvExcl = prv === 'support - wishlist' || prv === 'support - partner support';
+          return prvOk && !prvExcl && !area.includes('test');
         });
-        lf('After area filter: '+aItems.length+' active tickets.');
+        lf('After PowerBI filter: '+aItems.length+' support tickets.');
         var active = mapActive(aItems, c);
 
         lf('Querying closed tickets (since 1 Jan 2026)…');
