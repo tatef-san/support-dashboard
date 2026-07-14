@@ -12584,15 +12584,14 @@ if(window.opener&&!window.opener.closed){
         window._adoSampleIds = aIds.slice(0,20);
         lf('Found '+aIds.length+' raw active tickets.');
         var aItems = await getItems(c, aIds);
-        // Filter to Customer Support tickets — matches PowerBI criteria:
-        // PRV starts with 'support', excluding wishlist and partner support.
-        // Also exclude test area paths (matches PowerBI: not Text.Contains(AreaPath, "test")).
+        // Exclude test area paths only (PRV filter omitted here — Custom.ProjectReleaseVersion is
+        // not reliably populated in REST $expand=fields and would exclude valid support tickets.
+        // PRV filtering is applied in the @mention scan which explicitly requests that field.)
         aItems = aItems.filter(function(item) {
-          var prv  = ((item.fields||{})['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
           var area = ((item.fields||{})['System.AreaPath'] || '').toLowerCase();
-          return prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support' && !area.includes('test');
+          return !area.includes('test');
         });
-        lf('After PRV/area filter: '+aItems.length+' Customer Support tickets.');
+        lf('After area filter: '+aItems.length+' active tickets.');
         var active = mapActive(aItems, c);
 
         lf('Querying closed tickets (since 1 Jan 2026)…');
