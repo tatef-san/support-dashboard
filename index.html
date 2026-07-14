@@ -8095,7 +8095,10 @@ if(window.opener&&!window.opener.closed){
     //   _actAutoCleanInProgress=true  → clean is running, show banner and wait
     //   _actAutoCleanDone=true        → clean finished this session, proceed normally
     //   neither                       → trigger clean if function is ready, else show banner
-    const upload = JSON.parse(localStorage.getItem('actPendUpload')||'null');
+    // When adoSync has run, DATA.active already contains all CS tickets (open+closed)
+    // with correct states — skip actPendUpload (which only stores open-only scan results).
+    const _hasAdoSync = !!(window._dashDATA && window._dashDATA._adoSync);
+    const upload = _hasAdoSync ? null : JSON.parse(localStorage.getItem('actPendUpload')||'null');
     const _needsClean = upload && upload.filename !== 'ADO Live Sync' && !window._actAutoCleanDone;
     if (_needsClean) {
       const _bannerEl = $('actSummary');
