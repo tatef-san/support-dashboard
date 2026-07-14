@@ -4735,8 +4735,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && isCustomerSupport) {
             _prvStats.included++;
-            t.c = scMap[t.wi] || analystMap[t.wi] || t.c || '';
+            const _sqlIterMgr = t.c || '';
+            t.c = scMap[t.wi] || analystMap[t.wi] || _sqlIterMgr || '';
             t.sc = scMap[t.wi] || ''; // always store raw SC field separately
+            t._sqlC = _sqlIterMgr; // save SQL Iteration Manager for fallback
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
             if (typeMap[t.wi]) t._wiType = typeMap[t.wi];
@@ -4763,7 +4765,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
 
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
     // Clear t.c if it's not a roster member — prevents non-SA team names (AssignedTo fallback) from appearing as analyst
-    openTickets.forEach(t => { if (t.c && !rosterNames.has(t.c.toLowerCase())) t.c = ''; });
+    openTickets.forEach(t => {
+      if (t.c && !rosterNames.has(t.c.toLowerCase())) t.c = '';
+      if (!t.c && t._sqlC && rosterNames.has(t._sqlC.toLowerCase())) t.c = t._sqlC;
+    });
     // Fallback SC fetch: tickets in DATA.active whose state verification batch failed (sc === undefined)
     // These are valid open tickets that missed enrichment — fetch just their SC field from ADO
     const _noSC = DATA.active.filter(r => r.sc === undefined && r.id);
