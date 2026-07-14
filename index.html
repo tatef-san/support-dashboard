@@ -8980,7 +8980,7 @@ if(window.opener&&!window.opener.closed){
       s+='<text x="'+(_W-_pR-3)+'" y="'+(+_tDY-3).toFixed(1)+'" text-anchor="end" font-size="8.5" fill="#f59e0b">'+_tgtDays+'d target</text>';
       const _tPY=py(_tgtPct).toFixed(1);
       s+='<line x1="'+_pL+'" y1="'+_tPY+'" x2="'+(_W-_pR)+'" y2="'+_tPY+'" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,3"/>';
-      s+='<text x="'+(_W-_pR-52)+'" y="'+(+_tPY-3).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
+      s+='<text x="'+(_W-_pR-52)+'" y="'+(+_tPY+11).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
 
       // bars + month labels
       _months.forEach((m,i)=>{
@@ -9200,7 +9200,7 @@ if(window.opener&&!window.opener.closed){
       s+='<text x="'+(_W-_pR-3)+'" y="'+(+_tDY-3).toFixed(1)+'" text-anchor="end" font-size="8.5" fill="#f59e0b">'+_tgtH+'h target</text>';
       const _tPY = py(_tgtPct).toFixed(1);
       s+='<line x1="'+_pL+'" y1="'+_tPY+'" x2="'+(_W-_pR)+'" y2="'+_tPY+'" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,3"/>';
-      s+='<text x="'+(_W-_pR-55)+'" y="'+(+_tPY-3).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
+      s+='<text x="'+(_W-_pR-55)+'" y="'+(+_tPY+11).toFixed(1)+'" font-size="8.5" fill="#3b82f6">'+(_tgtPct*100).toFixed(0)+'% SLA target</text>';
 
       // bars + labels
       _months.forEach(function(m, i) {
