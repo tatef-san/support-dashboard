@@ -4663,7 +4663,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': authHdr, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.WorkItemType] = 'Ticket' ORDER BY [System.CreatedDate] ASC" })
+        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate] >= '2026-01-01' AND [System.WorkItemType] = 'Ticket' ORDER BY [System.CreatedDate] ASC" })
       });
       if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
       const wiqlRes = await wiqlResp.json();
@@ -12403,19 +12403,41 @@ if(window.opener&&!window.opener.closed){
 
     // ADO display name → roster name aliases (add any mismatches here)
     var NAME_ALIASES = {
-      // All variants → canonical name "Sarah Elfaramawy"
-      'sarah elfaramawy':   'Sarah Elfaramawy',   // normalise casing
-      'sarah el-hefnawy':   'Sarah Elfaramawy',
-      'sarah elhefnawy':    'Sarah Elfaramawy',
-      'sarah el hefnawy':   'Sarah Elfaramawy',
-      'sarah elfarmawy':    'Sarah Elfaramawy',
-      'sarah el farmawy':   'Sarah Elfaramawy',
-      'sarah el-farmawy':   'Sarah Elfaramawy',
-      'sarah elfarawy':     'Sarah Elfaramawy',
-      'najabi salgado':     'Najabi Salgado Giraldo',
-      'daniela martinez':   'Maria Daniela Martinez',
-      'alexander hoyos':    'Alexander Hoyos Gonzalez',
-      'alex hoyos':         'Alexander Hoyos Gonzalez',
+      // Sarah Elfaramawy — multiple spelling variants in ADO
+      'sarah elfaramawy':          'Sarah Elfaramawy',
+      'sarah el-hefnawy':          'Sarah Elfaramawy',
+      'sarah elhefnawy':           'Sarah Elfaramawy',
+      'sarah el hefnawy':          'Sarah Elfaramawy',
+      'sarah elfarmawy':           'Sarah Elfaramawy',
+      'sarah el farmawy':          'Sarah Elfaramawy',
+      'sarah el-farmawy':          'Sarah Elfaramawy',
+      'sarah elfarawy':            'Sarah Elfaramawy',
+      // Najabi Salgado Giraldo
+      'najabi salgado':            'Najabi Salgado Giraldo',
+      'najabi salgado giraldo':    'Najabi Salgado Giraldo',
+      // Maria Daniela Martinez
+      'daniela martinez':          'Maria Daniela Martinez',
+      'maria daniela martinez':    'Maria Daniela Martinez',
+      // Alexander Hoyos Gonzalez
+      'alexander hoyos':           'Alexander Hoyos Gonzalez',
+      'alex hoyos':                'Alexander Hoyos Gonzalez',
+      'alexander hoyos gonzalez':  'Alexander Hoyos Gonzalez',
+      // Judith Hüneburg — umlaut and non-umlaut
+      'judith hüneburg':           'Judith Hüneburg',
+      'judith huneburg':           'Judith Hüneburg',
+      'judith hueneburg':          'Judith Hüneburg',
+      // Other roster members — self-map to normalise casing from ADO
+      'gert overheul':             'Gert Overheul',
+      'rifa khan':                 'Rifa Khan',
+      'alexis stephenson':         'Alexis Stephenson',
+      'anna ohinska':              'Anna Ohinska',
+      'katie durisova':            'Katie Durisova',
+      'archana chakravarty':       'Archana Chakravarty',
+      'meha johny':                'Meha Johny',
+      'ahmed nouraldeen':          'Ahmed Nouraldeen',
+      'sruthi sreedharan':         'Sruthi Sreedharan',
+      'toqa reffat':               'Toqa Reffat',
+      'mohamed bayoumi':           'Mohamed Bayoumi',
     };
     function normalizeAnalystName(raw) {
       var stripped = raw.replace(/\s*<[^>]+>/, '').trim();
@@ -12557,11 +12579,20 @@ if(window.opener&&!window.opener.closed){
         }
 
         lf('Querying active tickets…');
-        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+" AND [System.WorkItemType]='Ticket' AND [System.State] NOT IN ("+closed+") ORDER BY [System.CreatedDate] DESC");
+        var ar = await wiql(c, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='"+c.project+"'"+areaFilter+" AND [System.WorkItemType]='Ticket' AND [System.State] NOT IN ("+closed+") AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] DESC");
         var aIds = (ar.workItems||[]).map(function(w){return w.id;}).slice(0,2000);
         window._adoSampleIds = aIds.slice(0,20);
-        lf('Found '+aIds.length+' active tickets.');
+        lf('Found '+aIds.length+' raw active tickets.');
         var aItems = await getItems(c, aIds);
+        // Filter to Customer Support tickets — matches PowerBI criteria:
+        // PRV starts with 'support', excluding wishlist and partner support.
+        // Also exclude test area paths (matches PowerBI: not Text.Contains(AreaPath, "test")).
+        aItems = aItems.filter(function(item) {
+          var prv  = ((item.fields||{})['Custom.ProjectReleaseVersion'] || '').toLowerCase().trim();
+          var area = ((item.fields||{})['System.AreaPath'] || '').toLowerCase();
+          return prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support' && !area.includes('test');
+        });
+        lf('After PRV/area filter: '+aItems.length+' Customer Support tickets.');
         var active = mapActive(aItems, c);
 
         lf('Querying closed tickets (since 1 Jan 2026)…');
