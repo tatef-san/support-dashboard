@@ -4732,8 +4732,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const prv = prvMap[t.wi] || '';
           if (!prv) _prvStats.emptyPrv++;
           _prvStats.values[prv || '(empty)'] = (_prvStats.values[prv || '(empty)'] || 0) + 1;
-          const _EXCL_PRV = new Set(['support - wishlist', 'support - partner support']);
-          const isCustomerSupport = !_EXCL_PRV.has(prv); // include all tickets unless explicitly excluded
+          const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && isCustomerSupport) {
             _prvStats.included++;
             if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
