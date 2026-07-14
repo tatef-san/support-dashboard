@@ -4735,7 +4735,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const isCustomerSupport = prv.startsWith('support') && prv !== 'support - wishlist' && prv !== 'support - partner support';
           if (!CLOSED_STATES_ADO.has(stateMap[t.wi]) && isCustomerSupport) {
             _prvStats.included++;
-            if (!t.c && analystMap[t.wi]) t.c = analystMap[t.wi];
+            t.c = scMap[t.wi] || analystMap[t.wi] || t.c || '';
             t.sc = scMap[t.wi] || ''; // always store raw SC field separately
             if (!t.acct && acctMap[t.wi])  t.acct = acctMap[t.wi];
             if (!t.title && titleMap[t.wi]) t.title = titleMap[t.wi];
