@@ -10404,6 +10404,15 @@ if(window.opener&&!window.opener.closed){
     renderClosedTeamMentions();    // Teams @mentioned collapsible cards (bottom)
   function renderMayaCsat() {
     var raw = window._mayaCsatData;
+    // Extract ticket ID from ConversationSummary for rows where wi is missing
+    if (raw && raw.length) {
+      var _mayaTicketRe = /(?:ticket|ID)[^0-9]{0,20}(\d{5,7})/i;
+      raw = raw.map(function(r) {
+        if (r.wi && r.wi > 0) return r;
+        var m = _mayaTicketRe.exec(r.summary || '');
+        return m ? Object.assign({}, r, { wi: parseInt(m[1], 10) }) : r;
+      });
+    }
     var kpiRow    = document.getElementById('mayaKpiRow');
     var distEl    = document.getElementById('mayaRatingDist');
     var trendEl   = document.getElementById('mayaMonthlyTrend');
