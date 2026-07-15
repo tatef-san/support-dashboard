@@ -4925,7 +4925,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     } catch(e) {}
 
     let _slFullCache = {};
-    try { _slFullCache = JSON.parse(localStorage.getItem('slFull_cache') || '{}'); } catch(e) {}
+    try { _slFullCache = JSON.parse(localStorage.getItem('slFull_cache_v2') || '{}'); } catch(e) {}
     const _slFullExpiry = Date.now() - 86400000;
     const _slFullFresh = [];
     openTickets.forEach(function(t) {
@@ -4951,6 +4951,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
               const _nm2 = ('' + (_at2.newValue.displayName || '')).trim();
               if (!_em2.includes('@sana-commerce.com')) continue;
               if (_slScExcl.has(_em2)) continue;
+              if (!rosterNames.has(_nm2.toLowerCase())) continue; // skip non-SA roster people
               _found2 = _nm2; break;
             }
             _slFullCache[String(_st2.wi)] = { name: _found2 || '', ts: Date.now() };
@@ -4958,7 +4959,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           } catch(e) {}
         }));
       }
-      try { localStorage.setItem('slFull_cache', JSON.stringify(_slFullCache)); } catch(e) {}
+      try { localStorage.setItem('slFull_cache_v2', JSON.stringify(_slFullCache)); } catch(e) {}
     }
     localStorage.setItem('actMentions', JSON.stringify({ at: Date.now(), v: 2, data: result }));
     // Preserve analyst names from a prior Excel upload so the Sync doesn't wipe them
