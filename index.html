@@ -4904,26 +4904,62 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       }));
       el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Scanning… (' + done + ' / ' + tickets.length + ')' + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + '</div>';
     }
-    // Enrich analyst attribution with full SQL SecondLayer (mirrors PowerBI exactly).
-    // Reads AzureDevops_Issue_Revision SQL table — complete history vs ADO API's limited pages.
-    // Falls back silently when dashboard_sql_api.ps1 is not running.
+    // Full SecondLayer via ADO revision history — all open tickets, not just pooled ones.
+    // Mirrors PowerBI Merge SecondLayer: first non-SC @sana-commerce.com assignment per ticket.
+    // SC emails fetched from Prisma via SQL API (/api/sc-emails); falls back to 4 hardcoded
+    // exclusions if SQL API is not running. Results cached 24 h per WI.
     let _slCount = 0;
+    const _slScExcl = new Set([
+      'customer@sana-commerce.com','migrations@sana-commerce.com',
+      'partner@sana-commerce.com','support-planning@sana-commerce.com'
+    ]);
     try {
-      const _slCtrl = new AbortController();
-      const _slTimer = setTimeout(function(){ _slCtrl.abort(); }, 30000);
-      const _slResp = await fetch('http://localhost:3012/api/secondlayer', { signal: _slCtrl.signal });
-      clearTimeout(_slTimer);
-      if (_slResp.ok) {
-        const _slData = await _slResp.json();
-        (_slData.rows || []).forEach(function(row) {
-          if (!row.analyst || !row.wi) return;
-          if (result[row.wi]) {
-            result[row.wi].analyst = row.analyst;
-            _slCount++;
-          }
-        });
+      const _scCtrl = new AbortController();
+      const _scTimer = setTimeout(function(){ _scCtrl.abort(); }, 10000);
+      const _scResp = await fetch('http://localhost:3012/api/sc-emails', { signal: _scCtrl.signal });
+      clearTimeout(_scTimer);
+      if (_scResp.ok) {
+        const _scData = await _scResp.json();
+        (_scData.emails || []).forEach(function(e){ if (e) _slScExcl.add(e.toLowerCase().trim()); });
       }
-    } catch(_slErr) { /* SQL API not running — actMentions uses ADO scan only */ }
+    } catch(e) {}
+
+    let _slFullCache = {};
+    try { _slFullCache = JSON.parse(localStorage.getItem('slFull_cache') || '{}'); } catch(e) {}
+    const _slFullExpiry = Date.now() - 86400000;
+    const _slFullFresh = [];
+    openTickets.forEach(function(t) {
+      const cached = _slFullCache[String(t.wi)];
+      if (cached && cached.ts > _slFullExpiry) {
+        if (cached.name && result[t.wi]) { result[t.wi].analyst = cached.name; _slCount++; }
+      } else {
+        _slFullFresh.push(t);
+      }
+    });
+    if (_slFullFresh.length) {
+      el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ SecondLayer: attributing ' + _slFullFresh.length + ' tickets via revision history…</div>';
+      const _SL2_CONC = 20;
+      for (var _si2 = 0; _si2 < _slFullFresh.length; _si2 += _SL2_CONC) {
+        await Promise.allSettled(_slFullFresh.slice(_si2, _si2 + _SL2_CONC).map(async function(_st2) {
+          try {
+            const _upd2 = await adoFetch('/_apis/wit/workItems/' + _st2.wi + '/updates?$top=200&api-version=7.1');
+            var _found2 = null;
+            for (const _u2 of (_upd2.value || []).sort(function(a, b){ return (a.rev||0) - (b.rev||0); })) {
+              const _at2 = (_u2.fields || {})['System.AssignedTo'];
+              if (!_at2 || !_at2.newValue) continue;
+              const _em2 = ('' + (_at2.newValue.uniqueName || '')).toLowerCase().trim();
+              const _nm2 = ('' + (_at2.newValue.displayName || '')).trim();
+              if (!_em2.includes('@sana-commerce.com')) continue;
+              if (_slScExcl.has(_em2)) continue;
+              _found2 = _nm2; break;
+            }
+            _slFullCache[String(_st2.wi)] = { name: _found2 || '', ts: Date.now() };
+            if (_found2 && result[_st2.wi]) { result[_st2.wi].analyst = _found2; _slCount++; }
+          } catch(e) {}
+        }));
+      }
+      try { localStorage.setItem('slFull_cache', JSON.stringify(_slFullCache)); } catch(e) {}
+    }
     localStorage.setItem('actMentions', JSON.stringify({ at: Date.now(), v: 2, data: result }));
     // Preserve analyst names from a prior Excel upload so the Sync doesn't wipe them
     const _excelAnalysts = {};
