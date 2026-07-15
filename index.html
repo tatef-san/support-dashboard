@@ -1655,6 +1655,9 @@
       <!-- Score boxes (Overall CSAT + Avg Rating) -->
       <div id="mayaScores" style="margin-bottom:14px;"></div>
 
+      <!-- Escalated vs Conversation-only split -->
+      <div id="mayaEscalateSplit" style="margin-bottom:14px;"></div>
+
       <!-- Monthly CSAT % trend chart + Rating Distribution + Top 10 Accounts side by side -->
       <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:440px;" id="mayaRespBar"></div>
@@ -10523,6 +10526,48 @@ if(window.opener&&!window.opener.closed){
           '<div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;align-items:center;background:var(--bg);">'+q1Pills+'</div>' +
         '</div>' +
       '</div>';
+
+    // ── Escalated vs Conversation-only split ─────────────────────────────────
+    var splitEl = document.getElementById('mayaEscalateSplit');
+    if (splitEl) {
+      var _esc = filtered.filter(function(r){ return r.wi && r.wi > 0; });
+      var _conv = filtered.filter(function(r){ return !r.wi || r.wi <= 0; });
+      function _splitStats(rows) {
+        var n = rows.length;
+        var pos = rows.filter(function(r){ return r.rating >= 4; }).length;
+        var sumRs = rows.reduce(function(s,r){ return s+(r.rating||0); }, 0);
+        return { n: n, csat: n ? pos/n : null, avg: n ? sumRs/n : null };
+      }
+      var _sE = _splitStats(_esc), _sC = _splitStats(_conv), _sAll = _splitStats(filtered);
+      function _fmtPct(v){ return v==null?'—':(v*100).toFixed(1)+'%'; }
+      function _fmtAvg(v){ return v==null?'—':v.toFixed(2)+' ★'; }
+      function _csatCol(v){ return v==null?'var(--muted)':v>=0.8?'#047857':v>=0.6?'#b45309':'#b91c1c'; }
+      var _cols = [
+        { label:'Escalated to Ticket', icon:'🎫', s:_sE, accent:'#4f46e5' },
+        { label:'Conversation Only',   icon:'💬', s:_sC, accent:'#0891b2' },
+        { label:'Overall',             icon:'📊', s:_sAll, accent:'var(--primary)' },
+      ];
+      var _sh = '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">' +
+        '<div style="background:#1e3a5f;color:#fff;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:8px 14px;">Response Type Breakdown</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+        '<thead><tr style="background:var(--bg);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);">' +
+        '<th style="text-align:left;padding:8px 14px;"> </th>' +
+        '<th style="text-align:right;padding:8px 12px;">Responses</th>' +
+        '<th style="text-align:right;padding:8px 12px;">CSAT %</th>' +
+        '<th style="text-align:right;padding:8px 14px;">Avg Rating</th>' +
+        '</tr></thead><tbody>';
+      _cols.forEach(function(col, i){
+        var bg = i%2===0 ? 'var(--panel)' : 'var(--bg)';
+        _sh += '<tr style="border-top:1px solid var(--border);background:'+bg+';">' +
+          '<td style="padding:10px 14px;font-weight:700;color:'+col.accent+';">'+col.icon+' '+col.label+'</td>' +
+          '<td style="padding:10px 12px;text-align:right;font-weight:700;color:var(--text);">'+col.s.n+'</td>' +
+          '<td style="padding:10px 12px;text-align:right;font-weight:700;color:'+_csatCol(col.s.csat)+';">'+_fmtPct(col.s.csat)+'</td>' +
+          '<td style="padding:10px 14px;text-align:right;font-weight:600;color:var(--text);">'+_fmtAvg(col.s.avg)+'</td>' +
+          '</tr>';
+      });
+      _sh += '</tbody></table></div>';
+      splitEl.innerHTML = _sh;
+    }
 
     // ── Monthly CSAT % trend chart (TTR-style) ────────────────────────────────
     var mayaRespBarEl = document.getElementById('mayaRespBar');
