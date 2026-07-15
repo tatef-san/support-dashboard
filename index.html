@@ -2483,8 +2483,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
         const _MENT_OVERRIDE = false;
         const _mentRawKpi = (() => { try { const s=JSON.parse(localStorage.getItem('actMentions')||'null'); return (s&&(s.v||0)>=2)?s.data:null; } catch(e){return null;} })();
+        const _dataWIsKpi = new Set();
         DATA.active.forEach(r => {
           const wi = +(r.id || r.wi);
+          _dataWIsKpi.add(wi);
           const mentAnalyst = _mentRawKpi && _mentRawKpi[wi] && _mentRawKpi[wi].analyst;
           const name = (_MENT_OVERRIDE || !r.c) && mentAnalyst ? mentAnalyst : r.c;
           if (!name || !inRoster(name)) return;
@@ -2493,6 +2495,18 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const a = Number(r.age);
           if (!isNaN(a) && a != null) { aa.ageSum += a; aa.ageN++; }
         });
+        // Add actMentions tickets absent from DATA.active (pooled/FCFS not in Excel export)
+        if (_mentRawKpi) {
+          const _exclWIsKpi = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
+          Object.values(_mentRawKpi).forEach(m => {
+            if (_dataWIsKpi.has(m.wi) || _exclWIsKpi.has(m.wi)) return;
+            const name = m.analyst;
+            if (!name || !inRoster(name)) return;
+            const aa = actAllStat[name] = actAllStat[name] || { count: 0, ageSum: 0, ageN: 0 };
+            aa.count++;
+            if (m.age && !isNaN(m.age)) { aa.ageSum += m.age; aa.ageN++; }
+          });
+        }
       }
     })();
     // Count ALL closed tickets in period from the uploaded Power BI file (DATA.closed).
@@ -8256,6 +8270,24 @@ if(window.opener&&!window.opener.closed){
         rows = _enriched;
       } else {
         rows = _enriched.filter(r => inScope(r.c)).filter(r => { const a = (r.c || '').trim(); return a && a !== '-'; });
+      }
+      // Append actMentions tickets that are absent from DATA.active entirely
+      // (pooled/FCFS tickets the Excel export did not include or attribute).
+      if (_actMentData) {
+        const _dataWIs  = new Set(DATA.active.map(r => +(r.id || r.wi)));
+        const _exclWIs  = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
+        const _isAllScope = analyst === 'All' && region === 'All';
+        const _extras = Object.values(_actMentData)
+          .filter(m => !_dataWIs.has(m.wi) && !_exclWIs.has(m.wi))
+          .filter(m => { const a = (m.analyst || '').trim(); return a && a !== '-'; })
+          .filter(m => _isAllScope || inScope(m.analyst))
+          .map(m => ({
+            c: m.analyst, wi: m.wi, id: m.wi,
+            age: m.age || 0, acct: m.acct || '', title: m.title || '',
+            url: 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/' + m.wi,
+            gt15: (m.age || 0) > 15 ? 1 : 0,
+          }));
+        rows = rows.concat(_extras);
       }
     }
 
