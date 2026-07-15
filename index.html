@@ -4769,6 +4769,60 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       if (t.c && !rosterNames.has(t.c.toLowerCase())) t.c = '';
       if (!t.c && t._sqlC && rosterNames.has(t._sqlC.toLowerCase())) t.c = t._sqlC;
     });
+    // ── SecondLayer: pooled tickets with no analyst → ADO revision history ──────
+    // Mirrors PowerBI "Merge SecondLayer": first System.AssignedTo change to a
+    // roster SA (non-SC) per ticket, sorted by revision ascending.
+    const _SL_ROSTER = new Set([
+      'a.nouraldeen@sana-commerce.com','s.elfaramawy@sana-commerce.com',
+      't.refaat@sana-commerce.com','m.bayoumi@sana-commerce.com',
+      't.atef@sana-commerce.com','n.salgado@sana-commerce.com',
+      'a.hoyos@sana-commerce.com','m.martinez@sana-commerce.com',
+      'f.tovar@sana-commerce.com','r.garcia@sana-commerce.com',
+      'ri.khan@sana-commerce.com','s.sreedharan@sana-commerce.com',
+      'm.johny@sana-commerce.com','a.stephenson@sana-commerce.com',
+      'a.chakravarty@sana-commerce.com','g.overheul@sana-commerce.com',
+      'j.huneburg@sana-commerce.com','a.ohinska@sana-commerce.com',
+      'k.durisova@sana-commerce.com'
+    ]);
+    const _SL_EXCL = new Set(['customer@sana-commerce.com','migrations@sana-commerce.com','partner@sana-commerce.com','support-planning@sana-commerce.com']);
+    const _slPooledNoOwner = openTickets.filter(t => !t.c && !isDedicated(t));
+    if (_slPooledNoOwner.length) {
+      let _slCache = {};
+      try { _slCache = JSON.parse(localStorage.getItem('slOwner_cache') || '{}'); } catch(e) {}
+      const _slExpiry = Date.now() - 86400000; // 24h TTL
+      const _slFresh = [], _slFromCache = 0;
+      _slPooledNoOwner.forEach(t => {
+        const cached = _slCache[String(t.wi)];
+        if (cached && cached.ts > _slExpiry) { if (cached.name) t.c = cached.name; }
+        else _slFresh.push(t);
+      });
+      if (_slFresh.length) {
+        const SL_CONC = 20;
+        for (let _si = 0; _si < _slFresh.length; _si += SL_CONC) {
+          await Promise.allSettled(_slFresh.slice(_si, _si + SL_CONC).map(async _st => {
+            try {
+              const _upd = await adoFetch('/_apis/wit/workItems/' + _st.wi + '/updates?api-version=7.1');
+              let _found = null;
+              for (const _u of (_upd.value || []).sort((a, b) => (a.rev||0) - (b.rev||0))) {
+                const _at = (_u.fields || {})['System.AssignedTo'];
+                if (!_at || !_at.newValue) continue;
+                const _em = ('' + (_at.newValue.uniqueName || '')).toLowerCase().trim();
+                const _nm = ('' + (_at.newValue.displayName || '')).trim();
+                if (_em.indexOf('@sana-commerce.com') < 0) continue;
+                if (_SL_EXCL.has(_em)) continue;
+                if (!_SL_ROSTER.has(_em)) continue;
+                _found = _nm; break;
+              }
+              _slCache[String(_st.wi)] = { name: _found || '', ts: Date.now() };
+              if (_found) _st.c = _found;
+            } catch(e) {}
+          }));
+        }
+        try { localStorage.setItem('slOwner_cache', JSON.stringify(_slCache)); } catch(e) {}
+      }
+    }
+    // ── End SecondLayer ──────────────────────────────────────────────────────────
+
     // Fallback SC fetch: tickets in DATA.active whose state verification batch failed (sc === undefined)
     // These are valid open tickets that missed enrichment — fetch just their SC field from ADO
     const _noSC = DATA.active.filter(r => r.sc === undefined && r.id);
