@@ -16,7 +16,7 @@
 $Server = "10.171.0.9"
 $DbUser = "t.atef"
 $DbPass = "D@a6bKq7zsrWC2!"
-$Port   = 3001
+$Port   = 3012
 
 # ── DB helpers — ticket index DB (AzureDevops_Issue_Revision lives here) ──────
 function Get-TicketConn {
