@@ -4896,7 +4896,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           wi: t.wi,
           acct: t.acct || '',
           title: t.title || '',
-          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const sc = (t.sc || '').trim(); if (sc && !_NON_A.has(sc.toLowerCase())) return _normName(sc); return _normName(_excelAnalysts[t.wi] || ''); })(),
+          analyst: (() => { const _NON_A = new Set(['customer','@customer','partner','@partner','team','@team']); const sc = (t.sc || '').trim(); if (sc && !_NON_A.has(sc.toLowerCase())) return _normName(sc); const c = (t.c || '').trim(); if (c && !_NON_A.has(c.toLowerCase())) return _normName(c); return _normName(_excelAnalysts[t.wi] || ''); })(),
           age: typeof t.age === 'number' ? t.age : 0,
           state: t._adoState || 'Active',
           lastTeam: scan.lastTeam || t.lastTeam || null,
