@@ -2479,16 +2479,16 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           if (!isNaN(a) && a > 0) { aa.ageSum += a; aa.ageN++; }
         });
       } else {
-        // _MENT_OVERRIDE=true  → Option B: actMentions SecondLayer always wins over Excel SC
-        // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
-        const _MENT_OVERRIDE = true;
+        // _SL_GAP_FILL=true  → keep r.c when already a roster SA (gap-fill, current behavior)
+        // _SL_GAP_FILL=false → actMentions always wins over r.c (revert to always-override)
+        const _SL_GAP_FILL = true;
         const _mentRawKpi = (() => { try { const s=JSON.parse(localStorage.getItem('actMentions')||'null'); return (s&&(s.v||0)>=2)?s.data:null; } catch(e){return null;} })();
         const _dataWIsKpi = new Set();
         DATA.active.forEach(r => {
           const wi = +(r.id || r.wi);
           _dataWIsKpi.add(wi);
           const mentAnalyst = _mentRawKpi && _mentRawKpi[wi] && _mentRawKpi[wi].analyst;
-          const name = (_MENT_OVERRIDE || !r.c) && mentAnalyst ? mentAnalyst : r.c;
+          const name = (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
           if (!name || !inRoster(name)) return;
           const aa = actAllStat[name] = actAllStat[name] || { count: 0, ageSum: 0, ageN: 0 };
           aa.count++;
@@ -4905,24 +4905,28 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Scanning… (' + done + ' / ' + tickets.length + ')' + (errCount ? ' · <span style="color:#dc2626">' + errCount + ' errors</span>' : '') + '</div>';
     }
     // Full SecondLayer via ADO revision history — all open tickets, not just pooled ones.
-    // Mirrors PowerBI Merge SecondLayer: first non-SC @sana-commerce.com assignment per ticket.
-    // SC emails fetched from Prisma via SQL API (/api/sc-emails); falls back to 4 hardcoded
-    // exclusions if SQL API is not running. Results cached 24 h per WI.
+    // Uses roster-only allowlist: first assignment that IS in _slRosterEmails wins.
+    // Prisma SC exclusion disabled — Prisma wrongly classifies all SAs as "Service Consultant",
+    // which caused _slScExcl to block every roster member before the allowlist was checked.
+    // To revert to Prisma SC exclusion: set _SL_USE_PRISMA_SC_FILTER = true below.
+    const _SL_USE_PRISMA_SC_FILTER = false;
     let _slCount = 0;
     const _slScExcl = new Set([
       'customer@sana-commerce.com','migrations@sana-commerce.com',
       'partner@sana-commerce.com','support-planning@sana-commerce.com'
     ]);
-    try {
-      const _scCtrl = new AbortController();
-      const _scTimer = setTimeout(function(){ _scCtrl.abort(); }, 10000);
-      const _scResp = await fetch('http://localhost:3012/api/sc-emails', { signal: _scCtrl.signal });
-      clearTimeout(_scTimer);
-      if (_scResp.ok) {
-        const _scData = await _scResp.json();
-        (_scData.emails || []).forEach(function(e){ if (e) _slScExcl.add(e.toLowerCase().trim()); });
-      }
-    } catch(e) {}
+    if (_SL_USE_PRISMA_SC_FILTER) {
+      try {
+        const _scCtrl = new AbortController();
+        const _scTimer = setTimeout(function(){ _scCtrl.abort(); }, 10000);
+        const _scResp = await fetch('http://localhost:3012/api/sc-emails', { signal: _scCtrl.signal });
+        clearTimeout(_scTimer);
+        if (_scResp.ok) {
+          const _scData = await _scResp.json();
+          (_scData.emails || []).forEach(function(e){ if (e) _slScExcl.add(e.toLowerCase().trim()); });
+        }
+      } catch(e) {}
+    }
 
     const _slRosterEmails = new Set([
       'a.nouraldeen@sana-commerce.com', 's.elfaramawy@sana-commerce.com',
@@ -4938,7 +4942,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     ]);
 
     let _slFullCache = {};
-    try { _slFullCache = JSON.parse(localStorage.getItem('slFull_cache_v2') || '{}'); } catch(e) {}
+    try { _slFullCache = JSON.parse(localStorage.getItem('slFull_cache_v3') || '{}'); } catch(e) {}
     const _slFullExpiry = Date.now() - 86400000;
     const _slFullFresh = [];
     openTickets.forEach(function(t) {
@@ -4963,7 +4967,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
               const _em2 = ('' + (_at2.newValue.uniqueName || '')).toLowerCase().trim();
               const _nm2 = ('' + (_at2.newValue.displayName || '')).trim();
               if (!_em2.includes('@sana-commerce.com')) continue;
-              if (_slScExcl.has(_em2)) continue;
+              if (_SL_USE_PRISMA_SC_FILTER && _slScExcl.has(_em2)) continue;
               if (!_slRosterEmails.has(_em2)) continue; // skip non-roster people (email-based)
               _found2 = _nm2; break;
             }
@@ -4972,7 +4976,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           } catch(e) {}
         }));
       }
-      try { localStorage.setItem('slFull_cache_v2', JSON.stringify(_slFullCache)); } catch(e) {}
+      try { localStorage.setItem('slFull_cache_v3', JSON.stringify(_slFullCache)); } catch(e) {}
     }
     localStorage.setItem('actMentions', JSON.stringify({ at: Date.now(), v: 2, data: result }));
     // Preserve analyst names from a prior Excel upload so the Sync doesn't wipe them
@@ -8327,13 +8331,13 @@ if(window.opener&&!window.opener.closed){
         });
     } else {
       // Enrich DATA.active with actMentions SecondLayer attribution.
-      // _MENT_OVERRIDE=true  → Option B: actMentions always wins over Excel SC
-      // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
-      const _MENT_OVERRIDE = true;
+      // _SL_GAP_FILL=true  → keep r.c when it is already a roster SA (gap-fill, current behavior)
+      // _SL_GAP_FILL=false → actMentions always wins over r.c (revert to always-override)
+      const _SL_GAP_FILL = true;
       const _enriched = DATA.active.map(r => {
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
-        const effectiveC = (_MENT_OVERRIDE || !r.c) && mentAnalyst ? mentAnalyst : r.c;
+        const effectiveC = (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
         return effectiveC === r.c ? r : { ...r, c: effectiveC };
       });
       if (analyst === 'All' && region === 'All') {
