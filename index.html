@@ -2479,9 +2479,16 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           if (!isNaN(a) && a > 0) { aa.ageSum += a; aa.ageN++; }
         });
       } else {
+        // _MENT_OVERRIDE=true  → Option B: actMentions SecondLayer always wins over Excel SC
+        // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
+        const _MENT_OVERRIDE = true;
+        const _mentRawKpi = (() => { try { const s=JSON.parse(localStorage.getItem('actMentions')||'null'); return (s&&(s.v||0)>=2)?s.data:null; } catch(e){return null;} })();
         DATA.active.forEach(r => {
-          if (!inRoster(r.c)) return;
-          const aa = actAllStat[r.c] = actAllStat[r.c] || { count: 0, ageSum: 0, ageN: 0 };
+          const wi = +(r.id || r.wi);
+          const mentAnalyst = _mentRawKpi && _mentRawKpi[wi] && _mentRawKpi[wi].analyst;
+          const name = (_MENT_OVERRIDE || !r.c) && mentAnalyst ? mentAnalyst : r.c;
+          if (!name || !inRoster(name)) return;
+          const aa = actAllStat[name] = actAllStat[name] || { count: 0, ageSum: 0, ageN: 0 };
           aa.count++;
           const a = Number(r.age);
           if (!isNaN(a) && a != null) { aa.ageSum += a; aa.ageN++; }
@@ -8235,11 +8242,20 @@ if(window.opener&&!window.opener.closed){
           };
         });
     } else {
+      // Enrich DATA.active with actMentions SecondLayer attribution.
+      // _MENT_OVERRIDE=true  → Option B: actMentions always wins over Excel SC
+      // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
+      const _MENT_OVERRIDE = true;
+      const _enriched = DATA.active.map(r => {
+        const wi = +(r.id || r.wi);
+        const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
+        const effectiveC = (_MENT_OVERRIDE || !r.c) && mentAnalyst ? mentAnalyst : r.c;
+        return effectiveC === r.c ? r : { ...r, c: effectiveC };
+      });
       if (analyst === 'All' && region === 'All') {
-        // Show all synced tickets — not filtered by analyst presence
-        rows = DATA.active;
+        rows = _enriched;
       } else {
-        rows = DATA.active.filter(r => inScope(r.c)).filter(r => { const a = (r.c || '').trim(); return a && a !== '-'; });
+        rows = _enriched.filter(r => inScope(r.c)).filter(r => { const a = (r.c || '').trim(); return a && a !== '-'; });
       }
     }
 
