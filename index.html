@@ -2481,7 +2481,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       } else {
         // _MENT_OVERRIDE=true  → Option B: actMentions SecondLayer always wins over Excel SC
         // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
-        const _MENT_OVERRIDE = false;
+        const _MENT_OVERRIDE = true;
         const _mentRawKpi = (() => { try { const s=JSON.parse(localStorage.getItem('actMentions')||'null'); return (s&&(s.v||0)>=2)?s.data:null; } catch(e){return null;} })();
         const _dataWIsKpi = new Set();
         DATA.active.forEach(r => {
@@ -8259,7 +8259,7 @@ if(window.opener&&!window.opener.closed){
       // Enrich DATA.active with actMentions SecondLayer attribution.
       // _MENT_OVERRIDE=true  → Option B: actMentions always wins over Excel SC
       // _MENT_OVERRIDE=false → Option A: actMentions only fills tickets with no SC (gap-fill)
-      const _MENT_OVERRIDE = false;
+      const _MENT_OVERRIDE = true;
       const _enriched = DATA.active.map(r => {
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
