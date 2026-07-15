@@ -4924,6 +4924,19 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       }
     } catch(e) {}
 
+    const _slRosterEmails = new Set([
+      'a.nouraldeen@sana-commerce.com', 's.elfaramawy@sana-commerce.com',
+      't.refaat@sana-commerce.com',     'm.bayoumi@sana-commerce.com',
+      't.atef@sana-commerce.com',       'n.salgado@sana-commerce.com',
+      'a.hoyos@sana-commerce.com',      'm.martinez@sana-commerce.com',
+      'f.tovar@sana-commerce.com',      'r.garcia@sana-commerce.com',
+      'ri.khan@sana-commerce.com',      's.sreedharan@sana-commerce.com',
+      'm.johny@sana-commerce.com',      'a.stephenson@sana-commerce.com',
+      'a.chakravarty@sana-commerce.com','g.overheul@sana-commerce.com',
+      'j.huneburg@sana-commerce.com',   'a.ohinska@sana-commerce.com',
+      'k.durisova@sana-commerce.com'
+    ]);
+
     let _slFullCache = {};
     try { _slFullCache = JSON.parse(localStorage.getItem('slFull_cache_v2') || '{}'); } catch(e) {}
     const _slFullExpiry = Date.now() - 86400000;
@@ -4951,7 +4964,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
               const _nm2 = ('' + (_at2.newValue.displayName || '')).trim();
               if (!_em2.includes('@sana-commerce.com')) continue;
               if (_slScExcl.has(_em2)) continue;
-              if (!rosterNames.has(_nm2.toLowerCase())) continue; // skip non-SA roster people
+              if (!_slRosterEmails.has(_em2)) continue; // skip non-roster people (email-based)
               _found2 = _nm2; break;
             }
             _slFullCache[String(_st2.wi)] = { name: _found2 || '', ts: Date.now() };
