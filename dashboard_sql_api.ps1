@@ -87,9 +87,9 @@ WITH ranked AS (
     LEFT JOIN Prisma_sana_live.dbo.OrganizationEmployee oe
            ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
     LEFT JOIN Prisma_sana_live.dbo.OrganizationFunction ofn
-           ON ofn.ID = oe.OrganizationFunctionId
+           ON ofn.ID = oe.FunctionID
     LEFT JOIN Prisma_sana_live.dbo.OrganizationFunctionGroup ofg
-           ON ofg.ID = ofn.OrganizationFunctionGroupId
+           ON ofg.Id = ofn.FunctionGroupId
     WHERE r.Field = 'System.AssignedTo'
       AND r.Value LIKE '%@sana-commerce.com'
       AND LOWER(r.Value) NOT IN (
