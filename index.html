@@ -2480,16 +2480,20 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           if (!isNaN(a) && a > 0) { aa.ageSum += a; aa.ageN++; }
         });
       } else {
-        // _SL_GAP_FILL=true  → keep r.c when already a roster SA (gap-fill, current behavior)
-        // _SL_GAP_FILL=false → actMentions always wins over r.c (revert to always-override)
-        const _SL_GAP_FILL = true;
+        // _SL_USE_SQL_SL=true  → SQL revision history wins (matches PowerBI) — revert: set false
+        // _SL_USE_SQL_SL=false → ADO scan gap-fill: keep r.c if roster, else ADO result
+        const _SL_USE_SQL_SL = true;
+        const _SL_GAP_FILL = true; // only used when _SL_USE_SQL_SL=false
         const _mentRawKpi = (() => { try { const s=JSON.parse(localStorage.getItem('actMentions')||'null'); return (s&&(s.v||0)>=2)?s.data:null; } catch(e){return null;} })();
+        const _sqlSLMapKpi = window._sqlSecondLayer || {};
         const _dataWIsKpi = new Set();
         DATA.active.forEach(r => {
           const wi = +(r.id || r.wi);
           _dataWIsKpi.add(wi);
           const mentAnalyst = _mentRawKpi && _mentRawKpi[wi] && _mentRawKpi[wi].analyst;
-          const name = (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
+          const name = _SL_USE_SQL_SL
+            ? (_sqlSLMapKpi[wi] || r.c)
+            : (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
           if (!name || !inRoster(name)) return;
           const aa = actAllStat[name] = actAllStat[name] || { count: 0, ageSum: 0, ageN: 0 };
           aa.count++;
@@ -8331,14 +8335,18 @@ if(window.opener&&!window.opener.closed){
           };
         });
     } else {
-      // Enrich DATA.active with actMentions SecondLayer attribution.
-      // _SL_GAP_FILL=true  → keep r.c when it is already a roster SA (gap-fill, current behavior)
-      // _SL_GAP_FILL=false → actMentions always wins over r.c (revert to always-override)
-      const _SL_GAP_FILL = true;
+      // Enrich DATA.active with SecondLayer attribution.
+      // _SL_USE_SQL_SL=true  → SQL revision history wins (matches PowerBI) — revert: set false
+      // _SL_USE_SQL_SL=false → ADO scan gap-fill (old behavior): keep r.c if roster, else ADO result
+      const _SL_USE_SQL_SL = true;
+      const _SL_GAP_FILL = true; // only used when _SL_USE_SQL_SL=false
+      const _sqlSLMap = window._sqlSecondLayer || {};
       const _enriched = DATA.active.map(r => {
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
-        const effectiveC = (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
+        const effectiveC = _SL_USE_SQL_SL
+          ? (_sqlSLMap[wi] || r.c)
+          : (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
         return effectiveC === r.c ? r : { ...r, c: effectiveC };
       });
       if (analyst === 'All' && region === 'All') {
@@ -12878,6 +12886,26 @@ if(window.opener&&!window.opener.closed){
             });
           lf('Prisma data ready: ' + active.length + ' total tickets, ' + closedArr.length + ' closed.');
           window._adoSampleIds = _sqlRows.slice(0,20).map(function(r){ return r.id; });
+
+          // Fetch SQL SecondLayer — mirrors PowerBI first-SA attribution from complete revision history.
+          // Stored as window._sqlSecondLayer = { wi(number) → analystName(string) }.
+          // Used by enrichment blocks when _SL_USE_SQL_SL = true.
+          window._sqlSecondLayer = {};
+          try {
+            var _sl2Ctrl = new AbortController();
+            var _sl2Timer = setTimeout(function(){ _sl2Ctrl.abort(); }, 10000);
+            var _sl2Resp = await fetch('http://localhost:3012/api/secondlayer', { signal: _sl2Ctrl.signal });
+            clearTimeout(_sl2Timer);
+            if (_sl2Resp.ok) {
+              var _sl2Data = await _sl2Resp.json();
+              (_sl2Data.rows || []).forEach(function(r){ if (r.wi && r.analyst) window._sqlSecondLayer[+r.wi] = r.analyst; });
+              lf('SQL SecondLayer: ' + Object.keys(window._sqlSecondLayer).length + ' ticket attributions loaded.');
+            } else {
+              lf('SQL SecondLayer returned HTTP ' + _sl2Resp.status + ' — ADO scan will be used as fallback.');
+            }
+          } catch(_sl2Err) {
+            lf('SQL SecondLayer not available — ADO scan will be used as fallback.');
+          }
         } else {
           // ── Path B: OData Analytics — PowerBI-matching TicketType filter ────────────
           lf('Querying Customer Support tickets via OData Analytics…');
