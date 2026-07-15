@@ -8334,10 +8334,11 @@ if(window.opener&&!window.opener.closed){
       // _SL_GAP_FILL=true  → keep r.c when it is already a roster SA (gap-fill, current behavior)
       // _SL_GAP_FILL=false → actMentions always wins over r.c (revert to always-override)
       const _SL_GAP_FILL = true;
+      const _slRosterAll = rosterNames('All');
       const _enriched = DATA.active.map(r => {
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
-        const effectiveC = (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
+        const effectiveC = (_SL_GAP_FILL && r.c && _slRosterAll.has(r.c)) ? r.c : (mentAnalyst || r.c);
         return effectiveC === r.c ? r : { ...r, c: effectiveC };
       });
       if (analyst === 'All' && region === 'All') {
