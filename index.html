@@ -13269,21 +13269,37 @@ if(window.opener&&!window.opener.closed){
       if (typeof window.render === 'function') window.render();
 
     } else if (auth.role === 'manager') {
-      // Restrict roster + scope to manager's team (unless overall manager)
       var mgrDef = MANAGER_DEFS[auth.mgrKey];
-      if (mgrDef && mgrDef.overall) {
+      var isFullAccessMgr = (auth.mgrKey === '__mgr_tarek__');
+
+      if (isFullAccessMgr) {
+        // Tarek (manager) — full access, same as owner
         window._mgrRosterOverride = null;
-      } else if (mgrDef) {
-        var fullRoster = (window._dashDATA && window._dashDATA.roster) || [];
-        window._mgrRosterOverride = fullRoster.filter(function(r) {
-          return mgrDef.analysts.indexOf(r[0]) >= 0;
+        if (typeof window._dashPopulateScope === 'function') window._dashPopulateScope();
+        if (rankTab) rankTab.style.display = '';
+        showPinMgmtPanel();
+        if (typeof window.render === 'function') window.render();
+      } else {
+        // All other managers — CSAT + Maya AI CSAT tabs only
+        window._mgrRosterOverride = null;
+        // Hide all main tabs
+        ['overview','tickets','performance','upload','oneone'].forEach(function(v) {
+          var t = document.querySelector('.view-tab[data-view="' + v + '"]');
+          if (t) t.style.display = 'none';
         });
+        // Hide restricted KPI tabs
+        ['kpi-active','kpi-closed','kpi-ttr','kpi-resp','kpi-esc','kpi-util','kpi-dq'].forEach(function(v) {
+          var t = document.querySelector('.view-tab[data-view="' + v + '"]');
+          if (t) t.style.display = 'none';
+        });
+        // Hide ranking + PIN tabs
+        if (rankTab) rankTab.style.display = 'none';
+        if (pinTab)  pinTab.style.display  = 'none';
+        // Navigate to CSAT
+        if (typeof window.render === 'function') window.render();
+        var csatTab = document.querySelector('.view-tab[data-view="kpi-csat"]');
+        if (csatTab) csatTab.click();
       }
-      // Re-populate scope selector (team only)
-      if (typeof window._dashPopulateScope === 'function') window._dashPopulateScope();
-      if (rankTab) rankTab.style.display = '';
-      showPinMgmtPanel();
-      if (typeof window.render === 'function') window.render();
 
     } else {
       // Owner — full access
