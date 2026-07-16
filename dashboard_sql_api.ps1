@@ -66,50 +66,51 @@ function Query($sql) {
     return $dt
 }
 
-# ── SecondLayer SQL — mirrors PowerBI "Merge SecondLayer" exactly ─────────────
-# Reads AzureDevops_Issue_Revision (full history, not paginated ADO API),
-# excludes Service Consultants via Prisma OrganizationFunction join,
-# returns first non-SC @sana-commerce.com assignment per ticket.
-#
-# Note: OrganizationFunction / OrganizationFunctionGroup are Prisma FK tables.
-# If these names differ in your schema, adjust the JOIN accordingly.
+# ── SecondLayer SQL — last-touch attribution per ticket ───────────────────────
+# For each 2026 support ticket, finds the last revision where one of our 16
+# known CS analysts appears in AssignedTo OR ChangedBy. This mirrors how
+# PowerBI attributes tickets to the analyst who last worked them.
 $SECONDLAYER_SQL = @"
-WITH ranked AS (
-    SELECT
-        r.WorkItemId,
-        r.Value                           AS email,
-        ISNULL(oe.DisplayName, r.Value)   AS analyst,
-        ROW_NUMBER() OVER (
-            PARTITION BY r.WorkItemId
-            ORDER BY r.Revision ASC
-        ) AS rn
+WITH all_touches AS (
+    SELECT r.WorkItemId, r.Value AS email, r.Revision,
+           ISNULL(oe.DisplayName, r.Value) AS analyst
     FROM dbo.AzureDevops_Issue_Revision r
     LEFT JOIN Prisma_sana_live.dbo.OrganizationEmployee oe
            ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
-    LEFT JOIN Prisma_sana_live.dbo.OrganizationFunction ofn
-           ON ofn.ID = oe.FunctionID
-    LEFT JOIN Prisma_sana_live.dbo.OrganizationFunctionGroup ofg
-           ON ofg.Id = ofn.FunctionGroupId
-    WHERE r.Field = 'System.AssignedTo'
-      AND r.Value LIKE '%@sana-commerce.com'
-      AND LOWER(r.Value) NOT IN (
-          'customer@sana-commerce.com',
-          'migrations@sana-commerce.com',
-          'partner@sana-commerce.com',
-          'support-planning@sana-commerce.com'
+    WHERE r.Field IN ('System.AssignedTo','System.ChangedBy')
+      AND LOWER(r.Value) IN (
+          'a.nouraldeen@sana-commerce.com',
+          'a.hoyos@sana-commerce.com',
+          'n.salgado@sana-commerce.com',
+          'm.bayoumi@sana-commerce.com',
+          't.refaat@sana-commerce.com',
+          's.elfaramawy@sana-commerce.com',
+          's.sreedharan@sana-commerce.com',
+          'm.johny@sana-commerce.com',
+          'a.stephenson@sana-commerce.com',
+          'a.chakravarty@sana-commerce.com',
+          'g.overheul@sana-commerce.com',
+          'j.huneburg@sana-commerce.com',
+          'a.ohinska@sana-commerce.com',
+          'k.durisova@sana-commerce.com',
+          'ri.khan@sana-commerce.com',
+          'm.martinez@sana-commerce.com'
       )
-      AND ISNULL(ofg.Name, 'Other') <> 'Service Consultant'
       AND r.WorkItemId IN (
           SELECT WorkitemId
           FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
-          WHERE Type = 'Ticket'
-            AND ProjectReleaseVersion LIKE 'support%'
-            AND ProjectReleaseVersion NOT IN ('support - wishlist','support - partner support')
+          WHERE Type IN ('Ticket','TicketSimple')
+            AND ProjectReleaseVersion NOT LIKE '%wishlist%'
             AND CreatedDateUTC >= '2026-01-01'
       )
+),
+last_touch AS (
+    SELECT WorkItemId, email, analyst,
+           ROW_NUMBER() OVER (PARTITION BY WorkItemId ORDER BY Revision DESC) AS rn
+    FROM all_touches
 )
 SELECT WorkItemId, email, analyst
-FROM ranked
+FROM last_touch
 WHERE rn = 1
 ORDER BY WorkItemId DESC
 "@
@@ -139,9 +140,8 @@ LEFT JOIN OrganizationEmployee eAssigned
 LEFT JOIN OrganizationRegion org ON org.ID = eAssigned.RegionId
 LEFT JOIN ProjectIteration pi    ON pi.ID = w.ProjectIterationId
 LEFT JOIN IterationInfo ii       ON ii.IterationID = w.ProjectIterationId
-WHERE w.Type = 'Ticket'
-  AND w.ProjectReleaseVersion LIKE 'support%'
-  AND w.ProjectReleaseVersion NOT IN ('support - wishlist','support - partner support')
+WHERE w.Type IN ('Ticket','TicketSimple')
+  AND w.ProjectReleaseVersion NOT LIKE '%wishlist%'
   AND w.CreatedDateUTC >= '2026-01-01'
 ORDER BY w.CreatedDateUTC DESC
 "@
