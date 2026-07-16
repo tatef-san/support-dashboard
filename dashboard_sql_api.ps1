@@ -1,4 +1,4 @@
-# dashboard_sql_api.ps1
+﻿# dashboard_sql_api.ps1
 # Local REST API — proxies Prisma SQL data for the Support Dashboard.
 # Run this script while using the dashboard; it listens on http://localhost:3001.
 #
@@ -225,23 +225,64 @@ try {
             }
             elseif ($path -eq "/api/active") {
                 Write-Host "$ts GET /api/active — querying DB..." -ForegroundColor Yellow
-                $dt   = Query $ACTIVE_SQL
-                $jsonRows = ($dt.Rows | ForEach-Object { Row-To-Json $_ $NON_ANALYST_LOWER }) -join ','
-                $body = '{"count":' + $dt.Rows.Count + ',"source":"prisma_sql","rows":[' + $jsonRows + ']}'
-                Write-Host "$ts GET /api/active → $($dt.Rows.Count) tickets" -ForegroundColor Green
+                $actDt = New-Object System.Data.DataTable
+                $actCs = "Server=$Server;Database=Prisma_sana_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
+                $actConn = New-Object System.Data.SqlClient.SqlConnection($actCs); $actConn.Open()
+                $actCmd = $actConn.CreateCommand(); $actCmd.CommandText = $ACTIVE_SQL; $actCmd.CommandTimeout = 60
+                $actDa = New-Object System.Data.SqlClient.SqlDataAdapter($actCmd)
+                $actDa.Fill($actDt) | Out-Null
+                $actConn.Close()
+                $actParts = @()
+                foreach ($row in $actDt.Rows) {
+                    $actEmail   = (($row['assignedToEmail'] -as [string]).ToLower().Trim())
+                    $actIsCust  = ($actEmail -eq 'customer@sana-commerce.com')
+                    $actIsTeam  = ($NON_ANALYST_LOWER -contains $actEmail) -and (-not $actIsCust)
+                    $actAnalyst = ($row['assignedName'] -as [string]).Trim()
+                    if (-not $actAnalyst) { $actAnalyst = ($row['assignedTo'] -as [string]).Trim() }
+                    if (-not $actAnalyst -or ($NON_ANALYST_LOWER -contains $actEmail)) { $actAnalyst = '' }
+                    $actAge     = if ($row['age'] -eq [DBNull]::Value) { 0 } else { [int]($row['age']) }
+                    $actClosedR = ($row['closed'] -as [string])
+                    $actClosed  = if (-not $actClosedR -or $actClosedR -eq '') { 'null' } else { '"' + $actClosedR + '"' }
+                    $actParts  += ('{' +
+                        '"id":"'           + ($row['id']       -as [string])                    + '",' +
+                        '"state":"'        + (Escape-Json ($row['state']   -as [string]))       + '",' +
+                        '"title":"'        + (Escape-Json ($row['title']   -as [string]))       + '",' +
+                        '"c":"'            + (Escape-Json $actAnalyst)                          + '",' +
+                        '"email":"'        + (Escape-Json $actEmail)                            + '",' +
+                        '"region":"'       + (Escape-Json ($row['region']  -as [string]))       + '",' +
+                        '"created":"'      + ($row['created']  -as [string])                    + '",' +
+                        '"closed":'        + $actClosed                                         + ',' +
+                        '"age":'           + $actAge                                            + ',' +
+                        '"pendingCustomer":'+ $actIsCust.ToString().ToLower()                   + ',' +
+                        '"escalated":'     + $actIsTeam.ToString().ToLower()                    + ',' +
+                        '"mainCat":"'      + (Escape-Json ($row['mainCat'] -as [string]))       + '",' +
+                        '"subCat":"'       + (Escape-Json ($row['subCat']  -as [string]))       + '",' +
+                        '"version":"'      + (Escape-Json ($row['version'] -as [string]))       + '",' +
+                        '"customer":"'     + (Escape-Json ($row['customer']-as [string]))       + '"' +
+                    '}')
+                }
+                $jsonRows = $actParts -join ','
+                $body = '{"count":' + $actDt.Rows.Count + ',"source":"prisma_sql","rows":[' + $jsonRows + ']}'
+                Write-Host "$ts GET /api/active → $($actDt.Rows.Count) tickets" -ForegroundColor Green
             }
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
-                $dt = Query $SECONDLAYER_SQL
+                $slDt = New-Object System.Data.DataTable
+                $slCs = "Server=$Server;Database=Prisma_sana_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
+                $slConn = New-Object System.Data.SqlClient.SqlConnection($slCs); $slConn.Open()
+                $slCmd = $slConn.CreateCommand(); $slCmd.CommandText = $SECONDLAYER_SQL; $slCmd.CommandTimeout = 60
+                $slDa = New-Object System.Data.SqlClient.SqlDataAdapter($slCmd)
+                $slDa.Fill($slDt) | Out-Null
+                $slConn.Close()
                 $slParts = @()
-                foreach ($slRow in $dt.Rows) {
+                foreach ($slRow in $slDt.Rows) {
                     $slWi      = $slRow['WorkItemId']
                     $slAnalyst = Escape-Json ($slRow['analyst'] -as [string])
                     $slParts  += '{"wi":' + $slWi + ',"analyst":"' + $slAnalyst + '"}'
                 }
                 $jsonRows = $slParts -join ','
-                $body = '{"count":' + $dt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
-                Write-Host "$ts GET /api/secondlayer → $($dt.Rows.Count) tickets" -ForegroundColor Green
+                $body = '{"count":' + $slDt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
+                Write-Host "$ts GET /api/secondlayer → $($slDt.Rows.Count) tickets" -ForegroundColor Green
             }
             else {
                 $resp.StatusCode = 404
