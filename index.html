@@ -13087,22 +13087,22 @@ if(window.opener&&!window.opener.closed){
     'r.agatz@sana-commerce.com':     { name: 'Rogier Agatz',             role: 'manager', mgrKey: '__mgr_rogier__',    tabs: ['kpi-csat','maya-csat'] },
     'f.tovar@sana-commerce.com':     { name: 'Francisco Tovar',          role: 'manager', mgrKey: '__mgr_francisco__', tabs: ['kpi-csat','maya-csat'] },
     'r.garcia@sana-commerce.com':    { name: 'Raffery Garcia',           role: 'manager', mgrKey: '__mgr_raffery__',   tabs: ['kpi-csat','maya-csat'] },
-    'a.nouraldeen@sana-commerce.com':{ name: 'Ahmed Nouraldeen',         role: 'analyst', tabs: null },
-    's.elfaramawy@sana-commerce.com':{ name: 'Sarah Elfaramawy',         role: 'analyst', tabs: null },
-    't.refaat@sana-commerce.com':    { name: 'Toqa Refaat',              role: 'analyst', tabs: null },
-    'm.bayoumi@sana-commerce.com':   { name: 'Mohamed Bayoumi',          role: 'analyst', tabs: null },
-    'n.salgado@sana-commerce.com':   { name: 'Najabi Salgado Giraldo',   role: 'analyst', tabs: null },
-    'a.hoyos@sana-commerce.com':     { name: 'Alexander Hoyos Gonzalez', role: 'analyst', tabs: null },
-    'm.martinez@sana-commerce.com':  { name: 'Maria Daniela Martinez',   role: 'analyst', tabs: null },
-    'ri.khan@sana-commerce.com':     { name: 'Rifa Khan',                role: 'analyst', tabs: null },
-    's.sreedharan@sana-commerce.com':{ name: 'Sruthi Sreedharan',        role: 'analyst', tabs: null },
-    'm.johny@sana-commerce.com':     { name: 'Meha Johny',               role: 'analyst', tabs: null },
-    'a.stephenson@sana-commerce.com':{ name: 'Alexis Stephenson',        role: 'analyst', tabs: null },
-    'a.chakravarty@sana-commerce.com':{ name: 'Archana Chakravarty',     role: 'analyst', tabs: null },
-    'g.overheul@sana-commerce.com':  { name: 'Gert Overheul',            role: 'analyst', tabs: null },
-    'j.huneburg@sana-commerce.com':  { name: 'Judith Hüneburg',     role: 'analyst', tabs: null },
-    'a.ohinska@sana-commerce.com':   { name: 'Anna Ohinska',             role: 'analyst', tabs: null },
-    'k.durisova@sana-commerce.com':  { name: 'Katie Durisova',           role: 'analyst', tabs: null },
+    'a.nouraldeen@sana-commerce.com':{ name: 'Ahmed Nouraldeen',         role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    's.elfaramawy@sana-commerce.com':{ name: 'Sarah Elfaramawy',         role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    't.refaat@sana-commerce.com':    { name: 'Toqa Refaat',              role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'm.bayoumi@sana-commerce.com':   { name: 'Mohamed Bayoumi',          role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'n.salgado@sana-commerce.com':   { name: 'Najabi Salgado Giraldo',   role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'a.hoyos@sana-commerce.com':     { name: 'Alexander Hoyos Gonzalez', role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'm.martinez@sana-commerce.com':  { name: 'Maria Daniela Martinez',   role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'ri.khan@sana-commerce.com':     { name: 'Rifa Khan',                role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    's.sreedharan@sana-commerce.com':{ name: 'Sruthi Sreedharan',        role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'm.johny@sana-commerce.com':     { name: 'Meha Johny',               role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'a.stephenson@sana-commerce.com':{ name: 'Alexis Stephenson',        role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'a.chakravarty@sana-commerce.com':{ name: 'Archana Chakravarty',     role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'g.overheul@sana-commerce.com':  { name: 'Gert Overheul',            role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'j.huneburg@sana-commerce.com':  { name: 'Judith Hüneburg',     role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'a.ohinska@sana-commerce.com':   { name: 'Anna Ohinska',             role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
+    'k.durisova@sana-commerce.com':  { name: 'Katie Durisova',           role: 'analyst', tabs: ['kpi-csat','maya-csat','kpi-active','kpi-closed'] },
   };
 
   var _CP_PROTECTED = ['t.atef@sana-commerce.com'];
@@ -13127,6 +13127,7 @@ if(window.opener&&!window.opener.closed){
 
   function _cpEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+  var _DEFAULT_ANALYST_TABS = ['kpi-csat','maya-csat','kpi-active','kpi-closed'];
   function getUserConfig() {
     try {
       var s = localStorage.getItem('dashUserConfig');
@@ -13134,7 +13135,16 @@ if(window.opener&&!window.opener.closed){
         localStorage.setItem('dashUserConfig', JSON.stringify(DEFAULT_USER_CONFIG));
         return JSON.parse(JSON.stringify(DEFAULT_USER_CONFIG));
       }
-      return JSON.parse(s);
+      var cfg = JSON.parse(s);
+      var migrated = false;
+      Object.keys(cfg).forEach(function(email) {
+        if (cfg[email].role === 'analyst' && cfg[email].tabs === null) {
+          cfg[email].tabs = _DEFAULT_ANALYST_TABS.slice();
+          migrated = true;
+        }
+      });
+      if (migrated) localStorage.setItem('dashUserConfig', JSON.stringify(cfg));
+      return cfg;
     } catch(e) { return JSON.parse(JSON.stringify(DEFAULT_USER_CONFIG)); }
   }
 
@@ -13549,7 +13559,8 @@ if(window.opener&&!window.opener.closed){
     h += '<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:8px;">ALLOWED TABS</label>';
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;">';
     _CP_ALL_TABS.forEach(function(def){
-      var chk = u&&u.tabs&&u.tabs.indexOf(def.v)>=0;
+      var _defTabs = (accessType==='analyst') ? _DEFAULT_ANALYST_TABS : [];
+      var chk = u&&u.tabs ? u.tabs.indexOf(def.v)>=0 : _defTabs.indexOf(def.v)>=0;
       h += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;background:var(--panel);">';
       h += '<input type="checkbox" name="cpTab" value="'+def.v+'"'+(chk?' checked':'')+' style="margin:0;"> '+def.label+'</label>';
     });
@@ -13567,6 +13578,11 @@ if(window.opener&&!window.opener.closed){
     var sel = document.querySelector('input[name="cpAccess"]:checked');
     var ta = document.getElementById('cpTabsArea');
     if (ta) ta.style.display = (sel && (sel.value==='manager-custom'||sel.value==='analyst')) ? '' : 'none';
+    if (sel && sel.value==='analyst') {
+      document.querySelectorAll('input[name="cpTab"]').forEach(function(cb) {
+        cb.checked = _DEFAULT_ANALYST_TABS.indexOf(cb.value) >= 0;
+      });
+    }
   };
 
   window._cpSave = function(origEmail) {
@@ -13586,7 +13602,7 @@ if(window.opener&&!window.opener.closed){
     if (access==='manager-custom' || access==='analyst') {
       tabs = Array.from(document.querySelectorAll('input[name="cpTab"]:checked')).map(function(cb){return cb.value;});
       if (access==='manager-custom' && !tabs.length) { if(errEl) errEl.textContent='Select at least one tab for custom manager access.'; return; }
-      if (!tabs.length) tabs = null;
+      if (access==='analyst' && !tabs.length) tabs = _DEFAULT_ANALYST_TABS.slice();
     }
     var mgrKey = access==='manager-custom'||access==='manager-full' ? ('__mgr_custom_'+email.split('@')[0].replace(/\./g,'_')+'__') : undefined;
     if (origEmail && origEmail !== email) delete cfg[origEmail];
