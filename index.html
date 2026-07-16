@@ -13310,10 +13310,19 @@ if(window.opener&&!window.opener.closed){
         scopeSel.style.display = 'none';
       }
       if (pinTab)  pinTab.style.display  = 'none';
-      if (rankTab) rankTab.style.display = 'none';
-      document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
-      var ov = document.querySelector('.view-tab[data-view="overview"]');
-      if (ov) { ov.click(); }
+      if (rankTab) rankTab.style.display = auth.tabs ? (auth.tabs.indexOf('ranking') >= 0 ? '' : 'none') : 'none';
+      if (auth.tabs && auth.tabs.length) {
+        _CP_ALL_TABS.forEach(function(def) {
+          var t = document.querySelector('.view-tab[data-view="' + def.v + '"]');
+          if (t) t.style.display = auth.tabs.indexOf(def.v) >= 0 ? '' : 'none';
+        });
+        var _firstTab = auth.tabs[0] && document.querySelector('.view-tab[data-view="' + auth.tabs[0] + '"]');
+        if (_firstTab) { setTimeout(function(){ _firstTab.click(); }, 80); }
+      } else {
+        document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+        var ov = document.querySelector('.view-tab[data-view="overview"]');
+        if (ov) { ov.click(); }
+      }
       if (typeof window.render === 'function') window.render();
 
     } else if (auth.role === 'manager') {
@@ -13536,7 +13545,7 @@ if(window.opener&&!window.opener.closed){
       h += '<input type="radio" name="cpAccess" value="'+opt.v+'"'+(sel?' checked':'')+' onchange="window._cpToggleTabs()" style="margin:0;"> '+opt.lbl+'</label>';
     });
     h += '</div></div>';
-    h += '<div id="cpTabsArea" style="'+(accessType==='manager-custom'?'':'display:none;')+'margin-bottom:14px;">';
+    h += '<div id="cpTabsArea" style="'+(accessType==='manager-custom'||accessType==='analyst'?'':'display:none;')+'margin-bottom:14px;">';
     h += '<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:8px;">ALLOWED TABS</label>';
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;">';
     _CP_ALL_TABS.forEach(function(def){
@@ -13557,7 +13566,7 @@ if(window.opener&&!window.opener.closed){
   window._cpToggleTabs = function() {
     var sel = document.querySelector('input[name="cpAccess"]:checked');
     var ta = document.getElementById('cpTabsArea');
-    if (ta) ta.style.display = (sel && sel.value==='manager-custom') ? '' : 'none';
+    if (ta) ta.style.display = (sel && (sel.value==='manager-custom'||sel.value==='analyst')) ? '' : 'none';
   };
 
   window._cpSave = function(origEmail) {
@@ -13574,9 +13583,10 @@ if(window.opener&&!window.opener.closed){
     if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { if(errEl) errEl.textContent='Enter a valid email address.'; return; }
     var cfg = getUserConfig();
     var tabs = null;
-    if (access==='manager-custom') {
+    if (access==='manager-custom' || access==='analyst') {
       tabs = Array.from(document.querySelectorAll('input[name="cpTab"]:checked')).map(function(cb){return cb.value;});
-      if (!tabs.length) { if(errEl) errEl.textContent='Select at least one tab for custom manager access.'; return; }
+      if (access==='manager-custom' && !tabs.length) { if(errEl) errEl.textContent='Select at least one tab for custom manager access.'; return; }
+      if (!tabs.length) tabs = null;
     }
     var mgrKey = access==='manager-custom'||access==='manager-full' ? ('__mgr_custom_'+email.split('@')[0].replace(/\./g,'_')+'__') : undefined;
     if (origEmail && origEmail !== email) delete cfg[origEmail];
