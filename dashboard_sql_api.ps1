@@ -66,19 +66,19 @@ function Query($sql) {
     return $dt
 }
 
-# ── SecondLayer SQL — first analyst ever assigned per ticket ──────────────────
+# ── SecondLayer SQL — last-touch attribution per ticket ───────────────────────
 # Runs on Prisma connection; cross-joins into Sana_Start_TicketIndex_live.
-# Mirrors PowerBI: first System.AssignedTo revision to one of our 16 CS
-# analysts per ticket (ORDER BY Revision ASC = earliest assignment).
+# For team-mailbox tickets: finds the last revision where one of our 16
+# analysts appears in AssignedTo OR ChangedBy (whoever last worked it).
 $SECONDLAYER_SQL = @"
-WITH first_assignment AS (
+WITH all_touches AS (
     SELECT r.WorkItemId, r.Value AS email,
            ISNULL(oe.DisplayName, r.Value) AS analyst,
-           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
     FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r
     LEFT JOIN dbo.OrganizationEmployee oe
            ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
-    WHERE r.Field = 'System.AssignedTo'
+    WHERE r.Field IN ('System.AssignedTo','System.ChangedBy')
       AND LOWER(r.Value) IN (
           'a.nouraldeen@sana-commerce.com',
           'a.hoyos@sana-commerce.com',
@@ -106,7 +106,7 @@ WITH first_assignment AS (
       )
 )
 SELECT WorkItemId, email, analyst
-FROM first_assignment
+FROM all_touches
 WHERE rn = 1
 ORDER BY WorkItemId DESC
 "@
@@ -233,7 +233,13 @@ try {
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
                 $dt = Query $SECONDLAYER_SQL
-                $jsonRows = ($dt.Rows | ForEach-Object { '{"wi":' + [string]$_.WorkItemId + ',"analyst":"' + (Escape-Json [string]$_.analyst) + '"}' }) -join ','
+                $slParts = @()
+                foreach ($slRow in $dt.Rows) {
+                    $slWi      = $slRow['WorkItemId']
+                    $slAnalyst = Escape-Json ($slRow['analyst'] -as [string])
+                    $slParts  += '{"wi":' + $slWi + ',"analyst":"' + $slAnalyst + '"}'
+                }
+                $jsonRows = $slParts -join ','
                 $body = '{"count":' + $dt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
                 Write-Host "$ts GET /api/secondlayer → $($dt.Rows.Count) tickets" -ForegroundColor Green
             }
