@@ -100,6 +100,7 @@ WITH all_touches AS (
           SELECT WorkitemId
           FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
           WHERE Type IN ('Ticket','TicketSimple')
+            AND (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
             AND ProjectReleaseVersion NOT LIKE '%wishlist%'
             AND CreatedDateUTC >= '2026-01-01'
       )
@@ -141,6 +142,7 @@ LEFT JOIN OrganizationRegion org ON org.ID = eAssigned.RegionId
 LEFT JOIN ProjectIteration pi    ON pi.ID = w.ProjectIterationId
 LEFT JOIN IterationInfo ii       ON ii.IterationID = w.ProjectIterationId
 WHERE w.Type IN ('Ticket','TicketSimple')
+  AND (w.ProjectReleaseVersion LIKE 'Support%' OR w.ProjectReleaseVersion = 'Partner Support')
   AND w.ProjectReleaseVersion NOT LIKE '%wishlist%'
   AND w.CreatedDateUTC >= '2026-01-01'
 ORDER BY w.CreatedDateUTC DESC
