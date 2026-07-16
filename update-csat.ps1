@@ -111,7 +111,22 @@ if ($newContent -eq $content) {
     Write-Host "  index.html updated successfully" -ForegroundColor Green
 }
 
-# ── 6. Done ───────────────────────────────────────────────────────────────────
+# ── 6. Push to GitHub ────────────────────────────────────────────────────────
+Write-Host "  Pushing to GitHub..." -ForegroundColor Cyan
+Push-Location $DashboardDir
+try {
+    git add index.html 2>&1 | Out-Null
+    $stamp = Get-Date -Format "yyyy-MM-dd HH:mm"
+    git commit -m "Update CSAT data ($stamp)" 2>&1 | Out-Null
+    git push origin main 2>&1 | Out-Null
+    Write-Host "  Pushed to GitHub — dashboard will refresh in ~1 min." -ForegroundColor Green
+} catch {
+    Write-Host "  WARNING: Git push failed: $_" -ForegroundColor Yellow
+} finally {
+    Pop-Location
+}
+
+# ── 7. Done ───────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  CSAT update complete — $($rows.Count) rows baked into dashboard." -ForegroundColor Green
 Write-Host "  Open or refresh the dashboard to see updated CSAT data." -ForegroundColor Cyan
