@@ -66,18 +66,19 @@ function Query($sql) {
     return $dt
 }
 
-# ── SecondLayer SQL — last-touch attribution per ticket ───────────────────────
-# For each 2026 support ticket, finds the last revision where one of our 16
-# known CS analysts appears in AssignedTo OR ChangedBy. This mirrors how
-# PowerBI attributes tickets to the analyst who last worked them.
+# ── SecondLayer SQL — first analyst ever assigned per ticket ──────────────────
+# Runs on Prisma connection; cross-joins into Sana_Start_TicketIndex_live.
+# Mirrors PowerBI: first System.AssignedTo revision to one of our 16 CS
+# analysts per ticket (ORDER BY Revision ASC = earliest assignment).
 $SECONDLAYER_SQL = @"
-WITH all_touches AS (
-    SELECT r.WorkItemId, r.Value AS email, r.Revision,
-           ISNULL(oe.DisplayName, r.Value) AS analyst
-    FROM dbo.AzureDevops_Issue_Revision r
-    LEFT JOIN Prisma_sana_live.dbo.OrganizationEmployee oe
+WITH first_assignment AS (
+    SELECT r.WorkItemId, r.Value AS email,
+           ISNULL(oe.DisplayName, r.Value) AS analyst,
+           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn
+    FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r
+    LEFT JOIN dbo.OrganizationEmployee oe
            ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
-    WHERE r.Field IN ('System.AssignedTo','System.ChangedBy')
+    WHERE r.Field = 'System.AssignedTo'
       AND LOWER(r.Value) IN (
           'a.nouraldeen@sana-commerce.com',
           'a.hoyos@sana-commerce.com',
@@ -97,21 +98,15 @@ WITH all_touches AS (
           'm.martinez@sana-commerce.com'
       )
       AND r.WorkItemId IN (
-          SELECT WorkitemId
-          FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
+          SELECT WorkitemId FROM dbo.AzureDevopsWorkitems
           WHERE Type IN ('Ticket','TicketSimple')
             AND (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
             AND ProjectReleaseVersion NOT LIKE '%wishlist%'
             AND CreatedDateUTC >= '2026-01-01'
       )
-),
-last_touch AS (
-    SELECT WorkItemId, email, analyst,
-           ROW_NUMBER() OVER (PARTITION BY WorkItemId ORDER BY Revision DESC) AS rn
-    FROM all_touches
 )
 SELECT WorkItemId, email, analyst
-FROM last_touch
+FROM first_assignment
 WHERE rn = 1
 ORDER BY WorkItemId DESC
 "@
@@ -237,14 +232,8 @@ try {
             }
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
-                $dt = Query-Tickets $SECONDLAYER_SQL
-                $slParts = @()
-                foreach ($slRow in $dt.Rows) {
-                    $slWi  = [string]$slRow['WorkItemId']
-                    $slAn  = Escape-Json ([string]$slRow['analyst'])
-                    $slParts += '{"wi":' + $slWi + ',"analyst":"' + $slAn + '"}'
-                }
-                $jsonRows = $slParts -join ','
+                $dt = Query $SECONDLAYER_SQL
+                $jsonRows = ($dt.Rows | ForEach-Object { '{"wi":' + [string]$_.WorkItemId + ',"analyst":"' + (Escape-Json [string]$_.analyst) + '"}' }) -join ','
                 $body = '{"count":' + $dt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
                 Write-Host "$ts GET /api/secondlayer → $($dt.Rows.Count) tickets" -ForegroundColor Green
             }
