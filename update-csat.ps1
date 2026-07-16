@@ -27,7 +27,7 @@ try {
 
 # ── 2. Query Feedback table ───────────────────────────────────────────────────
 Write-Host "  Querying Feedback table..." -ForegroundColor Cyan
-$sql = "SELECT Rating, SupportExperience, [ ServiceConsultant] AS ServiceConsultant, WorkItemId, Comment, NegativeReason, Timestamp FROM [dbo].[Feedback] WHERE Timestamp IS NOT NULL AND [ ServiceConsultant] IS NOT NULL AND [ ServiceConsultant] <> '' ORDER BY Timestamp DESC"
+$sql = "SELECT Rating, SupportExperience, [ ServiceConsultant] AS ServiceConsultant, WorkItemId, Comment, NegativeReason, Timestamp FROM [dbo].[Feedback] WHERE Timestamp >= '2026-01-01' AND [ ServiceConsultant] IS NOT NULL AND [ ServiceConsultant] <> '' ORDER BY Timestamp DESC"
 $cmd             = $conn.CreateCommand()
 $cmd.CommandText = $sql
 $cmd.CommandTimeout = 60
