@@ -13097,6 +13097,7 @@ if(window.opener&&!window.opener.closed){
 (function() {
   // ── Manager definitions ────────────────────────────────────────────────
   var MANAGER_DEFS = {
+    '__mgr_rogier__':    { display: 'Rogier',    label: '👔 Rogier (Overall)',     analysts: null, overall: true },
     '__mgr_raffery__':   { display: 'Raffery',   label: '👔 Raffery (EMEA Team)',  analysts: ['Alexis Stephenson','Archana Chakravarty','Meha Johny','Rifa Khan','Gert Overheul','Sruthi Sreedharan','Judith Hüneburg','Anna Ohinska','Katie Durisova'] },
     '__mgr_francisco__': { display: 'Francisco', label: '👔 Francisco (Americas)', analysts: ['Alexander Hoyos Gonzalez','Najabi Salgado Giraldo','Maria Daniela Martinez'] },
     '__mgr_tarek__':     { display: 'Tarek',     label: '👔 Tarek (Alexandria)',   analysts: ['Ahmed Nouraldeen','Sarah Elfaramawy','Toqa Refaat','Mohamed Bayoumi'] },
@@ -13131,7 +13132,7 @@ if(window.opener&&!window.opener.closed){
     }
 
     // Privileged roles
-    addOpt('__owner__',  '👑 Owner (Full Access)');
+    addOpt('__owner__',  '👑 Tarek Atef (Full Access)');
     Object.keys(MANAGER_DEFS).forEach(function(k) { addOpt(k, MANAGER_DEFS[k].label); });
     addSep();
 
@@ -13203,7 +13204,7 @@ if(window.opener&&!window.opener.closed){
         return;
       }
       if (pin !== ownerPin) { errEl.textContent = 'Incorrect owner PIN.'; return; }
-      setAuth({ name: 'Owner', role: 'owner' });
+      setAuth({ name: 'Tarek Atef', role: 'owner' });
       applyAuth(); return;
     }
 
@@ -13238,7 +13239,7 @@ if(window.opener&&!window.opener.closed){
     if (badge) {
       badge.style.display = 'flex';
       var roleIcons = { owner: '👑', manager: '👔', analyst: '👤' };
-      var roleLabels = { owner: 'Owner (Full Access)' };
+      var roleLabels = { owner: 'Tarek Atef (Full Access)' };
       var icon = roleIcons[auth.role] || '👤';
       var label = roleLabels[auth.role] || auth.name;
       badge.innerHTML = icon + ' <b>' + label + '</b>' +
@@ -13268,9 +13269,11 @@ if(window.opener&&!window.opener.closed){
       if (typeof window.render === 'function') window.render();
 
     } else if (auth.role === 'manager') {
-      // Restrict roster + scope to manager's team
+      // Restrict roster + scope to manager's team (unless overall manager)
       var mgrDef = MANAGER_DEFS[auth.mgrKey];
-      if (mgrDef) {
+      if (mgrDef && mgrDef.overall) {
+        window._mgrRosterOverride = null;
+      } else if (mgrDef) {
         var fullRoster = (window._dashDATA && window._dashDATA.roster) || [];
         window._mgrRosterOverride = fullRoster.filter(function(r) {
           return mgrDef.analysts.indexOf(r[0]) >= 0;
