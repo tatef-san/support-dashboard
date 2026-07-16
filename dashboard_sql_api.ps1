@@ -238,11 +238,13 @@ try {
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
                 $dt = Query-Tickets $SECONDLAYER_SQL
-                $jsonRows = ($dt.Rows | ForEach-Object {
-                    $wi      = [string]$_[0]
-                    $analyst = Escape-Json ([string]$_[2])
-                    '{"wi":' + $wi + ',"analyst":"' + $analyst + '"}'
-                }) -join ','
+                $slParts = @()
+                foreach ($slRow in $dt.Rows) {
+                    $slWi  = [string]$slRow['WorkItemId']
+                    $slAn  = Escape-Json ([string]$slRow['analyst'])
+                    $slParts += '{"wi":' + $slWi + ',"analyst":"' + $slAn + '"}'
+                }
+                $jsonRows = $slParts -join ','
                 $body = '{"count":' + $dt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
                 Write-Host "$ts GET /api/secondlayer → $($dt.Rows.Count) tickets" -ForegroundColor Green
             }
