@@ -630,6 +630,7 @@
     <button class="view-tab" data-view="oneone">1:1 Meetings</button>
     <button class="view-tab" data-view="ranking" id="rankingTab" style="display:none;">🏆 Team Ranking</button>
     <button class="view-tab" data-view="pinmgmt" id="pinMgmtTab" style="display:none;" hidden>🔑 PIN Setup</button>
+    <button class="view-tab" data-view="controlpanel" id="controlPanelTab" style="display:none;">⚙ Control Panel</button>
   </div>
   <div class="view-tabs row2">
     <span class="row2-label">KPI Deep-Dive</span>
@@ -1717,6 +1718,10 @@
         <p style="font-size:11.5px;color:var(--muted);margin:10px 0 0 0;">After saving, click <b>Copy Setup Code</b> and send the code to analysts. Each analyst pastes it once on their device using the "First time on this device?" section on the login screen.</p>
       </div>
     </div>
+
+    <!-- Control Panel (owner only) -->
+    <div id="view-controlpanel" class="view"></div>
+
 </main>
 
 <!-- inlined SheetJS for the Data Upload tab -->
@@ -13075,6 +13080,68 @@ if(window.opener&&!window.opener.closed){
     '__mgr_tarek__':     { display: 'Tarek',     label: '👔 Tarek (Alexandria)',   analysts: ['Ahmed Nouraldeen','Sarah Elfaramawy','Toqa Refaat','Mohamed Bayoumi'] },
   };
 
+  // ── Email-based user access config ────────────────────────────────────
+  var DEFAULT_USER_CONFIG = {
+    't.atef@sana-commerce.com':      { name: 'Tarek Atef',               role: 'owner',   tabs: null },
+    'm.miles@sana-commerce.com':     { name: 'M. Miles',                 role: 'owner',   tabs: null },
+    'r.agatz@sana-commerce.com':     { name: 'Rogier Agatz',             role: 'manager', mgrKey: '__mgr_rogier__',    tabs: ['kpi-csat','maya-csat'] },
+    'f.tovar@sana-commerce.com':     { name: 'Francisco Tovar',          role: 'manager', mgrKey: '__mgr_francisco__', tabs: ['kpi-csat','maya-csat'] },
+    'r.garcia@sana-commerce.com':    { name: 'Raffery Garcia',           role: 'manager', mgrKey: '__mgr_raffery__',   tabs: ['kpi-csat','maya-csat'] },
+    'a.nouraldeen@sana-commerce.com':{ name: 'Ahmed Nouraldeen',         role: 'analyst', tabs: null },
+    's.elfaramawy@sana-commerce.com':{ name: 'Sarah Elfaramawy',         role: 'analyst', tabs: null },
+    't.refaat@sana-commerce.com':    { name: 'Toqa Refaat',              role: 'analyst', tabs: null },
+    'm.bayoumi@sana-commerce.com':   { name: 'Mohamed Bayoumi',          role: 'analyst', tabs: null },
+    'n.salgado@sana-commerce.com':   { name: 'Najabi Salgado Giraldo',   role: 'analyst', tabs: null },
+    'a.hoyos@sana-commerce.com':     { name: 'Alexander Hoyos Gonzalez', role: 'analyst', tabs: null },
+    'm.martinez@sana-commerce.com':  { name: 'Maria Daniela Martinez',   role: 'analyst', tabs: null },
+    'ri.khan@sana-commerce.com':     { name: 'Rifa Khan',                role: 'analyst', tabs: null },
+    's.sreedharan@sana-commerce.com':{ name: 'Sruthi Sreedharan',        role: 'analyst', tabs: null },
+    'm.johny@sana-commerce.com':     { name: 'Meha Johny',               role: 'analyst', tabs: null },
+    'a.stephenson@sana-commerce.com':{ name: 'Alexis Stephenson',        role: 'analyst', tabs: null },
+    'a.chakravarty@sana-commerce.com':{ name: 'Archana Chakravarty',     role: 'analyst', tabs: null },
+    'g.overheul@sana-commerce.com':  { name: 'Gert Overheul',            role: 'analyst', tabs: null },
+    'j.huneburg@sana-commerce.com':  { name: 'Judith Hüneburg',     role: 'analyst', tabs: null },
+    'a.ohinska@sana-commerce.com':   { name: 'Anna Ohinska',             role: 'analyst', tabs: null },
+    'k.durisova@sana-commerce.com':  { name: 'Katie Durisova',           role: 'analyst', tabs: null },
+  };
+
+  var _CP_PROTECTED = ['t.atef@sana-commerce.com'];
+
+  var _CP_ALL_TABS = [
+    { v: 'overview',    label: 'Overview' },
+    { v: 'tickets',     label: 'Tickets' },
+    { v: 'performance', label: 'Performance' },
+    { v: 'upload',      label: 'Data Upload' },
+    { v: 'oneone',      label: '1:1 Meetings' },
+    { v: 'ranking',     label: 'Team Ranking' },
+    { v: 'kpi-csat',    label: 'CSAT' },
+    { v: 'maya-csat',   label: 'Maya AI CSAT' },
+    { v: 'kpi-active',  label: 'Active Tickets' },
+    { v: 'kpi-closed',  label: 'Closed Tickets' },
+    { v: 'kpi-ttr',     label: 'TTR' },
+    { v: 'kpi-resp',    label: 'Avg Response' },
+    { v: 'kpi-esc',     label: 'Escape Rate' },
+    { v: 'kpi-util',    label: 'Utilization' },
+    { v: 'kpi-dq',      label: 'Data Quality' },
+  ];
+
+  function _cpEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function getUserConfig() {
+    try {
+      var s = localStorage.getItem('dashUserConfig');
+      if (!s) {
+        localStorage.setItem('dashUserConfig', JSON.stringify(DEFAULT_USER_CONFIG));
+        return JSON.parse(JSON.stringify(DEFAULT_USER_CONFIG));
+      }
+      return JSON.parse(s);
+    } catch(e) { return JSON.parse(JSON.stringify(DEFAULT_USER_CONFIG)); }
+  }
+
+  function saveUserConfig(cfg) {
+    localStorage.setItem('dashUserConfig', JSON.stringify(cfg));
+  }
+
   function getPins() {
     try { return JSON.parse(localStorage.getItem('dashPINs') || '{}'); } catch(e) { return {}; }
   }
@@ -13250,43 +13317,32 @@ if(window.opener&&!window.opener.closed){
       if (typeof window.render === 'function') window.render();
 
     } else if (auth.role === 'manager') {
-      var mgrDef = MANAGER_DEFS[auth.mgrKey];
-      var isFullAccessMgr = (auth.mgrKey === '__mgr_tarek__');
+      window._mgrRosterOverride = null;
+      if (typeof window._dashPopulateScope === 'function') window._dashPopulateScope();
 
-      if (isFullAccessMgr) {
-        // Tarek (manager) — full access, same as owner
-        window._mgrRosterOverride = null;
-        if (typeof window._dashPopulateScope === 'function') window._dashPopulateScope();
+      if (!auth.tabs || !auth.tabs.length) {
+        // Full-access manager — same as owner
         if (rankTab) rankTab.style.display = '';
-        showPinMgmtPanel();
+        showControlPanel();
         if (typeof window.render === 'function') window.render();
       } else {
-        // All other managers — CSAT + Maya AI CSAT tabs only
-        window._mgrRosterOverride = null;
-        // Hide all main tabs
-        ['overview','tickets','performance','upload','oneone'].forEach(function(v) {
-          var t = document.querySelector('.view-tab[data-view="' + v + '"]');
-          if (t) t.style.display = 'none';
+        // Restricted manager — show only allowed tabs
+        _CP_ALL_TABS.forEach(function(def) {
+          var t = document.querySelector('.view-tab[data-view="' + def.v + '"]');
+          if (t) t.style.display = auth.tabs.indexOf(def.v) >= 0 ? '' : 'none';
         });
-        // Hide restricted KPI tabs
-        ['kpi-active','kpi-closed','kpi-ttr','kpi-resp','kpi-esc','kpi-util','kpi-dq'].forEach(function(v) {
-          var t = document.querySelector('.view-tab[data-view="' + v + '"]');
-          if (t) t.style.display = 'none';
-        });
-        // Hide ranking + PIN tabs
-        if (rankTab) rankTab.style.display = 'none';
+        if (rankTab) rankTab.style.display = auth.tabs.indexOf('ranking') >= 0 ? '' : 'none';
         if (pinTab)  pinTab.style.display  = 'none';
-        // Navigate to CSAT
         if (typeof window.render === 'function') window.render();
-        var csatTab = document.querySelector('.view-tab[data-view="kpi-csat"]');
-        if (csatTab) csatTab.click();
+        var _firstTab = auth.tabs[0] && document.querySelector('.view-tab[data-view="' + auth.tabs[0] + '"]');
+        if (_firstTab) setTimeout(function(){ _firstTab.click(); }, 80);
       }
 
     } else {
       // Owner — full access
       window._mgrRosterOverride = null;
       if (rankTab) rankTab.style.display = '';
-      showPinMgmtPanel();
+      showControlPanel();
       if (typeof window.render === 'function') window.render();
     }
   }
@@ -13380,6 +13436,165 @@ if(window.opener&&!window.opener.closed){
     }
     el.innerHTML = html;
   }
+
+  function showControlPanel() {
+    var tab = document.getElementById('controlPanelTab');
+    if (tab) {
+      tab.style.display = '';
+      if (!tab._cpListenerAdded) {
+        tab._cpListenerAdded = true;
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.view-tab').forEach(function(b){ b.classList.toggle('active', b === tab); });
+          document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+          var vw = document.getElementById('view-controlpanel');
+          if (vw) vw.classList.add('active');
+          renderControlPanel();
+        });
+      }
+    }
+  }
+
+  function renderControlPanel() {
+    var el = document.getElementById('view-controlpanel');
+    if (!el) return;
+    var cfg = getUserConfig();
+    var users = Object.keys(cfg).map(function(email){ return Object.assign({ email: email }, cfg[email]); })
+      .sort(function(a,b){ var ro={owner:0,manager:1,analyst:2}; return (ro[a.role]||0)-(ro[b.role]||0)||a.name.localeCompare(b.name); });
+
+    function accessBadge(u) {
+      if (u.role==='owner') return '<span style="color:#92400e;font-weight:700;">&#x1F451; Full Access</span>';
+      if (u.role==='manager'&&!u.tabs) return '<span style="color:#1e40af;font-weight:700;">&#x1F454; Full Access (Mgr)</span>';
+      if (u.role==='manager'&&u.tabs) return '<span style="color:#1e40af;font-weight:700;">&#x1F454; Manager</span>';
+      return '<span style="color:#374151;font-weight:600;">&#x1F464; Analyst</span>';
+    }
+    function tabsText(u) {
+      if (u.role==='owner'||(u.role==='manager'&&!u.tabs)) return '<span style="color:var(--good);font-size:12px;">All tabs</span>';
+      if (u.role==='analyst') return '<span style="color:var(--muted);font-size:12px;">Self data only</span>';
+      if (u.tabs&&u.tabs.length) return '<span style="font-size:12px;">' + u.tabs.map(function(v){ var d=_CP_ALL_TABS.find(function(x){return x.v===v;}); return d?d.label:v; }).join(', ') + '</span>';
+      return '&mdash;';
+    }
+
+    var h = '<div class="panel" style="max-width:1100px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">';
+    h += '<h2 class="panel-title" style="margin:0;">&#x2699;&#xFE0F; User Access Control</h2>';
+    h += '<button onclick="window._cpShowForm(null)" style="background:#1f3864;color:#fff;border:none;padding:8px 18px;border-radius:6px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Add User</button>';
+    h += '</div>';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    h += '<thead><tr style="background:#f1f5f9;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;">';
+    h += '<th style="text-align:left;padding:9px 12px;">Name</th><th style="text-align:left;padding:9px 12px;">Email</th><th style="text-align:left;padding:9px 12px;">Access</th><th style="text-align:left;padding:9px 12px;">Tabs</th><th style="padding:9px 12px;"></th>';
+    h += '</tr></thead><tbody>';
+    users.forEach(function(u,i){
+      var isProtected = _CP_PROTECTED.indexOf(u.email) >= 0;
+      var bg = i%2===0?'var(--panel)':'var(--bg)';
+      h += '<tr style="border-top:1px solid var(--border);background:'+bg+';">';
+      h += '<td style="padding:9px 12px;font-weight:600;">'+_cpEsc(u.name)+'</td>';
+      h += '<td style="padding:9px 12px;font-size:12px;color:var(--muted);">'+_cpEsc(u.email)+'</td>';
+      h += '<td style="padding:9px 12px;">'+accessBadge(u)+'</td>';
+      h += '<td style="padding:9px 12px;max-width:280px;">'+tabsText(u)+'</td>';
+      h += '<td style="padding:9px 12px;text-align:right;white-space:nowrap;">';
+      if (!isProtected) {
+        h += '<button onclick="window._cpShowForm(\''+u.email.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')\" style="background:#e0e7ff;color:#3730a3;border:none;padding:4px 12px;border-radius:4px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px;">Edit</button>';
+        h += '<button onclick="window._cpRemove(\''+u.email.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')\" style="background:#fee2e2;color:#991b1b;border:none;padding:4px 12px;border-radius:4px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;">Remove</button>';
+      } else {
+        h += '<span style="font-size:11px;color:var(--muted);font-style:italic;">Protected</span>';
+      }
+      h += '</td></tr>';
+    });
+    h += '</tbody></table>';
+    h += '<div id="cpFormArea" style="margin-top:20px;"></div>';
+    h += '</div>';
+    el.innerHTML = h;
+  }
+
+  window._cpShowForm = function(email) {
+    var cfg = getUserConfig();
+    var u = email ? cfg[email] : null;
+    var accessType = !u ? 'analyst' :
+      u.role==='owner' ? 'owner' :
+      (u.role==='manager'&&!u.tabs) ? 'manager-full' :
+      (u.role==='manager'&&u.tabs) ? 'manager-custom' : 'analyst';
+
+    var h = '<div style="border:1px solid var(--border);border-radius:8px;padding:20px 24px;background:var(--bg);">';
+    h += '<h3 style="margin:0 0 16px;font-size:14px;color:#1f2937;">'+(email?'Edit User':'Add New User')+'</h3>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">';
+    h += '<div><label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px;">NAME</label>';
+    h += '<input id="cpName" type="text" value="'+_cpEsc(u?u.name:'')+ '" placeholder="Full name" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font:inherit;font-size:13px;"></div>';
+    h += '<div><label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px;">EMAIL</label>';
+    h += '<input id="cpEmail" type="email" value="'+_cpEsc(email||'')+'" '+(email?'readonly style="background:#f9fafb;':'style="')+'width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font:inherit;font-size:13px;"></div>';
+    h += '</div>';
+    h += '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:8px;">ACCESS LEVEL</label>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    [
+      {v:'analyst',        lbl:'&#x1F464; Analyst (Self only)'},
+      {v:'manager-custom', lbl:'&#x1F454; Manager (Custom tabs)'},
+      {v:'manager-full',   lbl:'&#x1F454; Full Access (Manager)'},
+      {v:'owner',          lbl:'&#x1F451; Full Access (Owner)'},
+    ].forEach(function(opt){
+      var sel = accessType===opt.v;
+      h += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid '+(sel?'#1f3864':'#d1d5db')+';border-radius:6px;font-size:13px;background:'+(sel?'#e8edf7':'var(--panel)')+';">';
+      h += '<input type="radio" name="cpAccess" value="'+opt.v+'"'+(sel?' checked':'')+' onchange="window._cpToggleTabs()" style="margin:0;"> '+opt.lbl+'</label>';
+    });
+    h += '</div></div>';
+    h += '<div id="cpTabsArea" style="'+(accessType==='manager-custom'?'':'display:none;')+'margin-bottom:14px;">';
+    h += '<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:8px;">ALLOWED TABS</label>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;">';
+    _CP_ALL_TABS.forEach(function(def){
+      var chk = u&&u.tabs&&u.tabs.indexOf(def.v)>=0;
+      h += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;background:var(--panel);">';
+      h += '<input type="checkbox" name="cpTab" value="'+def.v+'"'+(chk?' checked':'')+' style="margin:0;"> '+def.label+'</label>';
+    });
+    h += '</div></div>';
+    h += '<div id="cpFormErr" style="color:#dc2626;font-size:12px;min-height:16px;margin-bottom:8px;"></div>';
+    h += '<div style="display:flex;gap:8px;">';
+    h += '<button onclick="window._cpSave(\''+( email?(email.replace(/\\/g,'\\\\').replace(/'/g,"\\'")):'')+'\')" style="background:#1f3864;color:#fff;border:none;padding:9px 22px;border-radius:6px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;">'+(email?'Save Changes':'Add User')+'</button>';
+    h += '<button onclick="document.getElementById(\'cpFormArea\').innerHTML=\'\'" style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:9px 14px;border-radius:6px;font:inherit;font-size:13px;cursor:pointer;">Cancel</button>';
+    h += '</div></div>';
+    var fa = document.getElementById('cpFormArea');
+    if (fa) { fa.innerHTML = h; fa.scrollIntoView({behavior:'smooth'}); }
+  };
+
+  window._cpToggleTabs = function() {
+    var sel = document.querySelector('input[name="cpAccess"]:checked');
+    var ta = document.getElementById('cpTabsArea');
+    if (ta) ta.style.display = (sel && sel.value==='manager-custom') ? '' : 'none';
+  };
+
+  window._cpSave = function(origEmail) {
+    var nameEl  = document.getElementById('cpName');
+    var emailEl = document.getElementById('cpEmail');
+    var accessEl= document.querySelector('input[name="cpAccess"]:checked');
+    var errEl   = document.getElementById('cpFormErr');
+    if (!nameEl||!emailEl||!accessEl) return;
+    var name  = nameEl.value.trim();
+    var email = emailEl.value.trim().toLowerCase();
+    var access= accessEl.value;
+    if (!name)  { if(errEl) errEl.textContent='Name is required.'; return; }
+    if (!email) { if(errEl) errEl.textContent='Email is required.'; return; }
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { if(errEl) errEl.textContent='Enter a valid email address.'; return; }
+    var cfg = getUserConfig();
+    var tabs = null;
+    if (access==='manager-custom') {
+      tabs = Array.from(document.querySelectorAll('input[name="cpTab"]:checked')).map(function(cb){return cb.value;});
+      if (!tabs.length) { if(errEl) errEl.textContent='Select at least one tab for custom manager access.'; return; }
+    }
+    var mgrKey = access==='manager-custom'||access==='manager-full' ? ('__mgr_custom_'+email.split('@')[0].replace(/\./g,'_')+'__') : undefined;
+    if (origEmail && origEmail !== email) delete cfg[origEmail];
+    cfg[email] = { name: name, role: access==='owner'?'owner':access.startsWith('manager')?'manager':'analyst', tabs: tabs };
+    if (mgrKey) cfg[email].mgrKey = mgrKey;
+    saveUserConfig(cfg);
+    renderControlPanel();
+    var fa = document.getElementById('cpFormArea');
+    if (fa) fa.innerHTML = '<div style="padding:10px 14px;background:#d1fae5;border-radius:6px;font-size:13px;color:#065f46;margin-top:8px;">&#x2713; User saved successfully.</div>';
+    setTimeout(function(){ if(fa) fa.innerHTML=''; }, 2500);
+  };
+
+  window._cpRemove = function(email) {
+    if (!confirm('Remove access for ' + email + '?')) return;
+    var cfg = getUserConfig();
+    delete cfg[email];
+    saveUserConfig(cfg);
+    renderControlPanel();
+  };
 
   window.savePins = function() {
     var pins = getPins();
@@ -13537,24 +13752,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function _mapAccount(account) {
-    var displayName = (account.name || '').trim();
-    var email = (account.username || '').toLowerCase();
-    var ownerEmails = ['t.atef@sana-commerce.com'];
-    if (ownerEmails.indexOf(email) >= 0) return { name: 'Owner', role: 'owner', ssoEmail: email };
-    var sel = document.getElementById('authName');
-    if (sel) {
-      var firstName = displayName.split(/[\s.]/)[0].toLowerCase();
-      for (var i = 0; i < sel.options.length; i++) {
-        var val = sel.options[i].value;
-        var txt = (sel.options[i].text || '').toLowerCase();
-        if (!val) continue;
-        if (txt.indexOf(firstName) >= 0 || val.toLowerCase().indexOf(firstName) >= 0) {
-          if (window.MANAGER_DEFS && window.MANAGER_DEFS[val]) return { name: window.MANAGER_DEFS[val].display || displayName, role: 'manager', mgrKey: val, ssoEmail: email };
-          return { name: val, role: 'analyst', ssoEmail: email };
-        }
-      }
-    }
-    return { name: displayName || email, role: 'denied', ssoEmail: email };
+    var email = (account.username || '').toLowerCase().trim();
+    var cfg = getUserConfig();
+    var user = cfg[email];
+    if (!user) return { name: (account.name || email), role: 'denied', ssoEmail: email };
+    return Object.assign({}, user, { ssoEmail: email });
   }
 
   function _setStatus(msg) { var el = document.getElementById('msalStatus'); if (el) el.textContent = msg; }
