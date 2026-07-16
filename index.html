@@ -2424,16 +2424,19 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const pendCustStat = {};
     const actDedStat = {};
     const actPoolStat = {};
+    const _slMapKpi = window._sqlSecondLayer || {};
     DATA.active.forEach(r => {
-      if (!inRoster(r.c)) return;
-      if (r.escalated)       pendTeamStat[r.c] = (pendTeamStat[r.c] || 0) + 1;
-      if (r.pendingCustomer) pendCustStat[r.c]  = (pendCustStat[r.c]  || 0) + 1;
-      if (isDedicated(r)) actDedStat[r.c]  = (actDedStat[r.c]  || 0) + 1;
-      else                actPoolStat[r.c] = (actPoolStat[r.c] || 0) + 1;
+      const _wi = +(r.id || r.wi);
+      const rc = (inRoster(r.c) ? r.c : (_slMapKpi[_wi] || r.c));
+      if (!inRoster(rc)) return;
+      if (r.escalated)       pendTeamStat[rc] = (pendTeamStat[rc] || 0) + 1;
+      if (r.pendingCustomer) pendCustStat[rc]  = (pendCustStat[rc]  || 0) + 1;
+      if (isDedicated(r)) actDedStat[rc]  = (actDedStat[rc]  || 0) + 1;
+      else                actPoolStat[rc] = (actPoolStat[rc] || 0) + 1;
       // For Daily / Weekly / Monthly: filter Active by creation date so the
       // counts reflect only tickets opened in the period.  YTD shows all.
       if (range.mode !== 'YTD' && !inRange(r.created, range)) return;
-      const k = actStat[r.c] = actStat[r.c] || { total: 0, lt7: 0, b7_15: 0, gt15: 0 };
+      const k = actStat[rc] = actStat[rc] || { total: 0, lt7: 0, b7_15: 0, gt15: 0 };
       k.total++;
       const age = Number(r.age);
       if (age == null || isNaN(age)) return;
