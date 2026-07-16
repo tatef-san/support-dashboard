@@ -13001,6 +13001,35 @@ if(window.opener&&!window.opener.closed){
         D._adoSync = new Date().toLocaleString();
         // Clear stale @mention scan cache — adoSync data (with correct ages) takes priority
         try { localStorage.removeItem('actPendUpload'); } catch(e) {}
+
+        // ── Backfill first-response times from SQL /api/resp ─────────────────
+        // Reads vwResponseTimePerTicketKoen for all 2026 tickets and patches resp
+        // into D.closed by WorkItemId so FRT SLA calculations use live DB values.
+        try {
+          lf('Fetching response times from SQL /api/resp…');
+          var _rCtrl = new AbortController();
+          var _rTimer = setTimeout(function(){ _rCtrl.abort(); }, 30000);
+          var _rFetch = await fetch('http://localhost:3012/api/resp', { signal: _rCtrl.signal });
+          clearTimeout(_rTimer);
+          if (_rFetch.ok) {
+            var _rData = await _rFetch.json();
+            var _rMap = {};
+            (_rData.rows || []).forEach(function(r){ if (r.id != null) _rMap[String(r.id)] = r.resp; });
+            var _rApplied = 0;
+            D.closed.forEach(function(row) {
+              var wi = String(row.wi != null ? row.wi : (row.id || ''));
+              if (!wi) return;
+              var rt = _rMap[wi];
+              if (rt != null) { row.resp = rt; _rApplied++; }
+            });
+            lf('FRT: applied response times to ' + _rApplied + ' / ' + D.closed.length + ' closed tickets.');
+          } else {
+            lf('FRT: /api/resp returned HTTP ' + _rFetch.status + ' — skipping.');
+          }
+        } catch(_rErr) {
+          lf('FRT: /api/resp not available — using cached scan data if any.');
+        }
+
         // Persist closed tickets to IDB so they survive page reload
         if (window._dashSaveUploads && window._dashLoadUploads) {
           try {
