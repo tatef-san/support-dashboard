@@ -2472,7 +2472,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           _dataWIsKpi.add(wi);
           const mentAnalyst = _mentRawKpi && _mentRawKpi[wi] && _mentRawKpi[wi].analyst;
           const name = _SL_USE_SQL_SL
-            ? (_sqlSLMapKpi[wi] || r.c)
+            ? (inRoster(r.c) ? r.c : (_sqlSLMapKpi[wi] || r.c))
             : (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
           if (!name || !inRoster(name)) return;
           const aa = actAllStat[name] = actAllStat[name] || { count: 0, ageSum: 0, ageN: 0 };
@@ -8325,7 +8325,7 @@ if(window.opener&&!window.opener.closed){
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
         const effectiveC = _SL_USE_SQL_SL
-          ? (_sqlSLMap[wi] || r.c)
+          ? (inRoster(r.c) ? r.c : (_sqlSLMap[wi] || r.c))
           : (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
         return effectiveC === r.c ? r : { ...r, c: effectiveC };
       });
