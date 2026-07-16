@@ -12924,7 +12924,7 @@ if(window.opener&&!window.opener.closed){
           window._sqlSecondLayer = {};
           try {
             var _sl2Ctrl = new AbortController();
-            var _sl2Timer = setTimeout(function(){ _sl2Ctrl.abort(); }, 10000);
+            var _sl2Timer = setTimeout(function(){ _sl2Ctrl.abort(); }, 45000);
             var _sl2Resp = await fetch('http://localhost:3012/api/secondlayer', { signal: _sl2Ctrl.signal });
             clearTimeout(_sl2Timer);
             if (_sl2Resp.ok) {
