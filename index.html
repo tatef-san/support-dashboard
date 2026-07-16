@@ -13350,6 +13350,7 @@ if(window.opener&&!window.opener.closed){
   // Expose auth helpers so the external MSAL script block can call them
   window._setAuth = setAuth;
   window._applyAuth = applyAuth;
+  window._getUserConfig = getUserConfig;
 
   function showPinMgmtPanel() {
     // Reveal the tab button and activate the view using the standard tab system
@@ -13753,7 +13754,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function _mapAccount(account) {
     var email = (account.username || '').toLowerCase().trim();
-    var cfg = getUserConfig();
+    var cfg = window._getUserConfig ? window._getUserConfig() : {};
     var user = cfg[email];
     if (!user) return { name: (account.name || email), role: 'denied', ssoEmail: email };
     return Object.assign({}, user, { ssoEmail: email });
