@@ -239,8 +239,8 @@ try {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
                 $dt = Query-Tickets $SECONDLAYER_SQL
                 $jsonRows = ($dt.Rows | ForEach-Object {
-                    $wi      = [string]$_.WorkItemId
-                    $analyst = Escape-Json ([string]$_.analyst)
+                    $wi      = [string]$_[0]
+                    $analyst = Escape-Json ([string]$_[2])
                     '{"wi":' + $wi + ',"analyst":"' + $analyst + '"}'
                 }) -join ','
                 $body = '{"count":' + $dt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
