@@ -13579,6 +13579,14 @@ document.addEventListener('DOMContentLoaded', function() {
     var authObj = _mapAccount(account);
     if (window._setAuth) { window._setAuth(authObj); }
     else { try { sessionStorage.setItem('dashAuth', JSON.stringify(authObj)); } catch(e) {} }
+    // Short-circuit for denied accounts
+    if (authObj.role === 'denied') {
+      var _btn = document.getElementById('msalBtn');
+      if (_btn) _btn.disabled = false;
+      _setStatus('');
+      if (window._applyAuth) { window._applyAuth(); }
+      return;
+    }
     _setStatus('Getting ADO access…');
     _acquireAdoToken(account).then(function() {
       if (window._adoAccessToken) _setStatus('Syncing data…');
@@ -13620,7 +13628,7 @@ document.addEventListener('DOMContentLoaded', function() {
       _setStatus('');
       if (btn) btn.disabled = false;
       var err = document.getElementById('authError');
-      if (err) err.textContent = (e.message && e.message.toLowerCase().indexOf('cancel') >= 0) ? '' : 'Microsoft sign-in failed. Use PIN instead.';
+      if (err) err.textContent = (e.message && e.message.toLowerCase().indexOf('cancel') >= 0) ? '' : 'Microsoft sign-in failed. Please try again.';
     });
   };
 
@@ -13637,7 +13645,7 @@ document.addEventListener('DOMContentLoaded', function() {
         _setStatus('');
         btn.disabled = false;
         var err = document.getElementById('authError');
-        if (err) err.textContent = (e.message && e.message.toLowerCase().indexOf('cancel') >= 0) ? '' : 'Microsoft sign-in failed. Use PIN instead.';
+        if (err) err.textContent = (e.message && e.message.toLowerCase().indexOf('cancel') >= 0) ? '' : 'Microsoft sign-in failed. Please try again.';
       });
     });
     setTimeout(_trySilent, 300);
