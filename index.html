@@ -13004,6 +13004,44 @@ if(window.opener&&!window.opener.closed){
           lf('SQL SecondLayer: not available.');
         }
 
+        // Post-process closed tickets: resolve raw emails to analyst names.
+        // When Custom.ServiceConsultant is empty and AssignedTo returns a plain email,
+        // normalizeAnalystName returns the email verbatim → inRoster fails → Unassigned.
+        // This mirrors PowerBI's Assignedtowho→name join without touching NAME_ALIASES.
+        var _closedEmailMap = {
+          'a.nouraldeen@sana-commerce.com':'Ahmed Nouraldeen',
+          's.elfaramawy@sana-commerce.com':'Sarah Elfaramawy',
+          't.refaat@sana-commerce.com':'Toqa Refaat',
+          'm.bayoumi@sana-commerce.com':'Mohamed Bayoumi',
+          't.atef@sana-commerce.com':'Tarek Atef',
+          'n.salgado@sana-commerce.com':'Najabi Salgado Giraldo',
+          'a.hoyos@sana-commerce.com':'Alexander Hoyos Gonzalez',
+          'm.martinez@sana-commerce.com':'Maria Daniela Martinez',
+          'f.tovar@sana-commerce.com':'Francisco Tovar',
+          'r.garcia@sana-commerce.com':'Raffery Garcia',
+          'ri.khan@sana-commerce.com':'Rifa Khan',
+          's.sreedharan@sana-commerce.com':'Sruthi Sreedharan',
+          'm.johny@sana-commerce.com':'Meha Johny',
+          'a.stephenson@sana-commerce.com':'Alexis Stephenson',
+          'a.chakravarty@sana-commerce.com':'Archana Chakravarty',
+          'g.overheul@sana-commerce.com':'Gert Overheul',
+          'j.huneburg@sana-commerce.com':'Judith Hüneburg',
+          'a.ohinska@sana-commerce.com':'Anna Ohinska',
+          'k.durisova@sana-commerce.com':'Katie Durisova'
+        };
+        var _closedFixed = 0;
+        (closedArr || []).forEach(function(row) {
+          if (inRoster(row.c)) return;
+          var emailKey = (row.c || '').toLowerCase().trim();
+          var resolved = _closedEmailMap[emailKey];
+          if (resolved && inRoster(resolved)) {
+            row.c = resolved; _closedFixed++;
+          } else if (window._sqlSecondLayer && window._sqlSecondLayer[row.wi]) {
+            row.c = window._sqlSecondLayer[row.wi]; _closedFixed++;
+          }
+        });
+        lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
+
         lf('Injecting into dashboard…');
         // DATA lives inside the main IIFE — access via window._dashDATA
         var D = window._dashDATA;
