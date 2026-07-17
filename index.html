@@ -13065,11 +13065,11 @@ if(window.opener&&!window.opener.closed){
         };
         var _closedFixed = 0;
         (closedArr || []).forEach(function(row) {
-          if (inRoster(row.c)) return;
+          if (row.c && row.c.indexOf('@') === -1) return; // already a display name
           if (!row.closed || !row.closed.startsWith('2026')) return;
           var emailKey = (row.c || '').toLowerCase().trim();
           var resolved = _closedEmailMap[emailKey];
-          if (resolved && inRoster(resolved)) {
+          if (resolved) {
             row.c = resolved; _closedFixed++;
           } else if (window._sqlSecondLayer && window._sqlSecondLayer[+row.id]) {
             row.c = window._sqlSecondLayer[+row.id]; _closedFixed++;
