@@ -8328,7 +8328,7 @@ if(window.opener&&!window.opener.closed){
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
         const effectiveC = _SL_USE_SQL_SL
-          ? (inRoster(r.c) ? r.c : (_sqlSLMap[wi] || r.c))
+          ? (inRoster(r.c) ? r.c : (_sqlSLMap[wi] || mentAnalyst || r.c))
           : (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
         return effectiveC === r.c ? r : { ...r, c: effectiveC };
       });
@@ -12711,7 +12711,7 @@ if(window.opener&&!window.opener.closed){
     }
 
     // Non-analyst placeholder values that ADO puts in AssignedTo when ticket is pending
-    var NON_ANALYST_VALUES = ['customer','customer support','core support','core_support','partner','team','unassigned','hosting','sci','add-on support','ax fo support','sapecc support','support planning',''];
+    var NON_ANALYST_VALUES = ['customer','customer support','core support','core_support','partner','team','unassigned','hosting','sci','add-on support','ax fo support','sapecc support','support planning','support-planning','migrations','partner support',''];
     function _isNonAnalyst(v) {
       var l = (v || '').toLowerCase().trim();
       if (!l) return true;
