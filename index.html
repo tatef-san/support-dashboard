@@ -13032,12 +13032,13 @@ if(window.opener&&!window.opener.closed){
         var _closedFixed = 0;
         (closedArr || []).forEach(function(row) {
           if (inRoster(row.c)) return;
+          if (!row.closed || !row.closed.startsWith('2026')) return;
           var emailKey = (row.c || '').toLowerCase().trim();
           var resolved = _closedEmailMap[emailKey];
           if (resolved && inRoster(resolved)) {
             row.c = resolved; _closedFixed++;
-          } else if (window._sqlSecondLayer && window._sqlSecondLayer[row.wi]) {
-            row.c = window._sqlSecondLayer[row.wi]; _closedFixed++;
+          } else if (window._sqlSecondLayer && window._sqlSecondLayer[+row.id]) {
+            row.c = window._sqlSecondLayer[+row.id]; _closedFixed++;
           }
         });
         lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
