@@ -2410,13 +2410,18 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const matchAnalyst = name => analystFilter === 'All' || analystFilter === name;
     const inRoster = name => (region === 'All' || rosterSet.has(name)) && matchAnalyst(name);
 
+    // Build wi → last-SC-before-close analyst map from DATA.closed for CSAT re-attribution
+    const _csatWiAttr = {};
+    DATA.closed.forEach(r => { if (r.wi && r.c) _csatWiAttr[+r.wi] = r.c; });
+
     const csatStat = {};
     DATA.csat.forEach(r => {
       if (!inRange(r.d, range)) return;
-      if (!inRoster(r.c)) return;
+      const _effC = (r.wi != null && _csatWiAttr[+r.wi]) ? _csatWiAttr[+r.wi] : r.c;
+      if (!inRoster(_effC)) return;
       const num = RATING_NUM[String(r.rating).trim().toLowerCase()];
       if (!num) return;
-      const k = csatStat[r.c] = csatStat[r.c] || { responses: 0, top: 0 };
+      const k = csatStat[_effC] = csatStat[_effC] || { responses: 0, top: 0 };
       k.responses++; if (num >= 4) k.top++;
     });
     const actStat = {};
@@ -7087,6 +7092,9 @@ if(window.opener&&!window.opener.closed){
     // Build wi→acct lookup from closed + active tickets to fill blank CSAT account names
     const _wiToAcct = {};
     (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _wiToAcct[r.wi] = r.acct; });
+    // Build wi→analyst map from DATA.closed for CSAT re-attribution (last-SC-before-close)
+    const _wiToClosedC = {};
+    (DATA.closed || []).forEach(r => { if (r.wi && r.c) _wiToClosedC[+r.wi] = r.c; });
     try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_wiToAcct[r.wi]) _wiToAcct[r.wi] = r.acct; }); } catch(e) {}
     // Build normalised → canonical name map: strips spaces + punctuation so
     // "HygienaLLC" → "hygienallc" matches "Hygiena, LLC" → "hygienallc"
@@ -7099,10 +7107,13 @@ if(window.opener&&!window.opener.closed){
     Object.values(_wiToAcct).forEach(_acctSeed);
     (DATA.csat || []).forEach(r => { if (r.acct) _acctSeed(r.acct); });
     const _canonAcct = name => { if (!name) return name; const k = _acctNormKey(name); return _acctNormMap[k] || name; };
-    // Filter CSAT to in-scope, in-period, scored; enrich missing account names from ticket lookup
+    // Filter CSAT to in-scope, in-period, scored; enrich missing account names and re-attribute analyst
     const rows = DATA.csat
       .map(r => {
-        let e = (!r.acct && r.wi && _wiToAcct[r.wi]) ? Object.assign({}, r, { acct: _wiToAcct[r.wi] }) : r;
+        // Re-attribute to last-SC-before-close using closed ticket's analyst
+        const _effC = (r.wi != null && _wiToClosedC[+r.wi]) ? _wiToClosedC[+r.wi] : r.c;
+        let e = _effC !== r.c ? Object.assign({}, r, { c: _effC }) : r;
+        e = (!e.acct && e.wi && _wiToAcct[e.wi]) ? Object.assign({}, e, { acct: _wiToAcct[e.wi] }) : e;
         const canon = _canonAcct(e.acct);
         return canon !== e.acct ? Object.assign({}, e, { acct: canon }) : e;
       })
@@ -7294,8 +7305,9 @@ if(window.opener&&!window.opener.closed){
       let n = 0, t = 0;
       DATA.csat.forEach(r => {
         if (!inRange(r.d, range)) return;
+        const _effC = (r.wi != null && _wiToClosedC[+r.wi]) ? _wiToClosedC[+r.wi] : r.c;
         const f = inScopeFilter(reg, an);
-        if (!f(r.c)) return;
+        if (!f(_effC)) return;
         const num = RATING_NUM[String(r.rating).trim().toLowerCase()];
         if (!num) return;
         n++; if (num >= 4) t++;
