@@ -1403,6 +1403,7 @@
       <div id="rspTargetBadge"></div>
       <div id="rspSummary"></div>
       <div id="rspAnalystTable" style="margin-top:14px;"></div>
+      <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Avg &amp; Median response time per analyst</h3><div id="rspRespDetail"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Response SLA — met vs breached (≤ 2hrs)</h3><div id="rspSla"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Support type breakdown</h3><div id="rspSupport"></div></div>
       <div style="margin-top:14px;"><h3 style="margin:0 0 8px 0;font-size:13px;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">Top 5 longest response times</h3><div id="rspTopLong"></div></div>
@@ -2508,10 +2509,10 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       // Closed-derived KPIs filter by closure date (when the ticket was closed)
       if (!inRange(r.closed, range)) return;
       if (!inRoster(r.c)) return;
-      const k = cStat[r.c] = cStat[r.c] || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
+      const k = cStat[r.c] = cStat[r.c] || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,respVals:[],escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
       k.closed++;
       if (typeof r.age === 'number') { k.ageSum += r.age; k.ageN++; k.ageVals.push(r.age); k.slaN++; if (r.age <= DATA.targets.fixAvg) k.slaMet++; }
-      if (typeof r.resp === 'number') { k.respSum += r.resp; k.respN++; k.respMetN++; if (r.resp <= DATA.targets.resp) k.respMet++; }
+      if (typeof r.resp === 'number') { k.respSum += r.resp; k.respN++; k.respVals.push(r.resp); k.respMetN++; if (r.resp <= DATA.targets.resp) k.respMet++; }
       if (r.solo !== 1) k.escN++;
     });
     const hStat = {};
@@ -2528,7 +2529,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const cs = csatStat[name] || { responses: 0, top: 0 };
       const ac  = actStat[name]    || { total: 0, lt7: 0, b7_15: 0, gt15: 0 };
       const aca = actAllStat[name] || { count: 0, ageSum: 0, ageN: 0 };
-      const cl  = cStat[name]      || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
+      const cl  = cStat[name]      || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,respVals:[],escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
       return {
         name, region: r[1], manager: r[2],
         csatPct: cs.responses ? cs.top / cs.responses : null, csatN: cs.responses,
@@ -2543,6 +2544,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         fix: cl.ageN ? cl.ageSum/cl.ageN : null,
         fixMedian: median(cl.ageVals),
         resp: cl.respN ? cl.respSum/cl.respN : null,
+        respMedian: median(cl.respVals),
         escPct: cl.closed ? cl.escN/cl.closed : null,
         slaMetPct:  cl.slaN     ? cl.slaMet/cl.slaN         : null,
         slaMet: cl.slaMet, slaN: cl.slaN,
@@ -9468,6 +9470,38 @@ if(window.opener&&!window.opener.closed){
       dir: 'higher', fmt: v => (v * 100).toFixed(1) + '%',
       minN: 'respMetN', minNLabel: 'Tickets with resp. data',
     });
+    // Avg & Median response time per analyst (actual closed ticket attribution)
+    (function(){
+      const kpiRows = computeKPIs(currentRange(), currentRegion()).analystRows
+        .filter(r => r.respMetN > 0)
+        .sort((a,b) => (a.resp||999) - (b.resp||999));
+      if (!kpiRows.length) { $('rspRespDetail').innerHTML = '<div class="cat-empty">no response time data</div>'; return; }
+      const tgt = DATA.targets.resp || 2;
+      let html = '<table class="acct-table"><thead><tr>'
+        + '<th>Analyst</th>'
+        + '<th class="num">Closed</th>'
+        + '<th class="num">With resp.</th>'
+        + '<th class="num">Avg (h)</th>'
+        + '<th class="num">Median (h)</th>'
+        + '<th class="num">Within ' + tgt + 'h</th>'
+        + '<th class="num">SLA %</th>'
+        + '</tr></thead><tbody>';
+      kpiRows.forEach(r => {
+        const slaOk = r.respMetPct != null && r.respMetPct >= (DATA.targets.respMet || 0.9);
+        const slaCol = slaOk ? 'var(--good)' : 'var(--bad)';
+        html += '<tr>'
+          + '<td>' + esc(r.name) + '</td>'
+          + '<td class="num">' + (r.closed || 0) + '</td>'
+          + '<td class="num">' + (r.respMetN || 0) + '</td>'
+          + '<td class="num">' + (r.resp != null ? r.resp.toFixed(2) : '-') + '</td>'
+          + '<td class="num">' + (r.respMedian != null ? r.respMedian.toFixed(2) : '-') + '</td>'
+          + '<td class="num">' + (r.respMet || 0) + '</td>'
+          + '<td class="num" style="color:' + slaCol + ';font-weight:600;">' + (r.respMetPct != null ? (r.respMetPct*100).toFixed(1)+'%' : '-') + '</td>'
+          + '</tr>';
+      });
+      html += '</tbody></table>';
+      $('rspRespDetail').innerHTML = html;
+    })();
 
     // ---- D. Response SLA met / breached (≤ 2 hrs; target = 90% met) ----
     const withResp = rows.filter(r => typeof r.resp === 'number');
@@ -13042,6 +13076,32 @@ if(window.opener&&!window.opener.closed){
           }
         });
         lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
+
+        // SQL closedattr: override row.c (last-SC-before-close) and row.resp for 2026 tickets.
+        // Corrects attribution skewed by account-ownership transfers — runs AFTER _closedEmailMap
+        // so SQL wins. Falls back gracefully if the API is not running.
+        try {
+          lf('ClosedAttr: fetching from /api/closedattr...');
+          var _caRaw = await fetch('http://localhost:3012/api/closedattr');
+          if (_caRaw.ok) {
+            var _caJson = await _caRaw.json();
+            var _caMap = {};
+            (_caJson.rows || []).forEach(function(r){ if (r.id != null) _caMap[r.id] = r; });
+            var _caFixed = 0, _caResp = 0;
+            (closedArr || []).forEach(function(row) {
+              if (!row.closed || !row.closed.startsWith('2026')) return;
+              var d = _caMap[+row.id];
+              if (!d) return;
+              if (d.analyst && inRoster(d.analyst)) { row.c = d.analyst; _caFixed++; }
+              if (d.resp != null) { row.resp = d.resp; _caResp++; }
+            });
+            lf('ClosedAttr: ' + _caFixed + ' analyst overrides, ' + _caResp + ' resp times applied.');
+          } else {
+            lf('ClosedAttr: HTTP ' + _caRaw.status + ' — using OData attribution.');
+          }
+        } catch(_caErr) {
+          lf('ClosedAttr: not available — using OData attribution.');
+        }
 
         lf('Injecting into dashboard…');
         // DATA lives inside the main IIFE — access via window._dashDATA
