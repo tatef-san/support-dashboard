@@ -13092,7 +13092,7 @@ if(window.opener&&!window.opener.closed){
               if (!row.closed || !row.closed.startsWith('2026')) return;
               var d = _caMap[+row.id];
               if (!d) return;
-              if (d.analyst && inRoster(d.analyst)) { row.c = d.analyst; _caFixed++; }
+              if (d.analyst) { row.c = d.analyst; _caFixed++; }
               if (d.resp != null) { row.resp = d.resp; _caResp++; }
             });
             lf('ClosedAttr: ' + _caFixed + ' analyst overrides, ' + _caResp + ' resp times applied.');
