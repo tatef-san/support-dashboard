@@ -12985,7 +12985,32 @@ if(window.opener&&!window.opener.closed){
           if (_sl2Resp.ok) {
             var _sl2Data = await _sl2Resp.json();
             window._sqlSecondLayer = {};
-            (_sl2Data.rows || []).forEach(function(r){ if (r.wi && r.analyst) window._sqlSecondLayer[+r.wi] = r.analyst; });
+            var _SL_EMAIL_NAME = {
+              'a.nouraldeen@sana-commerce.com':'Ahmed Nouraldeen',
+              's.elfaramawy@sana-commerce.com':'Sarah Elfaramawy',
+              't.refaat@sana-commerce.com':'Toqa Reffat',
+              'm.bayoumi@sana-commerce.com':'Mohamed Bayoumi',
+              't.atef@sana-commerce.com':'Tarek Atef',
+              'n.salgado@sana-commerce.com':'Najabi Salgado Giraldo',
+              'a.hoyos@sana-commerce.com':'Alexander Hoyos Gonzalez',
+              'm.martinez@sana-commerce.com':'Maria Daniela Martinez',
+              'f.tovar@sana-commerce.com':'Fernanda Tovar',
+              'r.garcia@sana-commerce.com':'Rodrigo Garcia',
+              'ri.khan@sana-commerce.com':'Rifa Khan',
+              's.sreedharan@sana-commerce.com':'Sruthi Sreedharan',
+              'm.johny@sana-commerce.com':'Meha Johny',
+              'a.stephenson@sana-commerce.com':'Alexis Stephenson',
+              'a.chakravarty@sana-commerce.com':'Archana Chakravarty',
+              'g.overheul@sana-commerce.com':'Gert Overheul',
+              'j.huneburg@sana-commerce.com':'Judith Huneburg',
+              'a.ohinska@sana-commerce.com':'Anna Ohinska',
+              'k.durisova@sana-commerce.com':'Katie Durisova'
+            };
+            (_sl2Data.rows || []).forEach(function(r){
+              if (!r.wi || !r.analyst) return;
+              var name = _SL_EMAIL_NAME[(r.analyst||'').toLowerCase().trim()];
+              if (name) window._sqlSecondLayer[+r.wi] = name;
+            });
             lf('SQL SecondLayer: ' + Object.keys(window._sqlSecondLayer).length + ' attributions loaded.');
           } else {
             lf('SQL SecondLayer: HTTP ' + _sl2Resp.status);
