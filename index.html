@@ -12921,25 +12921,6 @@ if(window.opener&&!window.opener.closed){
           lf('Prisma data ready: ' + active.length + ' total tickets, ' + closedArr.length + ' closed.');
           window._adoSampleIds = _sqlRows.slice(0,20).map(function(r){ return r.id; });
 
-          // Fetch SQL SecondLayer — mirrors PowerBI first-SA attribution from complete revision history.
-          // Stored as window._sqlSecondLayer = { wi(number) → analystName(string) }.
-          // Used by enrichment blocks when _SL_USE_SQL_SL = true.
-          window._sqlSecondLayer = {};
-          try {
-            var _sl2Ctrl = new AbortController();
-            var _sl2Timer = setTimeout(function(){ _sl2Ctrl.abort(); }, 45000);
-            var _sl2Resp = await fetch('http://localhost:3012/api/secondlayer', { signal: _sl2Ctrl.signal });
-            clearTimeout(_sl2Timer);
-            if (_sl2Resp.ok) {
-              var _sl2Data = await _sl2Resp.json();
-              (_sl2Data.rows || []).forEach(function(r){ if (r.wi && r.analyst) window._sqlSecondLayer[+r.wi] = r.analyst; });
-              lf('SQL SecondLayer: ' + Object.keys(window._sqlSecondLayer).length + ' ticket attributions loaded.');
-            } else {
-              lf('SQL SecondLayer returned HTTP ' + _sl2Resp.status + ' — ADO scan will be used as fallback.');
-            }
-          } catch(_sl2Err) {
-            lf('SQL SecondLayer not available — ADO scan will be used as fallback.');
-          }
         } else {
           // ── Path B: OData Analytics — PowerBI-matching TicketType filter ────────────
           lf('Querying Customer Support tickets via OData Analytics…');
@@ -12990,6 +12971,27 @@ if(window.opener&&!window.opener.closed){
           });
           lf('Found ' + cItems.length + ' closed Customer Support tickets.');
           closedArr = mapClosed(cItems, c);
+        }
+
+        // Fetch SQL SecondLayer — always runs regardless of Path A or B.
+        // Provides analyst attribution for pooled tickets with no Custom.ServiceConsultant.
+        if (!window._sqlSecondLayer) window._sqlSecondLayer = {};
+        try {
+          lf('SQL SecondLayer: fetching analyst attributions...');
+          var _sl2Ctrl = new AbortController();
+          var _sl2Timer = setTimeout(function(){ _sl2Ctrl.abort(); }, 45000);
+          var _sl2Resp = await fetch('http://localhost:3012/api/secondlayer', { signal: _sl2Ctrl.signal });
+          clearTimeout(_sl2Timer);
+          if (_sl2Resp.ok) {
+            var _sl2Data = await _sl2Resp.json();
+            window._sqlSecondLayer = {};
+            (_sl2Data.rows || []).forEach(function(r){ if (r.wi && r.analyst) window._sqlSecondLayer[+r.wi] = r.analyst; });
+            lf('SQL SecondLayer: ' + Object.keys(window._sqlSecondLayer).length + ' attributions loaded.');
+          } else {
+            lf('SQL SecondLayer: HTTP ' + _sl2Resp.status);
+          }
+        } catch(_sl2Err) {
+          lf('SQL SecondLayer: not available.');
         }
 
         lf('Injecting into dashboard…');
