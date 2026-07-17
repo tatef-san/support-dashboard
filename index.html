@@ -2517,7 +2517,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       const k = cStat[r.c] = cStat[r.c] || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,respVals:[],escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
       k.closed++;
       if (typeof r.age === 'number') { k.ageSum += r.age; k.ageN++; k.ageVals.push(r.age); k.slaN++; if (r.age <= DATA.targets.fixAvg) k.slaMet++; }
-      if (typeof r.resp === 'number') { k.respSum += r.resp; k.respN++; k.respVals.push(r.resp); k.respMetN++; if (r.resp <= DATA.targets.resp) k.respMet++; }
+      if (typeof r.resp === 'number') { k.respMetN++; if (r.resp <= DATA.targets.resp) k.respMet++; if (r.resp <= 8) { k.respSum += r.resp; k.respN++; k.respVals.push(r.resp); } }
       if (r.solo !== 1) k.escN++;
     });
     const hStat = {};
@@ -3017,7 +3017,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       var medianResp = null;
       var _rVals = [];
       (DATA.closed||[]).forEach(function(r){
-        if (!inRange(r.closed, range) || typeof r.resp !== 'number') return;
+        if (!inRange(r.closed, range) || typeof r.resp !== 'number' || r.resp > 8) return;
         _rVals.push(r.resp);
       });
       if (_rVals.length > 0) {
@@ -9335,8 +9335,8 @@ if(window.opener&&!window.opener.closed){
     }
 
     // ---- Summary: avg + median response — single scope ----
-    let scopeAvgResp = (overrides && overrides.resp != null) ? overrides.resp : avg(rows.map(r => r.resp));
-    const _rVals = rows.map(r => r.resp).filter(v => typeof v === 'number').sort((a,b) => a - b);
+    let scopeAvgResp = (overrides && overrides.resp != null) ? overrides.resp : avg(rows.filter(r => typeof r.resp === 'number' && r.resp <= 8).map(r => r.resp));
+    const _rVals = rows.map(r => r.resp).filter(v => typeof v === 'number' && v <= 8).sort((a,b) => a - b);
     const _rMid = Math.floor(_rVals.length / 2);
     const scopeMedianResp = _rVals.length === 0 ? null : _rVals.length % 2 === 0 ? (_rVals[_rMid-1]+_rVals[_rMid])/2 : _rVals[_rMid];
     $('rspSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr 1fr;">' +
@@ -9514,7 +9514,7 @@ if(window.opener&&!window.opener.closed){
         const a = aMap[r.c] = aMap[r.c] || { closed: 0, respVals: [], within: 0 };
         a.closed++;
         if (typeof r.resp === 'number') {
-          a.respVals.push(r.resp);
+          if (r.resp <= 8) a.respVals.push(r.resp);
           if (r.resp <= tgt) a.within++;
         }
       });
@@ -9582,7 +9582,7 @@ if(window.opener&&!window.opener.closed){
     const stRows = Object.entries(stGroups).map(([k,g]) => {
       const respN = g.resp.length;
       const metN = g.resp.filter(x => x <= DATA.targets.resp).length;
-      return { type: k, n: g.n, avgResp: avg(g.resp), respMetPct: respN ? metN/respN : null };
+      return { type: k, n: g.n, avgResp: avg(g.resp.filter(v => v <= 8)), respMetPct: respN ? metN/respN : null };
     }).sort((a,b) => b.n - a.n);
     if (stRows.length) {
       let html = '<table class="acct-table"><thead><tr><th>Support type</th><th class="num">n</th><th class="num">avg resp (h)</th><th class="num">% met (≤ ' + DATA.targets.resp + 'h)</th></tr></thead><tbody>';
