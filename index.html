@@ -3009,18 +3009,23 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           }
         }
       }
-      if (avgResp == null) {
-        var _rS = 0, _rN = 0;
-        (DATA.closed||[]).forEach(function(r){
-          if (!inRange(r.closed, range) || typeof r.resp !== 'number') return;
-          _rS += r.resp; _rN++;
-        });
-        if (_rN > 0) avgResp = _rS / _rN;
+      var medianResp = null;
+      var _rVals = [];
+      (DATA.closed||[]).forEach(function(r){
+        if (!inRange(r.closed, range) || typeof r.resp !== 'number') return;
+        _rVals.push(r.resp);
+      });
+      if (_rVals.length > 0) {
+        if (avgResp == null) avgResp = _rVals.reduce(function(s,v){return s+v;},0) / _rVals.length;
+        var _sv = _rVals.slice().sort(function(a,b){return a-b;});
+        var _sm = Math.floor(_sv.length / 2);
+        medianResp = _sv.length % 2 === 0 ? (_sv[_sm-1]+_sv[_sm])/2 : _sv[_sm];
       }
       return {
         csatPct: k.orgTotal.csatPct,
         frtSla:  frtSla,
         avgResp: avgResp,
+        medianResp: medianResp,
         ttrSla:  sN    ? sMet/sN    : null,
         aiFirst: k.orgTotal.closed  ? mayaN/k.orgTotal.closed : null
       };
@@ -3105,7 +3110,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
         '</div>'+badge+'</div>' +
         '<div class="ov-main">'+fp(curVal)+(curPeriodLabel ? '<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:6px;">'+curPeriodLabel+'</span>' : '')+'</div>' +
         (cfg.key === 'ttrSla' && t.fix != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Median TTR: <strong style="color:var(--text);font-size:13px;">'+t.fix.toFixed(1)+'d</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.fixAvg+'d</div>' : '') +
-        (cfg.key === 'frtSla' ? (function(){ var _aH = t.resp != null ? t.resp : (monthly[5] && monthly[5].avgResp != null ? monthly[5].avgResp : null); return _aH != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Avg response: <strong style="color:var(--text);font-size:13px;">'+_aH.toFixed(1)+'h</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.resp+'h</div>' : ''; })() : '') +
+        (cfg.key === 'frtSla' ? (function(){ var _aH = t.resp != null ? t.resp : (monthly[5] && monthly[5].avgResp != null ? monthly[5].avgResp : null); var _mH = monthly[5] && monthly[5].medianResp != null ? monthly[5].medianResp : null; return (_aH != null || _mH != null) ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">'+(_aH != null ? 'Avg: <strong style="color:var(--text);font-size:13px;">'+_aH.toFixed(1)+'h</strong>' : '')+(_aH != null && _mH != null ? ' &nbsp;·&nbsp; ' : '')+(_mH != null ? 'Median: <strong style="color:var(--text);font-size:13px;">'+_mH.toFixed(1)+'h</strong>' : '')+' &nbsp;·&nbsp; target ≤ '+DATA.targets.resp+'h</div>' : ''; })() : '') +
         trendHtml +
         '<div class="ov-stats-row">' +
           '<div class="ov-stat"><span class="ov-stat-label">YTD</span><span class="ov-stat-val">'+fp(ytdVal)+'</span></div>' +
