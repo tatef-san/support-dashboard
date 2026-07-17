@@ -9470,13 +9470,32 @@ if(window.opener&&!window.opener.closed){
       dir: 'higher', fmt: v => (v * 100).toFixed(1) + '%',
       minN: 'respMetN', minNLabel: 'Tickets with resp. data',
     });
-    // Avg & Median response time per analyst (actual closed ticket attribution)
+    // Avg & Median response time per analyst — computed from `rows` (in-scope closed tickets)
     (function(){
-      const kpiRows = computeKPIs(currentRange(), currentRegion()).analystRows
-        .filter(r => r.respMetN > 0)
-        .sort((a,b) => (a.resp||999) - (b.resp||999));
-      if (!kpiRows.length) { $('rspRespDetail').innerHTML = '<div class="cat-empty">no response time data</div>'; return; }
       const tgt = DATA.targets.resp || 2;
+      const aMap = {};
+      rows.forEach(function(r) {
+        if (!r.c) return;
+        const a = aMap[r.c] = aMap[r.c] || { closed: 0, respVals: [], within: 0 };
+        a.closed++;
+        if (typeof r.resp === 'number') {
+          a.respVals.push(r.resp);
+          if (r.resp <= tgt) a.within++;
+        }
+      });
+      const analystRows = Object.keys(aMap)
+        .filter(function(name){ return aMap[name].respVals.length > 0; })
+        .map(function(name) {
+          const a = aMap[name];
+          const sorted = a.respVals.slice().sort(function(x,y){ return x-y; });
+          const mid = Math.floor(sorted.length / 2);
+          const med = sorted.length % 2 === 0 ? (sorted[mid-1]+sorted[mid])/2 : sorted[mid];
+          const avg = a.respVals.reduce(function(s,v){ return s+v; }, 0) / a.respVals.length;
+          const slaPct = a.respVals.length ? a.within / a.respVals.length : null;
+          return { name: name, closed: a.closed, respN: a.respVals.length, avg: avg, med: med, within: a.within, slaPct: slaPct };
+        })
+        .sort(function(a,b){ return a.avg - b.avg; });
+      if (!analystRows.length) { $('rspRespDetail').innerHTML = '<div class="cat-empty">no response time data</div>'; return; }
       let html = '<table class="acct-table"><thead><tr>'
         + '<th>Analyst</th>'
         + '<th class="num">Closed</th>'
@@ -9486,17 +9505,17 @@ if(window.opener&&!window.opener.closed){
         + '<th class="num">Within ' + tgt + 'h</th>'
         + '<th class="num">SLA %</th>'
         + '</tr></thead><tbody>';
-      kpiRows.forEach(r => {
-        const slaOk = r.respMetPct != null && r.respMetPct >= (DATA.targets.respMet || 0.9);
+      analystRows.forEach(function(r) {
+        const slaOk = r.slaPct != null && r.slaPct >= (DATA.targets.respMet || 0.9);
         const slaCol = slaOk ? 'var(--good)' : 'var(--bad)';
         html += '<tr>'
           + '<td>' + esc(r.name) + '</td>'
-          + '<td class="num">' + (r.closed || 0) + '</td>'
-          + '<td class="num">' + (r.respMetN || 0) + '</td>'
-          + '<td class="num">' + (r.resp != null ? r.resp.toFixed(2) : '-') + '</td>'
-          + '<td class="num">' + (r.respMedian != null ? r.respMedian.toFixed(2) : '-') + '</td>'
-          + '<td class="num">' + (r.respMet || 0) + '</td>'
-          + '<td class="num" style="color:' + slaCol + ';font-weight:600;">' + (r.respMetPct != null ? (r.respMetPct*100).toFixed(1)+'%' : '-') + '</td>'
+          + '<td class="num">' + r.closed + '</td>'
+          + '<td class="num">' + r.respN + '</td>'
+          + '<td class="num">' + r.avg.toFixed(2) + '</td>'
+          + '<td class="num">' + r.med.toFixed(2) + '</td>'
+          + '<td class="num">' + r.within + '</td>'
+          + '<td class="num" style="color:' + slaCol + ';font-weight:600;">' + (r.slaPct != null ? (r.slaPct*100).toFixed(1)+'%' : '-') + '</td>'
           + '</tr>';
       });
       html += '</tbody></table>';
