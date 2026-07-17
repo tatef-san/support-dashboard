@@ -8328,7 +8328,7 @@ if(window.opener&&!window.opener.closed){
         const wi = +(r.id || r.wi);
         const mentAnalyst = _actMentData && _actMentData[wi] && _actMentData[wi].analyst;
         const effectiveC = _SL_USE_SQL_SL
-          ? (inRoster(r.c) ? r.c : (_sqlSLMap[wi] || mentAnalyst || r.c))
+          ? (inRoster(r.c) ? r.c : (_sqlSLMap[wi] || r.c))
           : (_SL_GAP_FILL && inRoster(r.c)) ? r.c : (mentAnalyst || r.c);
         return effectiveC === r.c ? r : { ...r, c: effectiveC };
       });
