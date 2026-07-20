@@ -9839,17 +9839,51 @@ if(window.opener&&!window.opener.closed){
       ? '<span style="color:var(--good);font-size:9px;font-weight:600;background:var(--good-bg);padding:1px 6px;border-radius:8px;margin-left:4px;">Power BI file</span>'
       : '<span style="color:var(--warn);font-size:9px;font-weight:600;background:#fef3c7;padding:1px 6px;border-radius:8px;margin-left:4px;">No file uploaded</span>';
 
-    // ----- Per-region / per-analyst: derived from Closed Tickets -----
+    // ----- Build wi→analyst lookup from closed tickets (used for scoped escape rate) -----
+    const _wiToAnalyst = {};
+    (DATA.closed || []).forEach(r => { if (r.wi) _wiToAnalyst[String(r.wi)] = r.c; });
+
+    // Compute escape rate from PowerBI file for a given scope filter function
+    function escFromFile(scopeFn) {
+      let completed = 0, escaped = 0;
+      escData.forEach(r => {
+        const analyst = r.wi ? _wiToAnalyst[String(r.wi)] : null;
+        if (analyst && !scopeFn(analyst)) return;
+        // Only count rows we can attribute OR org-level (no filter)
+        if (!analyst && scopeFn !== null) return;
+        completed += (r.completed || 0);
+        escaped   += (r.escaped   || 0);
+      });
+      return { completed, escaped, pct: completed > 0 ? escaped / completed : null };
+    }
+
+    // Fallback: derived from Closed Tickets (proxy: not solved alone)
     function escFromClosed(reg, an) {
       const rs = closedInScope(range, reg, an);
       const e = rs.filter(r => r.solo !== 1).length;
       return { n: rs.length, e, pct: rs.length ? e/rs.length : null };
     }
+
     let scopeEscHtml;
     if (_scope.kind === 'org') {
       scopeEscHtml = '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — escape rate ' + srcBadge + '</div>' +
         '<div class="v">' + (orgPct != null ? (orgPct*100).toFixed(1) + '%' : '-') + '</div>' +
         '<div class="sub">' + intg(escTotalEsc) + ' escaped / ' + intg(denom) + (escTotalComp > 0 ? ' completed' : ' closed') + '</div></div>';
+    } else if (escData.length > 0) {
+      // Use PowerBI file data — join by WI to get analyst attribution
+      const inScope = inScopeFilter(_scope.region, _scope.analyst);
+      let fileComp = 0, fileEsc = 0;
+      escData.forEach(r => {
+        const name = r.wi ? _wiToAnalyst[String(r.wi)] : null;
+        if (!name || !inScope(name)) return;
+        fileComp += (r.completed || 0);
+        fileEsc  += (r.escaped   || 0);
+      });
+      const filePct = fileComp > 0 ? fileEsc / fileComp : null;
+      scopeEscHtml = '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — escape rate ' + srcBadge + '</div>' +
+        '<div class="v">' + (filePct != null ? (filePct*100).toFixed(1) + '%' : '—') + '</div>' +
+        '<div class="sub">' + intg(fileEsc) + ' escaped / ' + intg(fileComp) + ' completed' +
+        (fileComp === 0 ? ' <span style="color:var(--muted);font-size:11px;">(tickets not in loaded Closed Tickets file)</span>' : '') + '</div></div>';
     } else {
       const e = escFromClosed(_scope.region, _scope.analyst);
       scopeEscHtml = '<div class="stat-card focus" style="border-color:var(--primary);"><div class="l">' + esc(_scope.label) + ' — escape rate <span style="font-size:9px;font-weight:600;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;margin-left:4px;">from Closed Tickets</span></div>' +
