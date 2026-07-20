@@ -3810,18 +3810,22 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
     const hibobMap = getHiBobNameSet();
     const customTags = getTeamTagsSet();
-    // Build normalized account name set to detect company @mentions (e.g. "grosbusch", "petersrubber")
+    // Build normalized account name set to detect company @mentions (e.g. "grosbusch")
     const _acctNorms = new Set();
     [...(DATA.closed||[]), ...(DATA.active||[])].forEach(r => {
       if (r.acct) _acctNorms.add(r.acct.toLowerCase().replace(/[^a-z0-9]/g, ''));
     });
-    function _isAccountAlias(name) {
+    // Exact global match OR prefix-match against this ticket's own account only.
+    // Prefix is restricted to the current ticket so "hosting" (a team) never wrongly
+    // matches an unrelated account that starts with "hosting".
+    function _isAccountAlias(name, ticketAcct) {
       const plain = name.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (plain.length < 4) return false;
-      if (_acctNorms.has(plain)) return true;
-      // "petersrubber" prefix-matches "petersrubberandplastics"
-      for (const acct of _acctNorms) {
-        if (acct.length > plain.length && acct.startsWith(plain)) return true;
+      if (_acctNorms.has(plain)) return true; // exact match any account
+      if (ticketAcct) {
+        const acctPlain = ticketAcct.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // "petersrubber" is a prefix of "petersrubberandplastics" (current ticket's account)
+        if (acctPlain.length > plain.length && acctPlain.startsWith(plain)) return true;
       }
       return false;
     }
@@ -3873,7 +3877,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                   // Skip person names not in HiBob — they are customer contacts, not internal teams
                   if (hibob === false && looksLikePersonName(name)) return;
                   // Skip account/company aliases (e.g. "grosbusch", "petersrubber")
-                  if (hibob === false && _isAccountAlias(name)) return;
+                  if (hibob === false && _isAccountAlias(name, row.acct)) return;
                   const isCustomTag  = customTags.has(_low);
                   const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
                   const isGroupAcct  = hibob === false && !looksLikePersonName(name);
