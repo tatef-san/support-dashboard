@@ -3843,7 +3843,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                   // not team names — they are excluded to keep the list meaningful.
                   const isCustomTag  = customTags.has(name.toLowerCase());
                   const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
-                  const isGroupAcct  = hibob === false; // not in HiBob at all → ADO group/team account (e.g. @Hosting)
+                  const isGroupAcct  = hibob === false && !looksLikePersonName(name); // not in HiBob + not a person name → ADO group/team
                   if (isCustomTag || isFullName || isGroupAcct) {
                     if (!teams.includes(name)) teams.push(name);
                     teamMentions.push({ team: name, respHours: null });
@@ -4259,7 +4259,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
             extractAtMentions(comment.text || '').forEach(name => {
               if (rosterNames.has(name.toLowerCase())) return;
               const hibob = isHiBobEmployee(name, hibobMap);
-              if (hibob === 'team' || hibob === false || customTags.has(name.toLowerCase())) {
+              if (hibob === 'team' || (hibob === false && !looksLikePersonName(name)) || customTags.has(name.toLowerCase())) {
                 if (!teams.includes(name)) teams.push(name);
               }
             });
@@ -4910,7 +4910,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
             const hibobResult = isHiBobEmployee(lastMention, hibobMap);
             if (rosterNames.has(lastMention.toLowerCase())) { pendingAnalyst = lastMention; }
             else if (hibobResult === 'analyst') { pendingAnalyst = lastMention; }
-            else if (hibobResult === 'team' || hibobResult === false || customTags.has(lastMention.toLowerCase())) { lastTeam = lastMention; lastTeamDate = comment.createdDate || null; }
+            else if (hibobResult === 'team' || (hibobResult === false && !looksLikePersonName(lastMention)) || customTags.has(lastMention.toLowerCase())) { lastTeam = lastMention; lastTeamDate = comment.createdDate || null; }
             else { pendingCustomer = true; pendingCustomerDate = comment.createdDate || null; }
             break;
           }
@@ -5570,6 +5570,16 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       if (emp.length > 2 && (low === emp || low.startsWith(emp) || emp.startsWith(low))) return role;
     }
     return false;
+  }
+
+  // Returns true if name looks like a customer's personal name (e.g. "John Smith")
+  // rather than an ADO group/team account (e.g. "Hosting", "NAV-BC-Support", "devops").
+  // Rule: 2+ words, every word Title-Case alpha-only, no ALL-CAPS abbreviations.
+  function looksLikePersonName(name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return false; // single word → team/group, not a person name
+    if (parts.some(w => w.length >= 2 && w === w.toUpperCase())) return false; // ALL-CAPS → abbreviation
+    return parts.every(w => /^[A-ZÀ-Ÿ][a-zà-ÿ]{1,}$/.test(w)); // every word is Title-Case alpha
   }
 
   window.syncHiBobDirectory = async function() {
