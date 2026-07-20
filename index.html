@@ -3947,11 +3947,17 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
   function _buildClosedMentionsData() {
     const stored = JSON.parse(localStorage.getItem('closedMentions') || 'null');
     if (!stored || !stored.data) return null;
-    const scanned = stored.total || 0;
-    const atStr   = new Date(stored.at).toLocaleString();
+    const atStr = new Date(stored.at).toLocaleString();
+
+    // Apply current analyst / region scope filter
+    const _scope   = getScope();
+    const inScope  = inScopeFilter(_scope.region, _scope.analyst);
+    const allEntries = Object.values(stored.data);
+    const entries  = allEntries.filter(r => inScope(r.c || ''));
+    const scanned  = entries.length;
 
     const teamMap = {};
-    Object.values(stored.data).forEach(r => {
+    entries.forEach(r => {
       const mentions = r.teamMentions || (r.teams || []).map(t => ({ team: t, respHours: null }));
       if (!mentions.length) return;
       mentions.forEach(mention => {
@@ -3978,9 +3984,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
       };
     }).sort((a, b) => b.count - a.count);
 
-    const allEntries    = Object.values(stored.data);
-    const totalWithTeam = allEntries.filter(r => r.teams && r.teams.length >= 1).length;
-    const multiTeam     = allEntries.filter(r => r.teams && r.teams.length >= 2).length;
+    const totalWithTeam = entries.filter(r => r.teams && r.teams.length >= 1).length;
+    const multiTeam     = entries.filter(r => r.teams && r.teams.length >= 2).length;
     const soloClosed    = scanned - totalWithTeam;
     const allResps = summaryRows.flatMap(r => r.tickets.map(t => t.resp)).filter(v => v != null && v > 0);
     const overallAvgResp = allResps.length ? allResps.reduce((s,v)=>s+v,0)/allResps.length : null;
@@ -3988,7 +3993,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const ovCat = {}, ovSub = {};
     const saCat = {}, saSub = {}, saSubTix = {};
     const tmCat = {}, tmSub = {};
-    Object.values(stored.data).forEach(r => {
+    entries.forEach(r => {
       const hasTeam = r.teams && r.teams.length;
       if (r.mainCat) { ovCat[r.mainCat] = (ovCat[r.mainCat] || 0) + 1; }
       if (r.subCat)  { ovSub[r.subCat]  = (ovSub[r.subCat]  || 0) + 1; }
