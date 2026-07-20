@@ -8632,19 +8632,28 @@ if(window.opener&&!window.opener.closed){
         btnStyle: 'background:#fed7aa;color:#9a3412;border:1px solid #fdba74;' },
       { id: 'ageflag-30', cls: 'sc-Y', icon: '🟡', label: '30 – 59 days', min: 30, max: 60,       expMax: 60,
         btnStyle: 'background:#fef9c3;color:#713f12;border:1px solid #fde047;' },
+      { id: 'ageflag-16', cls: 'sc-A', icon: '🟤', label: '16 – 29 days', min: 16, max: 30,       expMax: 30,
+        btnStyle: 'background:#fef3c7;color:#92400e;border:1px solid #fcd34d;' },
+      { id: 'ageflag-8',  cls: 'sc-B', icon: '🔵', label: '8 – 15 days',  min: 8,  max: 16,       expMax: 16,
+        btnStyle: 'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;' },
+      { id: 'ageflag-0',  cls: 'sc-G', icon: '🟢', label: '0 – 7 days',   min: 0,  max: 8,        expMax: 8,
+        btnStyle: 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;' },
     ];
 
     const _AGING_EXCL = new Set(['done','closed','resolved','cancelled','canceled','rejected','removed','wontfix','won\'t fix','duplicate','wishlist']);
     const aged = rows
       .filter(r => !_AGING_EXCL.has((r.state || '').toLowerCase().trim()))
-      .filter(r => typeof r.age === 'number' && r.age >= 30);
+      .filter(r => typeof r.age === 'number' && r.age >= 0);
     if (!aged.length) {
-      el.innerHTML = '<div style="color:var(--good);font-size:13px;padding:8px 0;">✅ No tickets open 30+ days in this scope.</div>';
+      el.innerHTML = '<div style="color:var(--good);font-size:13px;padding:8px 0;">✅ No active tickets found in this scope.</div>';
       return;
     }
 
     window._agingFlagRows = rows;
-    let html = '';
+    // Export All button
+    let html = '<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">' +
+      '<button onclick="exportAgingBand(0,9999,event)" style="background:#1e40af;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export All Active Tickets</button>' +
+      '</div>';
 
     bands.forEach(band => {
       const tickets = aged
