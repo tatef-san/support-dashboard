@@ -3979,9 +3979,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     // ── Per-analyst breakdown (from stored.data, filtered to current scope) ───
     const _scope  = getScope();
     const inScope = inScopeFilter(_scope.region, _scope.analyst);
+    const _allRosterNames = rosterNames('All');
     const analystMap = {};
     Object.values(stored.data).forEach(r => {
       const name = r.c || '';
+      if (!name || !_allRosterNames.has(name)) return;
       if (!inScope(name)) return;
       if (!analystMap[name]) analystMap[name] = { solo: 0, team: 0, multi: 0, total: 0 };
       const a = analystMap[name];
@@ -9135,11 +9137,12 @@ if(window.opener&&!window.opener.closed){
         return b.closed > a.closed ? 1 : b.closed < a.closed ? -1 : 0;
       });
       window._cloExportCsv = function() {
-        var lines = ['"WI#","Account","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams"'];
+        var lines = ['"WI#","Analyst","Account","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams"'];
         sorted.forEach(function(r) {
           var teams = (mdata[r.wi] && mdata[r.wi].teams && mdata[r.wi].teams.length) ? mdata[r.wi].teams.join('; ') : '';
           lines.push([
             r.wi || '',
+            '"'+(r.c||'').replace(/"/g,'""')+'"',
             '"'+(r.acct||'').replace(/"/g,'""')+'"',
             r.created ? r.created.slice(0,10) : '',
             r.closed  ? r.closed.slice(0,10)  : '',
@@ -9165,6 +9168,7 @@ if(window.opener&&!window.opener.closed){
           : '—';
         tbody += '<tr style="border-top:0.5px solid var(--border);">'
           +'<td style="padding:5px 8px;white-space:nowrap;">'+wiCell+'</td>'
+          +'<td style="padding:5px 8px;font-size:12px;white-space:nowrap;">'+esc(r.c||'—')+'</td>'
           +'<td style="padding:5px 8px;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.acct||'')+'">'+esc(r.acct||'—')+'</td>'
           +'<td style="padding:5px 8px;white-space:nowrap;font-size:12px;">'+(r.created?r.created.slice(0,10):'—')+'</td>'
           +'<td style="padding:5px 8px;white-space:nowrap;font-size:12px;">'+(r.closed?r.closed.slice(0,10):'—')+'</td>'
@@ -9185,6 +9189,7 @@ if(window.opener&&!window.opener.closed){
         +'<table style="width:100%;border-collapse:collapse;">'
         +'<thead><tr style="background:var(--surface-1);">'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">WI #</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Analyst</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Account</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Created</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Closed</th>'
