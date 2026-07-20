@@ -1208,6 +1208,7 @@
       </div>
       <div id="cloSummary"></div>
       <div id="cloClosurePct" style="margin-top:14px;"></div>
+      <div id="cloTicketList" style="margin-top:14px;"></div>
     </div>
 
     <!-- JS compatibility placeholders only — section removed -->
@@ -9119,6 +9120,83 @@ if(window.opener&&!window.opener.closed){
     if (repeatAccts > 0) tips.push('<b>' + repeatAccts + ' accounts</b> account for 5+ tickets each in this period. Investigate top-3 root causes per account; consider proactive outreach.');
     if (!tips.length) tips.push('<i>Not enough signal in the current scope to surface insights.</i>');
     $('cloInsights').innerHTML = tips.map(t => '<div class="insight-card warn" style="border-left-color:var(--warn);"><div class="action" style="font-size:13px;color:var(--text);">' + t + '</div></div>').join('');
+
+    // ---- Z. Ticket list (collapsible, sorted by closed date desc) ----
+    (function() {
+      var el = $('cloTicketList');
+      if (!el) return;
+      var mdata = {};
+      try { var mc = JSON.parse(localStorage.getItem('closedMentions') || 'null'); if (mc && mc.data) mdata = mc.data; } catch(e) {}
+      var hasMentions = Object.keys(mdata).length > 0;
+      var ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+      var sorted = rows.slice().sort(function(a,b){
+        if (!a.closed && !b.closed) return 0;
+        if (!a.closed) return 1; if (!b.closed) return -1;
+        return b.closed > a.closed ? 1 : b.closed < a.closed ? -1 : 0;
+      });
+      window._cloExportCsv = function() {
+        var lines = ['"WI#","Account","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams"'];
+        sorted.forEach(function(r) {
+          var teams = (mdata[r.wi] && mdata[r.wi].teams && mdata[r.wi].teams.length) ? mdata[r.wi].teams.join('; ') : '';
+          lines.push([
+            r.wi || '',
+            '"'+(r.acct||'').replace(/"/g,'""')+'"',
+            r.created ? r.created.slice(0,10) : '',
+            r.closed  ? r.closed.slice(0,10)  : '',
+            r.age != null ? r.age : '',
+            '"'+(r.mainCat||'').replace(/"/g,'""')+'"',
+            '"'+(r.subCat||'').replace(/"/g,'""')+'"',
+            '"'+teams.replace(/"/g,'""')+'"'
+          ].join(','));
+        });
+        var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = 'closed_tickets_' + new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      };
+      var tbody = '';
+      sorted.forEach(function(r) {
+        var teamNames = (mdata[r.wi] && mdata[r.wi].teams && mdata[r.wi].teams.length) ? mdata[r.wi].teams : [];
+        var teamHtml = teamNames.length
+          ? teamNames.map(function(t){ return '<span style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:3px;white-space:nowrap;">'+esc(t)+'</span>'; }).join('')
+          : '<span style="color:var(--muted);font-size:11px;">—</span>';
+        var wiCell = r.wi
+          ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;">#'+r.wi+'</a>'
+          : '—';
+        tbody += '<tr style="border-top:0.5px solid var(--border);">'
+          +'<td style="padding:5px 8px;white-space:nowrap;">'+wiCell+'</td>'
+          +'<td style="padding:5px 8px;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.acct||'')+'">'+esc(r.acct||'—')+'</td>'
+          +'<td style="padding:5px 8px;white-space:nowrap;font-size:12px;">'+(r.created?r.created.slice(0,10):'—')+'</td>'
+          +'<td style="padding:5px 8px;white-space:nowrap;font-size:12px;">'+(r.closed?r.closed.slice(0,10):'—')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;font-size:12px;white-space:nowrap;">'+(r.age!=null?r.age+'d':'—')+'</td>'
+          +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.mainCat||'')+'">'+esc(r.mainCat||'—')+'</td>'
+          +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.subCat||'')+'">'+esc(r.subCat||'—')+'</td>'
+          +'<td style="padding:5px 8px;">'+teamHtml+'</td>'
+          +'</tr>';
+      });
+      var n = sorted.length;
+      el.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        +'<button id="cloTicketToggleBtn" onclick="(function(){var b=document.getElementById(\'cloTicketListBody\');var btn=document.getElementById(\'cloTicketToggleBtn\');if(b.hidden){b.hidden=false;btn.textContent=\'Hide tickets ▲\';}else{b.hidden=true;btn.textContent=\'Show tickets ('+n+') ▼\';}})();" style="background:transparent;border:1px solid var(--border-strong,#d1d5db);border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);">Show tickets ('+n+') ▼</button>'
+        +'<button onclick="window._cloExportCsv()" style="background:#047857;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export CSV</button>'
+        +(!hasMentions ? '<span style="font-size:11px;color:var(--muted);">Fetch @mentions above to populate Involved Teams column</span>' : '')
+        +'</div>'
+        +'<div id="cloTicketListBody" hidden style="margin-top:10px;overflow-x:auto;border:0.5px solid var(--border);border-radius:8px;">'
+        +'<table style="width:100%;border-collapse:collapse;">'
+        +'<thead><tr style="background:var(--surface-1);">'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">WI #</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Account</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Created</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Closed</th>'
+        +'<th style="padding:7px 8px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">TTR</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Main Cat</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Sub Cat</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Involved Teams</th>'
+        +'</tr></thead>'
+        +'<tbody>'+tbody+'</tbody>'
+        +'</table>'
+        +'</div>';
+    })();
   }
 
   // ===========================================================================
