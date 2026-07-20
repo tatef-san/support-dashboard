@@ -3817,7 +3817,11 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     ticketRows.filter(r => prevData[r.wi]).forEach(r => { result[r.wi] = prevData[r.wi]; });
     let done = 0;
     const alreadyCached = ticketRows.length - toFetch.length;
-    const CONC = 150;
+    const CONC = 200;
+    let saveTimer = null;
+    function _incrementalSave() {
+      try { localStorage.setItem('closedMentions', JSON.stringify({ at: Date.now(), total: ticketRows.length, data: { ...prevData, ...result } })); } catch(e) {}
+    }
     await new Promise(resolve => {
       if (!toFetch.length) { resolve(); return; }
       let idx = 0, active = 0;
@@ -3826,8 +3830,19 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
           const row = toFetch[idx++];
           active++;
           (async () => {
-            try {
-              const data = await adoFetch('/_apis/wit/workItems/' + row.wi + '/comments?$top=200&api-version=7.0-preview.3');
+            // Retry up to 3× on 429 rate-limit with short backoff
+            let data = null;
+            for (let _try = 0; _try < 3; _try++) {
+              try {
+                data = await adoFetch('/_apis/wit/workItems/' + row.wi + '/comments?$top=200&api-version=7.0-preview.3');
+                break;
+              } catch(e) {
+                if (_try < 2 && e.message && e.message.includes('429')) {
+                  await new Promise(r => setTimeout(r, 600 * (_try + 1)));
+                } else { break; }
+              }
+            }
+            if (data) {
               // Sort ascending to find first analyst comment (for response time)
               const commentsAsc = (data.comments || []).slice().sort((a, b) => new Date(a.createdDate) - new Date(b.createdDate));
               const commentsDesc = commentsAsc.slice().reverse();
@@ -3863,9 +3878,13 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                 }
               }
               result[row.wi] = { wi: row.wi, c: row.c, acct: row.acct, age: row.age, resp: respHours, mainCat: row.mainCat, subCat: row.subCat, title: row.title, teams, teamMentions };
-            } catch(e) { /* skip */ }
+            }
             done++;
-            if (el && done % 100 === 0) el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Scanning… (' + (alreadyCached + done) + ' / ' + ticketRows.length + ')</div>';
+            if (done % 200 === 0) {
+              if (el) el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ Scanning… (' + (alreadyCached + done) + ' / ' + ticketRows.length + ')</div>';
+              clearTimeout(saveTimer);
+              saveTimer = setTimeout(_incrementalSave, 0);
+            }
             active--;
             next();
             if (active === 0 && idx >= toFetch.length) resolve();
