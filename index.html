@@ -1436,6 +1436,27 @@
       <div id="escTargetBadge"></div>
       <div id="escSummary"></div>
 
+      <div class="coll-sec" id="escSec-analystRate">
+        <div class="coll-sec-hd" onclick="toggleCollSec('escSec-analystRate')">
+          <h3>Escape rate by analyst (Power BI file)</h3><span class="sc-chevron">▼</span>
+        </div>
+        <div class="coll-sec-body"><div id="escAnalystRate"></div></div>
+      </div>
+
+      <div class="coll-sec" id="escSec-catBreakdown">
+        <div class="coll-sec-hd" onclick="toggleCollSec('escSec-catBreakdown')">
+          <h3>Escaped tickets by category</h3><span class="sc-chevron">▼</span>
+        </div>
+        <div class="coll-sec-body"><div id="escCatBreakdown"></div></div>
+      </div>
+
+      <div class="coll-sec" id="escSec-ticketList">
+        <div class="coll-sec-hd" onclick="toggleCollSec('escSec-ticketList')">
+          <h3>Escaped tickets — full list</h3><span class="sc-chevron">▼</span>
+        </div>
+        <div class="coll-sec-body"><div id="escTicketList"></div></div>
+      </div>
+
       <div class="coll-sec" id="escSec-teamMentions">
         <div class="coll-sec-hd" onclick="toggleCollSec('escSec-teamMentions')">
           <h3>Teams mentioned in escaped tickets</h3><span class="sc-chevron">▼</span>
@@ -9840,6 +9861,140 @@ if(window.opener&&!window.opener.closed){
 
     // Off/Perf: rank analysts by escalation rate (lower is better)
     renderOffPerf('escOffPerf', { key: 'escPct', label: 'escape rate %', dir: 'lower', minN: 'closed', fmt: v => (v*100).toFixed(1) + '%' });
+
+    // ---- Analyst-level escape rate from PowerBI file ----
+    (function renderEscAnalystRate() {
+      const el = $('escAnalystRate'); if (!el) return;
+      const escData = DATA.escalation || [];
+      if (!escData.length) {
+        el.innerHTML = '<div class="cat-empty">Upload the Power BI escape rate export above to see per-analyst breakdown.</div>';
+        return;
+      }
+      const closedByWi = {};
+      (DATA.closed || []).forEach(r => { if (r.wi) closedByWi[String(r.wi)] = r; });
+      const analystMap = {};
+      let unattributed = 0;
+      escData.forEach(r => {
+        const cl = r.wi ? closedByWi[String(r.wi)] : null;
+        const name = cl ? cl.c : null;
+        if (!name) { unattributed += (r.escaped || 0); return; }
+        const g = analystMap[name] = analystMap[name] || { completed: 0, escaped: 0 };
+        g.completed += (r.completed || 0);
+        g.escaped   += (r.escaped   || 0);
+      });
+      const inScope = inScopeFilter(_scope.region, _scope.analyst);
+      const rows = Object.entries(analystMap)
+        .filter(([name]) => inScope(name))
+        .map(([name, g]) => ({ name, completed: g.completed, escaped: g.escaped, pct: g.completed ? g.escaped / g.completed : null }))
+        .sort((a, b) => (b.pct || 0) - (a.pct || 0));
+      if (!rows.length) {
+        el.innerHTML = '<div class="cat-empty">No analyst-attributed data in this scope. Load a Closed Tickets file so ticket IDs can be matched to analysts.</div>';
+        return;
+      }
+      const tgt = DATA.targets.esc;
+      let html = '<div class="scrollx"><table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+        '<thead><tr style="background:#f0f4ff;">' +
+        '<th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#3730a3;border-bottom:2px solid #c7d2fe;">Analyst</th>' +
+        '<th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#3730a3;border-bottom:2px solid #c7d2fe;">Completed</th>' +
+        '<th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#3730a3;border-bottom:2px solid #c7d2fe;">Escaped</th>' +
+        '<th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#3730a3;border-bottom:2px solid #c7d2fe;">Escape Rate</th>' +
+        '<th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#3730a3;border-bottom:2px solid #c7d2fe;">vs Target (' + (tgt*100).toFixed(0) + '%)</th>' +
+        '</tr></thead><tbody>';
+      rows.forEach((r, idx) => {
+        const pctStr = r.pct != null ? (r.pct*100).toFixed(1) + '%' : '—';
+        const ok = r.pct != null && r.pct <= tgt;
+        const pctColor = r.pct == null ? '' : (ok ? 'color:var(--good);font-weight:700;' : 'color:var(--bad);font-weight:700;');
+        const badge = r.pct != null ? (ok ? '<span style="color:var(--good);font-weight:700;">✓ On target</span>' : '<span style="color:var(--bad);font-weight:700;">✗ Over target</span>') : '—';
+        const bg = idx % 2 === 0 ? '' : 'background:#fafafa;';
+        html += '<tr style="' + bg + 'border-bottom:1px solid var(--border);">' +
+          '<td style="padding:8px 12px;font-weight:600;">' + esc(r.name) + '</td>' +
+          '<td style="text-align:right;padding:8px 12px;">' + r.completed + '</td>' +
+          '<td style="text-align:right;padding:8px 12px;font-weight:700;color:var(--bad);">' + r.escaped + '</td>' +
+          '<td style="text-align:right;padding:8px 12px;' + pctColor + '">' + pctStr + '</td>' +
+          '<td style="text-align:center;padding:8px 12px;">' + badge + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      if (unattributed > 0) {
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:6px;">' + unattributed + ' escaped ticket(s) could not be attributed (work item ID not found in loaded Closed Tickets).</div>';
+      }
+      el.innerHTML = html;
+    })();
+
+    // ---- Category breakdown of escaped tickets ----
+    (function renderEscCatBreakdown() {
+      const el = $('escCatBreakdown'); if (!el) return;
+      const escData = DATA.escalation || [];
+      if (!escData.length) {
+        el.innerHTML = '<div class="cat-empty">Upload the Power BI escape rate export above to see category breakdown.</div>';
+        return;
+      }
+      const closedByWi = {};
+      (DATA.closed || []).forEach(r => { if (r.wi) closedByWi[String(r.wi)] = r; });
+      const inScope = inScopeFilter(_scope.region, _scope.analyst);
+      const catMap = {};
+      escData.forEach(r => {
+        if (!(r.escaped > 0)) return;
+        const cl = r.wi ? closedByWi[String(r.wi)] : null;
+        if (cl && !inScope(cl.c)) return;
+        const cat = (cl && cl.cat) ? cl.cat : (cl && cl.mainCat) ? cl.mainCat : 'Unknown';
+        catMap[cat] = (catMap[cat] || 0) + 1;
+      });
+      const entries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) {
+        el.innerHTML = '<div class="cat-empty">No category data available. Ensure Closed Tickets are loaded.</div>';
+        return;
+      }
+      el.innerHTML = svgBars(entries.map(([k, v]) => ({ label: k, value: v })), { width: 620, barH: 22, labelW: 300, formatter: v => v.toLocaleString() });
+    })();
+
+    // ---- Full escaped ticket list ----
+    (function renderEscTicketList() {
+      const el = $('escTicketList'); if (!el) return;
+      const escData = DATA.escalation || [];
+      if (!escData.length) {
+        el.innerHTML = '<div class="cat-empty">Upload the Power BI escape rate export above.</div>';
+        return;
+      }
+      const closedByWi = {};
+      (DATA.closed || []).forEach(r => { if (r.wi) closedByWi[String(r.wi)] = r; });
+      const inScope = inScopeFilter(_scope.region, _scope.analyst);
+      const escaped = escData.filter(r => r.escaped > 0);
+      const rows = escaped.map(r => {
+        const cl = r.wi ? closedByWi[String(r.wi)] : null;
+        return { ...r, _analyst: cl ? cl.c : null, _age: cl ? cl.age : null, _cat: cl ? (cl.cat || cl.mainCat || '') : '', _closedDate: cl ? cl.closed : null };
+      }).filter(r => !r._analyst || inScope(r._analyst));
+      if (!rows.length) {
+        el.innerHTML = '<div class="cat-empty">No escaped tickets in this scope.</div>';
+        return;
+      }
+      rows.sort((a, b) => (b._age || 0) - (a._age || 0));
+      let html = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;"><b>' + rows.length + '</b> escaped tickets' + (rows.length !== escaped.length ? ' (filtered from ' + escaped.length + ' total)' : '') + '</div>';
+      html += '<div class="scrollx"><table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<thead><tr style="background:#f8f9fc;">' +
+        '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Ticket</th>' +
+        '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Account</th>' +
+        '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Analyst</th>' +
+        '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Category</th>' +
+        '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Support Type</th>' +
+        '<th style="text-align:right;padding:6px 10px;font-size:11px;color:var(--muted);">Age (d)</th>' +
+        '</tr></thead><tbody>';
+      rows.forEach((r, idx) => {
+        const wiLink = r.wi ? '<a href="https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/' + r.wi + '" target="_blank" style="color:var(--primary);font-weight:600;">#' + r.wi + '</a>' : '—';
+        const ageCls = r._age != null && r._age > DATA.targets.fixAvg ? 'color:var(--bad);font-weight:700;' : 'color:var(--good);font-weight:600;';
+        const bg = idx % 2 === 0 ? '' : 'background:#fafafa;';
+        html += '<tr style="' + bg + 'border-bottom:1px solid var(--border);">' +
+          '<td style="padding:6px 10px;">' + wiLink + '</td>' +
+          '<td style="padding:6px 10px;font-size:11.5px;">' + esc(r.acct || '-') + '</td>' +
+          '<td style="padding:6px 10px;font-size:11.5px;">' + esc(r._analyst || '—') + '</td>' +
+          '<td style="padding:6px 10px;font-size:11.5px;color:var(--muted);">' + esc(r._cat || '-') + '</td>' +
+          '<td style="padding:6px 10px;font-size:11.5px;color:var(--muted);">' + esc(r.supportType || '-') + '</td>' +
+          '<td style="padding:6px 10px;text-align:right;' + ageCls + '">' + (r._age != null ? r._age : '—') + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      el.innerHTML = html;
+    })();
 
     // ---- TEAM INVOLVEMENT — from ADO closed tickets ----
     (function renderEscTeamBreakdown() {
