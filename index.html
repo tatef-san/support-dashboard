@@ -4657,7 +4657,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     while ((m = re.exec(html)) !== null) names.push(m[1].trim());
     if (!names.length) {
       const plain = html.replace(/<[^>]+>/g, ' ');
-      const re2 = /@([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'\-]{1,40}?)(?=\s|$|[.,!?<&\n\r])/g;
+      // Match up to 3 words; extra words must start with capital so we don't eat following prose
+      const re2 = /@([A-Za-zÀ-ÿ\-][A-Za-zÀ-ÿ'\-]*(?:\s+[A-ZÀ-Ÿ\-][A-Za-zÀ-ÿ'\-]*){0,2})(?=\s|$|[.,!?<&\n\r@])/g;
       while ((m = re2.exec(plain)) !== null) names.push(m[1].trim());
     }
     return [...new Set(names)];
