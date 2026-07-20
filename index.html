@@ -3810,6 +3810,21 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
     const hibobMap = getHiBobNameSet();
     const customTags = getTeamTagsSet();
+    // Build normalized account name set to detect company @mentions (e.g. "grosbusch", "petersrubber")
+    const _acctNorms = new Set();
+    [...(DATA.closed||[]), ...(DATA.active||[])].forEach(r => {
+      if (r.acct) _acctNorms.add(r.acct.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    });
+    function _isAccountAlias(name) {
+      const plain = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (plain.length < 4) return false;
+      if (_acctNorms.has(plain)) return true;
+      // "petersrubber" prefix-matches "petersrubberandplastics"
+      for (const acct of _acctNorms) {
+        if (acct.length > plain.length && acct.startsWith(plain)) return true;
+      }
+      return false;
+    }
     const cached = JSON.parse(localStorage.getItem('closedMentions') || 'null');
     const prevData = (cached && cached.data) ? cached.data : {};
     const result = {};
@@ -3857,6 +3872,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                   if (/^(customer|partner|client|contact|user)s?$/.test(_low)) return;
                   // Skip person names not in HiBob — they are customer contacts, not internal teams
                   if (hibob === false && looksLikePersonName(name)) return;
+                  // Skip account/company aliases (e.g. "grosbusch", "petersrubber")
+                  if (hibob === false && _isAccountAlias(name)) return;
                   const isCustomTag  = customTags.has(_low);
                   const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
                   const isGroupAcct  = hibob === false && !looksLikePersonName(name);
