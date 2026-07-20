@@ -3877,7 +3877,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                   // Skip person names not in HiBob — they are customer contacts, not internal teams
                   if (hibob === false && looksLikePersonName(name)) return;
                   // Skip account/company aliases (e.g. "grosbusch", "petersrubber")
-                  if (hibob === false && _isAccountAlias(name, row.acct)) return;
+                  // — but never skip known team tags (customTags includes built-ins like "hosting")
+                  if (hibob === false && !customTags.has(_low) && _isAccountAlias(name, row.acct)) return;
                   const isCustomTag  = customTags.has(_low);
                   const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
                   const isGroupAcct  = hibob === false && !looksLikePersonName(name);
@@ -5530,9 +5531,18 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
   }
 
 
+  // Built-in Sana internal team accounts — always treated as teams, never as company aliases.
+  // Users can extend this list via the custom team tags UI.
+  const BUILTIN_TEAM_TAGS = new Set([
+    'hosting','devops','sanapay','sci','erp','core support','nav-bc-support',
+    'gp-support','gp support','nav bc support','sana commerce insights',
+    'sana pay','sana erp','platform','infrastructure','qa','r&d',
+  ]);
+
   function getTeamTagsSet() {
     const raw = localStorage.getItem('customTeamTags') || '';
-    return new Set(raw.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean));
+    const userTags = raw.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean);
+    return new Set([...BUILTIN_TEAM_TAGS, ...userTags]);
   }
 
   // ── HiBob Employee Directory ─────────────────────────────────────────────────
