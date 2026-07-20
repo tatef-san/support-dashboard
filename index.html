@@ -3843,7 +3843,8 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                   // not team names — they are excluded to keep the list meaningful.
                   const isCustomTag  = customTags.has(name.toLowerCase());
                   const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
-                  if (isCustomTag || isFullName) {
+                  const isGroupAcct  = hibob === false; // not in HiBob at all → ADO group/team account (e.g. @Hosting)
+                  if (isCustomTag || isFullName || isGroupAcct) {
                     if (!teams.includes(name)) teams.push(name);
                     teamMentions.push({ team: name, respHours: null });
                   }
@@ -4258,7 +4259,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
             extractAtMentions(comment.text || '').forEach(name => {
               if (rosterNames.has(name.toLowerCase())) return;
               const hibob = isHiBobEmployee(name, hibobMap);
-              if (hibob === 'team' || customTags.has(name.toLowerCase())) {
+              if (hibob === 'team' || hibob === false || customTags.has(name.toLowerCase())) {
                 if (!teams.includes(name)) teams.push(name);
               }
             });
@@ -4908,8 +4909,7 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
             const hibobResult = isHiBobEmployee(lastMention, hibobMap);
             if (rosterNames.has(lastMention.toLowerCase())) { pendingAnalyst = lastMention; }
             else if (hibobResult === 'analyst') { pendingAnalyst = lastMention; }
-            else if (hibobResult === 'team') { lastTeam = lastMention; lastTeamDate = comment.createdDate || null; }
-            else if (customTags.has(lastMention.toLowerCase())) { lastTeam = lastMention; lastTeamDate = comment.createdDate || null; }
+            else if (hibobResult === 'team' || hibobResult === false || customTags.has(lastMention.toLowerCase())) { lastTeam = lastMention; lastTeamDate = comment.createdDate || null; }
             else { pendingCustomer = true; pendingCustomerDate = comment.createdDate || null; }
             break;
           }
