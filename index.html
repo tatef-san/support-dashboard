@@ -3837,13 +3837,14 @@ const EMBEDDED = {"roster":[["Archana Chakravarty","EMEA 1","Rafferty Garcia"],[
                   if (rosterNames.has(name.toLowerCase())) return;
                   const hibob = isHiBobEmployee(name, hibobMap);
                   if (hibob === 'analyst') return;
-                  // For "Teams Involved": only include if it's a configured custom tag,
-                  // OR a HiBob 'team' employee referenced by their FULL name (≥2 words).
-                  // Single first-name fragments like "cor" / "hostin" are individual colleagues,
-                  // not team names — they are excluded to keep the list meaningful.
-                  const isCustomTag  = customTags.has(name.toLowerCase());
+                  // Skip generic customer/contact words — these belong in active Pending Customer, not closed Involved Teams
+                  const _low = name.toLowerCase().trim();
+                  if (/^(customer|partner|client|contact|user)s?$/.test(_low)) return;
+                  // Skip person names not in HiBob — they are customer contacts, not internal teams
+                  if (hibob === false && looksLikePersonName(name)) return;
+                  const isCustomTag  = customTags.has(_low);
                   const isFullName   = hibob === 'team' && name.trim().split(/\s+/).length >= 2;
-                  const isGroupAcct  = hibob === false && !looksLikePersonName(name); // not in HiBob + not a person name → ADO group/team
+                  const isGroupAcct  = hibob === false && !looksLikePersonName(name);
                   if (isCustomTag || isFullName || isGroupAcct) {
                     if (!teams.includes(name)) teams.push(name);
                     teamMentions.push({ team: name, respHours: null });
