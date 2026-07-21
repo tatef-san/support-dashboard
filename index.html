@@ -10241,9 +10241,9 @@ if(window.opener&&!window.opener.closed){
 
     // ---- D. Insights ----
     const tips = [];
-    if (orgPct != null) {
-      if (orgPct > DATA.targets.esc) tips.push('<b>Org escape rate is ' + (orgPct*100).toFixed(1) + '%</b> (target ≤ ' + (DATA.targets.esc*100) + '%). Focus on the top accounts above; pair-program on first-line resolution.');
-      else tips.push('<span style="color:var(--good);"><b>Escape rate under target (' + (orgPct*100).toFixed(1) + '%).</b></span>');
+    if (orgStats.pct != null) {
+      if (orgStats.pct > DATA.targets.esc) tips.push('<b>Org escape rate is ' + (orgStats.pct*100).toFixed(1) + '%</b> (target ≤ ' + (DATA.targets.esc*100) + '%). Focus on the top accounts above; pair-program on first-line resolution.');
+      else tips.push('<span style="color:var(--good);"><b>Escape rate under target (' + (orgStats.pct*100).toFixed(1) + '%).</b></span>');
     }
     if (stRows.length >= 2) {
       const ded = stRows.find(r => /dedicated/i.test(r.type));
