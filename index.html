@@ -10078,7 +10078,7 @@ if(window.opener&&!window.opener.closed){
         return;
       }
       rows.sort((a, b) => (b._age || 0) - (a._age || 0));
-      let html = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;"><b>' + rows.length + '</b> escaped tickets' + (rows.length !== escaped.length ? ' (filtered from ' + escaped.length + ' total)' : '') + '</div>';
+      let html = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;"><b>' + rows.length + '</b> escaped tickets' + (rows.length !== _escapedSet.size ? ' (filtered from ' + _escapedSet.size + ' total)' : '') + '</div>';
       html += '<div class="scrollx"><table style="width:100%;border-collapse:collapse;font-size:12px;">' +
         '<thead><tr style="background:#f8f9fc;">' +
         '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Ticket</th>' +
