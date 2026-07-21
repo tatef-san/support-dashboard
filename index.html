@@ -1548,12 +1548,13 @@
             <span style="font-size:13px;font-weight:600;color:var(--text);">AI-Assisted Satisfaction Score</span>
             <span style="margin-left:auto;font-size:11px;color:var(--muted);">Target ≥ 80%</span>
           </div>
-          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">Same calculation as CSAT, but restricted to tickets where Maya (the AI support agent) was involved in the resolution. Measures customer satisfaction specifically for AI-assisted interactions.</p>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">Covers two types of Maya interactions: (1) <b>Conversation Only</b> — Maya fully handled the query without creating a ticket, which may still have involved a human agent stepping in; (2) <b>Escalated to Ticket</b> — Maya guided the customer to create a support ticket in ADO, which a human analyst then worked on. Both types are included. The score measures satisfaction with the Maya conversation itself — not with the human analyst who later handled the escalated ticket (that is captured under regular CSAT).</p>
           <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
-            Maya CSAT % = (Positive ratings on Maya-handled tickets) ÷ (Total CSAT responses on Maya-handled tickets) × 100<br>
-            <span style="color:#6d28d9;">Identical formula to CSAT — filtered to Maya ticket scope only</span>
+            Maya CSAT % = (Responses rated ≥ 4 out of 5) ÷ (Total VoiceflowRating responses) × 100<br>
+            <span style="color:#6d28d9;">Scale: 1 Very Unsatisfied → 5 Very Satisfied · positive threshold = 4+</span><br>
+            <span style="color:#6d28d9;">Conversation Only: no ADO ticket ID linked · Escalated to Ticket: ADO ticket ID linked</span>
           </div>
-          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: Same Sphere feedback table · filtered by Maya bot assignment flag</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: <code>Sphere VoiceflowRating</code> table — separate from regular CSAT · rating scale and threshold differ from the standard CSAT survey</div>
         </div>
 
         <!-- Active Tickets -->
@@ -1579,6 +1580,7 @@
             <span style="font-size:13px;font-weight:600;color:var(--text);">Resolution Metrics</span>
           </div>
           <p style="font-size:13px;color:var(--text);margin:0 0 10px;">Tickets moved to Done or Cancelled. Attributed to the analyst assigned at the moment of closure — this snapshot is frozen and unaffected by any subsequent account ownership transfers.</p>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;"><b>How attribution works:</b> Azure DevOps records every field change in a revision history table (<code>AzureDevops_Issue_Revision</code>). When a ticket's state changes to Done or Cancelled, the system captures who was in the <code>AssignedTo</code> field at that exact moment — that analyst receives credit for the closure. It is not based on who posted the last comment, and it is not based on who currently owns the account in CRM. If an account is later reassigned to a different analyst, the new analyst does not inherit the historical closed tickets from the previous owner — each analyst's scorecard only reflects tickets they personally closed.</p>
           <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
             TTR (days)        = Closed Date − Created Date<br>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(if ticket was reopened: Closed Date − Last Reopen Date)<br><br>
