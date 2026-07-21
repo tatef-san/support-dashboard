@@ -13615,7 +13615,7 @@ if(window.opener&&!window.opener.closed){
               var _wi = String(row.wi != null ? row.wi : (row.id || ''));
               if (!_wi) return;
               var _rt = _respMap[_wi];
-              if (_rt != null && row.resp == null) { row.resp = _rt; _respN++; }
+              if (_rt != null) { row.resp = _rt; _respN++; }
             });
             lf('FRT: applied response times to ' + _respN + ' / ' + D.closed.length + ' closed tickets.');
           } else {

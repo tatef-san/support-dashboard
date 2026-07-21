@@ -66,6 +66,86 @@ function Query($sql) {
     return $dt
 }
 
+# ── Business-hours calculator matching PowerBI "Adjusted Response Hours" ───────
+# Fractional business hours — counts minutes within 09:00-17:30 NL time, skipping weekends
+function Get-BizHours([datetime]$startUtc, [datetime]$endUtc) {
+    if ($null -eq $startUtc -or $null -eq $endUtc -or $endUtc -le $startUtc) { return 0.0 }
+    $tz       = [System.TimeZoneInfo]::FindSystemTimeZoneById("W. Europe Standard Time")
+    $created  = [System.TimeZoneInfo]::ConvertTimeFromUtc($startUtc, $tz)
+    $resp     = [System.TimeZoneInfo]::ConvertTimeFromUtc($endUtc,   $tz)
+    $BIZ_START = 9.0   # 09:00
+    $BIZ_END   = 17.5  # 17:30
+    $total = 0.0
+    $day = $created.Date
+    while ($day -le $resp.Date) {
+        $dow = $day.DayOfWeek
+        if ($dow -ne 'Saturday' -and $dow -ne 'Sunday') {
+            $fromH = if ($day -eq $created.Date) { [Math]::Max(($created - $created.Date).TotalHours, $BIZ_START) } else { $BIZ_START }
+            $toH   = if ($day -eq $resp.Date)    { [Math]::Min(($resp    - $resp.Date).TotalHours,    $BIZ_END)   } else { $BIZ_END   }
+            if ($toH -gt $fromH) { $total += $toH - $fromH }
+        }
+        $day = $day.AddDays(1)
+    }
+    return [Math]::Round($total, 2)
+}
+
+# ── Response times — PowerBI filters: IsInternal=False, no reopen, Ticket/TicketSimple, not Cancelled ──
+$RESP_SQL = @"
+SELECT vr.WorkItemId, vr.CreatedUTC, vr.FirstResponseUTC
+FROM   vwResponseTimePerTicketKoen vr
+JOIN   AzureDevops_Issue ai ON ai.IssueId = vr.WorkItemId
+WHERE  ai.IsInternal     = 'False'
+  AND  ai.IssueType      IN ('Ticket','TicketSimple')
+  AND  ai.State          <> 'Cancelled'
+  AND  vr.FirstResponseUTC IS NOT NULL
+  AND  vr.CreatedUTC     >= '2026-01-01'
+  AND  NOT EXISTS (
+           SELECT 1 FROM AzureDevops_Issue_Revision rev
+           WHERE  rev.WorkItemId = vr.WorkItemId
+             AND  rev.Field      = 'Custom.Reopendate'
+             AND  rev.Value IS NOT NULL AND rev.Value <> ''
+       )
+"@
+
+# ── Closed ticket attribution + business-hours resp (SecondLayer for all 2026 closed) ──
+$CLOSEDATTR_SQL = @"
+WITH last_touch AS (
+    SELECT r.WorkItemId,
+           ISNULL(oe.DisplayName, r.Value) AS analyst,
+           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
+    FROM   AzureDevops_Issue_Revision r
+    LEFT JOIN Prisma_sana_live.dbo.OrganizationEmployee oe
+           ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
+    WHERE  r.Field IN ('System.AssignedTo','System.ChangedBy')
+      AND  LOWER(r.Value) IN (
+               'a.nouraldeen@sana-commerce.com','a.hoyos@sana-commerce.com',
+               'n.salgado@sana-commerce.com','m.bayoumi@sana-commerce.com',
+               't.refaat@sana-commerce.com','s.elfaramawy@sana-commerce.com',
+               's.sreedharan@sana-commerce.com','m.johny@sana-commerce.com',
+               'a.stephenson@sana-commerce.com','a.chakravarty@sana-commerce.com',
+               'g.overheul@sana-commerce.com','j.huneburg@sana-commerce.com',
+               'a.ohinska@sana-commerce.com','k.durisova@sana-commerce.com',
+               'ri.khan@sana-commerce.com','m.martinez@sana-commerce.com'
+           )
+      AND  r.WorkItemId IN (
+               SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
+               WHERE  Type IN ('Ticket','TicketSimple')
+                 AND  (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
+                 AND  ProjectReleaseVersion NOT LIKE '%wishlist%'
+                 AND  CreatedDateUTC >= '2026-01-01'
+           )
+)
+SELECT lt.WorkItemId AS id, lt.analyst, vr.CreatedUTC, vr.FirstResponseUTC
+FROM   last_touch lt
+LEFT JOIN vwResponseTimePerTicketKoen vr ON vr.WorkItemId = lt.WorkItemId
+WHERE  lt.rn = 1
+ORDER  BY lt.WorkItemId DESC
+"@
+
+# ── Simple in-memory cache (30 min TTL) ───────────────────────────────────────
+$_cache = @{}
+$CACHE_TTL_SEC = 1800
+
 # ── SecondLayer SQL — last-touch attribution per ticket ───────────────────────
 # Runs on Prisma connection; cross-joins into Sana_Start_TicketIndex_live.
 # For team-mailbox tickets: finds the last revision where one of our 16
@@ -197,9 +277,9 @@ catch {
 
 Write-Host ""
 Write-Host "  Support Dashboard SQL API" -ForegroundColor Cyan
-Write-Host "  Listening on http://localhost:$Port/" -ForegroundColor Green
-Write-Host "  DB: $Server / Prisma_sana_live" -ForegroundColor Gray
-Write-Host "  Press Ctrl+C to stop" -ForegroundColor Gray
+Write-Host "  Listening: http://localhost:$Port/" -ForegroundColor Green
+Write-Host "  DB: $Server / Prisma_sana_live  |  Ctrl+C to stop" -ForegroundColor Gray
+Write-Host "  Endpoints: /api/active  /api/secondlayer  /api/resp  /api/closedattr" -ForegroundColor Gray
 Write-Host ""
 
 try {
@@ -283,6 +363,68 @@ try {
                 $jsonRows = $slParts -join ','
                 $body = '{"count":' + $slDt.Rows.Count + ',"source":"sql_secondlayer","rows":[' + $jsonRows + ']}'
                 Write-Host "$ts GET /api/secondlayer → $($slDt.Rows.Count) tickets" -ForegroundColor Green
+            }
+            elseif ($path -eq "/api/resp") {
+                $cKey = "resp"
+                $cached = $_cache[$cKey]
+                if ($cached -and ((Get-Date) - $cached.ts).TotalSeconds -lt $CACHE_TTL_SEC) {
+                    $body = $cached.body
+                    Write-Host "$ts  /api/resp -> cached" -ForegroundColor Gray
+                } else {
+                    Write-Host "$ts  /api/resp - querying..." -ForegroundColor Yellow
+                    $rConn = New-Object System.Data.SqlClient.SqlConnection("Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;")
+                    $rConn.Open()
+                    $rCmd = $rConn.CreateCommand(); $rCmd.CommandText = $RESP_SQL; $rCmd.CommandTimeout = 60
+                    $rDa = New-Object System.Data.SqlClient.SqlDataAdapter($rCmd)
+                    $rDt = New-Object System.Data.DataTable; $rDa.Fill($rDt) | Out-Null
+                    $rConn.Close()
+                    $rParts = @()
+                    foreach ($row in $rDt.Rows) {
+                        $wi = [string]$row['WorkItemId']
+                        $cUtc = $row['CreatedUTC'];       if ($cUtc -eq [DBNull]::Value) { continue }
+                        $fUtc = $row['FirstResponseUTC']; if ($fUtc -eq [DBNull]::Value) { continue }
+                        $bh = Get-BizHours ([datetime]$cUtc) ([datetime]$fUtc)
+                        $rParts += '{"id":' + $wi + ',"resp":' + $bh + '}'
+                    }
+                    $body = '{"count":' + $rDt.Rows.Count + ',"source":"biz_hours","rows":[' + ($rParts -join ',') + ']}'
+                    $_cache[$cKey] = @{ ts = Get-Date; body = $body }
+                    Write-Host "$ts  /api/resp -> $($rDt.Rows.Count) response times" -ForegroundColor Green
+                }
+            }
+            elseif ($path -eq "/api/closedattr") {
+                $cKey = "closedattr"
+                $cached = $_cache[$cKey]
+                if ($cached -and ((Get-Date) - $cached.ts).TotalSeconds -lt $CACHE_TTL_SEC) {
+                    $body = $cached.body
+                    Write-Host "$ts  /api/closedattr -> cached" -ForegroundColor Gray
+                } else {
+                    Write-Host "$ts  /api/closedattr - querying..." -ForegroundColor Yellow
+                    $caConn = New-Object System.Data.SqlClient.SqlConnection("Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;")
+                    $caConn.Open()
+                    $caCmd = $caConn.CreateCommand(); $caCmd.CommandText = $CLOSEDATTR_SQL; $caCmd.CommandTimeout = 90
+                    $caDa = New-Object System.Data.SqlClient.SqlDataAdapter($caCmd)
+                    $caDt = New-Object System.Data.DataTable; $caDa.Fill($caDt) | Out-Null
+                    $caConn.Close()
+                    $caParts = @()
+                    $caAnalyst = 0; $caResp = 0
+                    foreach ($row in $caDt.Rows) {
+                        $wi       = [string]$row['id']
+                        $analyst  = Escape-Json ([string]$row['analyst'])
+                        $cUtc     = $row['CreatedUTC']
+                        $fUtc     = $row['FirstResponseUTC']
+                        $respJson = 'null'
+                        if ($cUtc -ne [DBNull]::Value -and $fUtc -ne [DBNull]::Value) {
+                            $bh = Get-BizHours ([datetime]$cUtc) ([datetime]$fUtc)
+                            $respJson = [string]$bh
+                            $caResp++
+                        }
+                        if ($analyst) { $caAnalyst++ }
+                        $caParts += '{"id":' + $wi + ',"analyst":"' + $analyst + '","resp":' + $respJson + '}'
+                    }
+                    $body = '{"count":' + $caDt.Rows.Count + ',"source":"closedattr","rows":[' + ($caParts -join ',') + ']}'
+                    $_cache[$cKey] = @{ ts = Get-Date; body = $body }
+                    Write-Host "$ts  /api/closedattr -> $($caDt.Rows.Count) attributions ($caAnalyst analyst, $caResp resp)" -ForegroundColor Green
+                }
             }
             else {
                 $resp.StatusCode = 404
