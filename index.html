@@ -1439,7 +1439,7 @@
 
       <div class="coll-sec" id="escSec-analystRate">
         <div class="coll-sec-hd" onclick="toggleCollSec('escSec-analystRate')">
-          <h3>Escape rate by analyst (Power BI file)</h3><span class="sc-chevron">▼</span>
+          <h3>Escape rate by analyst</h3><span class="sc-chevron">▼</span>
         </div>
         <div class="coll-sec-body"><div id="escAnalystRate"></div></div>
       </div>
@@ -10024,9 +10024,6 @@ if(window.opener&&!window.opener.closed){
           '</tr>';
       });
       html += '</tbody></table></div>';
-      if (unattributed > 0) {
-        html += '<div style="font-size:11px;color:var(--muted);margin-top:6px;">' + unattributed + ' escaped ticket(s) could not be attributed (work item ID not found in loaded Closed Tickets).</div>';
-      }
       el.innerHTML = html;
     })();
 
