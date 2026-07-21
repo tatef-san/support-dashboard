@@ -643,6 +643,7 @@
     <button class="view-tab" data-view="kpi-esc">Escape rate</button>
     <button class="view-tab" data-view="kpi-util">Utilization</button>
     <button class="view-tab" data-view="kpi-dq">Data Quality</button>
+    <button class="view-tab" data-view="kpi-guide">📖 KPI Guide</button>
   </div>
 </header>
 <!-- ADO CONNECTION MODAL -->
@@ -1511,6 +1512,102 @@
     </div>
   </div>
 
+
+  <!-- KPI GUIDE -->
+  <div id="view-kpi-guide" class="view">
+    <div class="panel">
+      <h2 class="panel-title">KPI Calculation Guide</h2>
+      <div class="panel-sub">How each metric is calculated — and why account ownership transfers don't distort individual performance.</div>
+
+      <div style="display:flex;flex-direction:column;gap:24px;margin-top:20px;">
+
+        <!-- Attribution principle -->
+        <div style="padding:14px 18px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:13px;color:#0c4a6e;">
+          <b>Attribution principle (applies to all KPIs):</b> Every metric is locked to the analyst who <em>handled or closed</em> the ticket at the time of the event. If an account is later transferred to another analyst, historical records are not reassigned — each analyst's scorecard only reflects tickets they personally worked on.
+        </div>
+
+        <!-- CSAT -->
+        <div style="border:1px solid #fde68a;border-left:5px solid #f59e0b;border-radius:8px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.05em;">CSAT</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text);">Customer Satisfaction Score</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted);">Target ≥ 80%</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">Measures how satisfied customers are with their support experience. Ratings are collected via Sphere after ticket closure. Only responses linked to tickets <em>closed by the analyst</em> are counted — account reassignments after closure are ignored.</p>
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
+            CSAT % = (Responses rated "Satisfied" or "Very Satisfied") ÷ (Total CSAT responses received) × 100<br>
+            <span style="color:#92400e;">Positive ratings = rating order ≥ 1 (Satisfied / Very Satisfied)</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: <code>sphere_sana_live.Feedback</code> table · linked to ticket via WorkItemId · response date ≥ June 2022</div>
+        </div>
+
+        <!-- Maya CSAT -->
+        <div style="border:1px solid #e9d5ff;border-left:5px solid #8b5cf6;border-radius:8px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="background:#f3e8ff;color:#6d28d9;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.05em;">Maya CSAT</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text);">AI-Assisted Satisfaction Score</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted);">Target ≥ 80%</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">Same calculation as CSAT, but restricted to tickets where Maya (the AI support agent) was involved in the resolution. Measures customer satisfaction specifically for AI-assisted interactions.</p>
+          <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
+            Maya CSAT % = (Positive ratings on Maya-handled tickets) ÷ (Total CSAT responses on Maya-handled tickets) × 100<br>
+            <span style="color:#6d28d9;">Identical formula to CSAT — filtered to Maya ticket scope only</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: Same Sphere feedback table · filtered by Maya bot assignment flag</div>
+        </div>
+
+        <!-- Active Tickets -->
+        <div style="border:1px solid #bfdbfe;border-left:5px solid #3b82f6;border-radius:8px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.05em;">Active Tickets</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text);">Open Ticket Snapshot</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">A real-time count of all tickets currently in an open state (Active or New). Attribution uses the <code>Custom_ServiceConsultant</code> field — the analyst actively responsible for the ticket right now — not the account owner, so ownership transfers are correctly reflected in the live view.</p>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
+            Pending Customer  → Last comment is from Sana side; customer has not yet replied<br>
+            Pending Team      → Last @mention is an internal team (e.g. @Hosting, @DevOps); awaiting their response<br>
+            Pending Analyst   → Ticket is in the analyst's queue; next action is theirs<br>
+            Age (days)        = Today − Ticket Created Date (or Last Reopen Date if ticket was reopened)
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: Azure DevOps OData · refreshed on each sync · pending status inferred from latest ADO comment author + @mention scan</div>
+        </div>
+
+        <!-- Closed Tickets -->
+        <div style="border:1px solid #bbf7d0;border-left:5px solid #22c55e;border-radius:8px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.05em;">Closed Tickets</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text);">Resolution Metrics</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">Tickets moved to Done or Cancelled. Attributed to the analyst assigned at the moment of closure — this snapshot is frozen and unaffected by any subsequent account ownership transfers.</p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
+            TTR (days)        = Closed Date − Created Date<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(if ticket was reopened: Closed Date − Last Reopen Date)<br><br>
+            SLA Compliance %  = (Tickets closed within 7 days) ÷ (Total closed tickets) × 100<br><br>
+            Solo Rate %       = (Tickets closed without another team's involvement) ÷ (Total closed tickets) × 100<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Solo = only one Service Consultant assigned throughout the ticket lifecycle)
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: Azure DevOps OData + <code>Sana_Start_TicketIndex_live</code> (revision history for reopen dates, assignment count) · <code>vwResponseTimePerTicketKoen</code> for first-response time</div>
+        </div>
+
+        <!-- Escape Rate -->
+        <div style="border:1px solid #fecaca;border-left:5px solid #ef4444;border-radius:8px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="background:#fef2f2;color:#991b1b;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.05em;">Escape Rate</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text);">Ticket Re-open Rate</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted);">Target ≤ 10% · lower is better</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);margin:0 0 10px;">A ticket "escapes" when a customer reports the problem was not actually resolved after the ticket was marked Done — triggering a reopen. Attributed to the analyst who closed the ticket originally. Account ownership transfers after closure do not move the escape charge to the new owner.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12.5px;line-height:1.7;">
+            Escape Rate %     = (Tickets with a Reopen Date recorded) ÷ (Total Completed Tickets in scope) × 100<br><br>
+            Reopen Date       = <code>Custom.Reopendate</code> field set in ADO when a closed ticket is reopened by the customer<br>
+            Completed Tickets = All tickets moved to Done or Cancelled within the reporting period
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Data source: Power BI export (ticket-level) · matched to analyst via closed tickets work item ID · <code>AzureDevops_Issue_Revision</code> table tracks <code>Custom.Reopendate</code> revisions</div>
+        </div>
+
+      </div><!-- end flex column -->
+    </div>
+  </div>
 
   <!-- DATA UPLOAD -->
   <div id="view-upload" class="view">
