@@ -89,22 +89,53 @@ function Get-BizHours([datetime]$startUtc, [datetime]$endUtc) {
     return [Math]::Round($total, 2)
 }
 
-# ── Response times — PowerBI filters: IsInternal=False, no reopen, Ticket/TicketSimple, not Cancelled ──
+# ── Response times — business hours computed in SQL (09:00-17:30 NL, Mon-Fri) ──
 $RESP_SQL = @"
-SELECT vr.WorkItemId, vr.CreatedUTC, vr.FirstResponseUTC
-FROM   vwResponseTimePerTicketKoen vr
-JOIN   AzureDevops_Issue ai ON ai.IssueId = vr.WorkItemId
-WHERE  ai.IsInternal     = 'False'
-  AND  ai.IssueType      IN ('Ticket','TicketSimple')
-  AND  ai.State          <> 'Cancelled'
-  AND  vr.FirstResponseUTC IS NOT NULL
-  AND  vr.CreatedUTC     >= '2026-01-01'
-  AND  NOT EXISTS (
+WITH src AS (
+  SELECT vr.WorkItemId,
+    CAST(vr.CreatedUTC       AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS c_nl,
+    CAST(vr.FirstResponseUTC AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS f_nl
+  FROM   vwResponseTimePerTicketKoen vr
+  JOIN   AzureDevops_Issue ai ON ai.IssueId = vr.WorkItemId
+  WHERE  ai.IsInternal = 'False'
+    AND  ai.IssueType  IN ('Ticket','TicketSimple')
+    AND  ai.State      <> 'Cancelled'
+    AND  vr.FirstResponseUTC IS NOT NULL
+    AND  vr.CreatedUTC >= '2026-01-01'
+    AND  NOT EXISTS (
            SELECT 1 FROM AzureDevops_Issue_Revision rev
            WHERE  rev.WorkItemId = vr.WorkItemId
-             AND  rev.Field      = 'Custom.Reopendate'
+             AND  rev.Field = 'Custom.Reopendate'
              AND  rev.Value IS NOT NULL AND rev.Value <> ''
-       )
+         )
+),
+clamped AS (
+  SELECT WorkItemId,
+    CAST(c_nl AS date) AS c_date, CAST(f_nl AS date) AS f_date,
+    CASE WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) <  540 THEN  540
+         WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) > 1050 THEN 1050
+         ELSE DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) END AS c_min,
+    CASE WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) <  540 THEN  540
+         WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) > 1050 THEN 1050
+         ELSE DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) END AS f_min
+  FROM src
+)
+SELECT WorkItemId,
+  CAST(
+    CASE WHEN c_date = f_date THEN
+           CASE WHEN DATENAME(WEEKDAY,c_date) IN ('Saturday','Sunday') THEN 0 ELSE f_min - c_min END
+         ELSE
+           CASE WHEN DATENAME(WEEKDAY,c_date) NOT IN ('Saturday','Sunday') THEN 1050 - c_min ELSE 0 END
+           + ISNULL((
+               SELECT SUM(510)
+               FROM (SELECT TOP 200 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.columns) nums
+               WHERE DATEADD(DAY,nums.n,CAST(c_date AS datetime)) < CAST(f_date AS datetime)
+                 AND DATENAME(WEEKDAY,DATEADD(DAY,nums.n,CAST(c_date AS datetime))) NOT IN ('Saturday','Sunday')
+             ), 0)
+           + CASE WHEN DATENAME(WEEKDAY,f_date) NOT IN ('Saturday','Sunday') THEN f_min - 540 ELSE 0 END
+    END
+  AS float) / 60.0 AS biz_h
+FROM clamped
 "@
 
 # ── Closed ticket attribution + business-hours resp (SecondLayer for all 2026 closed) ──
@@ -134,10 +165,46 @@ WITH last_touch AS (
                  AND  ProjectReleaseVersion NOT LIKE '%wishlist%'
                  AND  CreatedDateUTC >= '2026-01-01'
            )
+),
+resp_src AS (
+    SELECT vr.WorkItemId,
+        CAST(vr.CreatedUTC       AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS c_nl,
+        CAST(vr.FirstResponseUTC AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS f_nl
+    FROM vwResponseTimePerTicketKoen vr
+    WHERE vr.FirstResponseUTC IS NOT NULL
+),
+resp_clamped AS (
+    SELECT WorkItemId,
+        CAST(c_nl AS date) AS c_date, CAST(f_nl AS date) AS f_date,
+        CASE WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) <  540 THEN  540
+             WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) > 1050 THEN 1050
+             ELSE DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) END AS c_min,
+        CASE WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) <  540 THEN  540
+             WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) > 1050 THEN 1050
+             ELSE DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) END AS f_min
+    FROM resp_src
+),
+resp_biz AS (
+    SELECT WorkItemId,
+      CAST(
+        CASE WHEN c_date = f_date THEN
+               CASE WHEN DATENAME(WEEKDAY,c_date) IN ('Saturday','Sunday') THEN 0 ELSE f_min - c_min END
+             ELSE
+               CASE WHEN DATENAME(WEEKDAY,c_date) NOT IN ('Saturday','Sunday') THEN 1050 - c_min ELSE 0 END
+               + ISNULL((
+                   SELECT SUM(510)
+                   FROM (SELECT TOP 200 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.columns) nums
+                   WHERE DATEADD(DAY,nums.n,CAST(c_date AS datetime)) < CAST(f_date AS datetime)
+                     AND DATENAME(WEEKDAY,DATEADD(DAY,nums.n,CAST(c_date AS datetime))) NOT IN ('Saturday','Sunday')
+                 ), 0)
+               + CASE WHEN DATENAME(WEEKDAY,f_date) NOT IN ('Saturday','Sunday') THEN f_min - 540 ELSE 0 END
+        END
+      AS float) / 60.0 AS biz_h
+    FROM resp_clamped
 )
-SELECT lt.WorkItemId AS id, lt.analyst, vr.CreatedUTC, vr.FirstResponseUTC
+SELECT lt.WorkItemId AS id, lt.analyst, rb.biz_h
 FROM   last_touch lt
-LEFT JOIN vwResponseTimePerTicketKoen vr ON vr.WorkItemId = lt.WorkItemId
+LEFT JOIN resp_biz rb ON rb.WorkItemId = lt.WorkItemId
 WHERE  lt.rn = 1
 ORDER  BY lt.WorkItemId DESC
 "@
@@ -381,9 +448,7 @@ try {
                     $rParts = @()
                     foreach ($row in $rDt.Rows) {
                         $wi = [string]$row['WorkItemId']
-                        $cUtc = $row['CreatedUTC'];       if ($cUtc -eq [DBNull]::Value) { continue }
-                        $fUtc = $row['FirstResponseUTC']; if ($fUtc -eq [DBNull]::Value) { continue }
-                        $bh = Get-BizHours ([datetime]$cUtc) ([datetime]$fUtc)
+                        $bh = [double]$row['biz_h']
                         $rParts += '{"id":' + $wi + ',"resp":' + $bh + '}'
                     }
                     $body = '{"count":' + $rDt.Rows.Count + ',"source":"biz_hours","rows":[' + ($rParts -join ',') + ']}'
@@ -410,12 +475,10 @@ try {
                     foreach ($row in $caDt.Rows) {
                         $wi       = [string]$row['id']
                         $analyst  = Escape-Json ([string]$row['analyst'])
-                        $cUtc     = $row['CreatedUTC']
-                        $fUtc     = $row['FirstResponseUTC']
+                        $bhVal    = $row['biz_h']
                         $respJson = 'null'
-                        if ($cUtc -ne [DBNull]::Value -and $fUtc -ne [DBNull]::Value) {
-                            $bh = Get-BizHours ([datetime]$cUtc) ([datetime]$fUtc)
-                            $respJson = [string]$bh
+                        if ($bhVal -ne [DBNull]::Value) {
+                            $respJson = [string]([double]$bhVal)
                             $caResp++
                         }
                         if ($analyst) { $caAnalyst++ }
