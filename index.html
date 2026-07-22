@@ -13771,6 +13771,18 @@ if(window.opener&&!window.opener.closed){
           migrated = true;
         }
       });
+      // Ensure any tabs added to DEFAULT_USER_CONFIG propagate to existing localStorage entries
+      Object.keys(DEFAULT_USER_CONFIG).forEach(function(email) {
+        var def = DEFAULT_USER_CONFIG[email];
+        if (cfg[email] && def.tabs && cfg[email].tabs) {
+          def.tabs.forEach(function(t) {
+            if (cfg[email].tabs.indexOf(t) < 0) {
+              cfg[email].tabs.push(t);
+              migrated = true;
+            }
+          });
+        }
+      });
       if (migrated) localStorage.setItem('dashUserConfig', JSON.stringify(cfg));
       return cfg;
     } catch(e) { return JSON.parse(JSON.stringify(DEFAULT_USER_CONFIG)); }
