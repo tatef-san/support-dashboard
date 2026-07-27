@@ -13514,9 +13514,13 @@ if(window.opener&&!window.opener.closed){
               'a.ohinska@sana-commerce.com':'Anna Ohinska',
               'k.durisova@sana-commerce.com':'Katie Durisova'
             };
+            var _DISPLAY_FIX = {'Toqa Refaat Abo-Khatwa':'Toqa Refaat'};
             (_sl2Data.rows || []).forEach(function(r){
               if (!r.wi || !r.analyst) return;
-              var name = _SL_EMAIL_NAME[(r.analyst||'').toLowerCase().trim()];
+              var analystRaw = (r.analyst||'').trim();
+              var name = analystRaw.indexOf('@') !== -1
+                ? _SL_EMAIL_NAME[analystRaw.toLowerCase()]
+                : (_DISPLAY_FIX[analystRaw] || analystRaw);
               if (name) window._sqlSecondLayer[+r.wi] = name;
             });
             lf('SQL SecondLayer: ' + Object.keys(window._sqlSecondLayer).length + ' attributions loaded.');
