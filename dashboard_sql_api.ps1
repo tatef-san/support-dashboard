@@ -232,18 +232,16 @@ ORDER  BY lt.WorkItemId DESC
 $_cache = @{}
 $CACHE_TTL_SEC = 1800
 
-# ── SecondLayer SQL — last-touch attribution per ticket ───────────────────────
+# ── SecondLayer SQL — first-touch attribution per ticket ──────────────────────
 # Runs on Prisma connection; cross-joins into Sana_Start_TicketIndex_live.
-# For team-mailbox tickets: finds the last revision where one of our 16
-# analysts appears in AssignedTo OR ChangedBy (whoever last worked it).
+# First-touch (ASC) ensures credit goes to whoever first handled the ticket,
+# not a later modifier (Gert/Judith etc.) — matches the working state 2026-07-17.
+# Returns raw email only (no OrganizationEmployee join); JS _SL_EMAIL_NAME resolves names.
 $SECONDLAYER_SQL = @"
 WITH all_touches AS (
     SELECT r.WorkItemId, r.Value AS email,
-           ISNULL(oe.DisplayName, r.Value) AS analyst,
-           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn
     FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r
-    LEFT JOIN dbo.OrganizationEmployee oe
-           ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
     WHERE r.Field IN ('System.AssignedTo','System.ChangedBy')
       AND LOWER(r.Value) IN (
           'a.nouraldeen@sana-commerce.com',
@@ -271,7 +269,7 @@ WITH all_touches AS (
             AND CreatedDateUTC >= '2026-01-01'
       )
 )
-SELECT WorkItemId, email, analyst
+SELECT WorkItemId, email AS analyst
 FROM all_touches
 WHERE rn = 1
 ORDER BY WorkItemId DESC
