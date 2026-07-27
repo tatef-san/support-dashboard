@@ -142,32 +142,52 @@ FROM clamped
 $CLOSEDATTR_SQL = @"
 WITH last_touch AS (
     SELECT r.WorkItemId,
-           CASE LOWER(r.Value)
+           CASE LOWER(RTRIM(r.Value))
              WHEN 'a.nouraldeen@sana-commerce.com'  THEN 'Ahmed Nouraldeen'
+             WHEN 'ahmed nouraldeen'                 THEN 'Ahmed Nouraldeen'
              WHEN 's.elfaramawy@sana-commerce.com'  THEN 'Sarah Elfaramawy'
+             WHEN 'sarah elfaramawy'                 THEN 'Sarah Elfaramawy'
              WHEN 't.refaat@sana-commerce.com'      THEN 'Toqa Refaat'
+             WHEN 'toqa refaat'                      THEN 'Toqa Refaat'
+             WHEN 'toqa refaat abo-khatwa'           THEN 'Toqa Refaat'
              WHEN 'm.bayoumi@sana-commerce.com'     THEN 'Mohamed Bayoumi'
+             WHEN 'mohamed bayoumi'                  THEN 'Mohamed Bayoumi'
              WHEN 't.atef@sana-commerce.com'        THEN 'Tarek Atef'
+             WHEN 'tarek atef'                       THEN 'Tarek Atef'
              WHEN 'n.salgado@sana-commerce.com'     THEN 'Najabi Salgado Giraldo'
+             WHEN 'najabi salgado giraldo'           THEN 'Najabi Salgado Giraldo'
              WHEN 'a.hoyos@sana-commerce.com'       THEN 'Alexander Hoyos Gonzalez'
+             WHEN 'alexander hoyos gonzalez'         THEN 'Alexander Hoyos Gonzalez'
              WHEN 'm.martinez@sana-commerce.com'    THEN 'Maria Daniela Martinez'
+             WHEN 'maria daniela martinez'           THEN 'Maria Daniela Martinez'
              WHEN 'f.tovar@sana-commerce.com'       THEN 'Francisco Tovar'
+             WHEN 'francisco tovar'                  THEN 'Francisco Tovar'
              WHEN 'r.garcia@sana-commerce.com'      THEN 'Raffery Garcia'
+             WHEN 'raffery garcia'                   THEN 'Raffery Garcia'
              WHEN 'ri.khan@sana-commerce.com'       THEN 'Rifa Khan'
+             WHEN 'rifa khan'                        THEN 'Rifa Khan'
              WHEN 's.sreedharan@sana-commerce.com'  THEN 'Sruthi Sreedharan'
+             WHEN 'sruthi sreedharan'               THEN 'Sruthi Sreedharan'
              WHEN 'm.johny@sana-commerce.com'       THEN 'Meha Johny'
+             WHEN 'meha johny'                       THEN 'Meha Johny'
              WHEN 'a.stephenson@sana-commerce.com'  THEN 'Alexis Stephenson'
+             WHEN 'alexis stephenson'               THEN 'Alexis Stephenson'
              WHEN 'a.chakravarty@sana-commerce.com' THEN 'Archana Chakravarty'
+             WHEN 'archana chakravarty'             THEN 'Archana Chakravarty'
              WHEN 'g.overheul@sana-commerce.com'    THEN 'Gert Overheul'
+             WHEN 'gert overheul'                   THEN 'Gert Overheul'
              WHEN 'j.huneburg@sana-commerce.com'    THEN 'Judith Hüneburg'
+             WHEN 'judith hüneburg'                 THEN 'Judith Hüneburg'
              WHEN 'a.ohinska@sana-commerce.com'     THEN 'Anna Ohinska'
+             WHEN 'anna ohinska'                    THEN 'Anna Ohinska'
              WHEN 'k.durisova@sana-commerce.com'    THEN 'Katie Durisova'
-             ELSE r.Value
+             WHEN 'katie durisova'                  THEN 'Katie Durisova'
+             ELSE RTRIM(r.Value)
            END AS analyst,
            ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
     FROM   AzureDevops_Issue_Revision r
     WHERE  r.Field IN ('System.AssignedTo','System.ChangedBy')
-      AND  LOWER(r.Value) IN (
+      AND  LOWER(RTRIM(r.Value)) IN (
                'a.nouraldeen@sana-commerce.com','a.hoyos@sana-commerce.com',
                'n.salgado@sana-commerce.com','m.bayoumi@sana-commerce.com',
                't.refaat@sana-commerce.com','s.elfaramawy@sana-commerce.com',
@@ -175,7 +195,17 @@ WITH last_touch AS (
                'a.stephenson@sana-commerce.com','a.chakravarty@sana-commerce.com',
                'g.overheul@sana-commerce.com','j.huneburg@sana-commerce.com',
                'a.ohinska@sana-commerce.com','k.durisova@sana-commerce.com',
-               'ri.khan@sana-commerce.com','m.martinez@sana-commerce.com'
+               'ri.khan@sana-commerce.com','m.martinez@sana-commerce.com',
+               'ahmed nouraldeen','alexander hoyos gonzalez',
+               'najabi salgado giraldo','mohamed bayoumi',
+               'toqa refaat','toqa refaat abo-khatwa',
+               'sarah elfaramawy','sruthi sreedharan',
+               'meha johny','alexis stephenson',
+               'archana chakravarty','gert overheul',
+               'judith hüneburg','anna ohinska',
+               'katie durisova','rifa khan',
+               'maria daniela martinez','tarek atef',
+               'francisco tovar','raffery garcia'
            )
       AND  r.WorkItemId IN (
                SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
@@ -243,23 +273,26 @@ WITH all_touches AS (
            ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn
     FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r
     WHERE r.Field = 'System.AssignedTo'
-      AND LOWER(r.Value) IN (
-          'a.nouraldeen@sana-commerce.com',
-          'a.hoyos@sana-commerce.com',
-          'n.salgado@sana-commerce.com',
-          'm.bayoumi@sana-commerce.com',
-          't.refaat@sana-commerce.com',
-          's.elfaramawy@sana-commerce.com',
-          's.sreedharan@sana-commerce.com',
-          'm.johny@sana-commerce.com',
-          'a.stephenson@sana-commerce.com',
-          'a.chakravarty@sana-commerce.com',
-          'g.overheul@sana-commerce.com',
-          'j.huneburg@sana-commerce.com',
-          'a.ohinska@sana-commerce.com',
-          'k.durisova@sana-commerce.com',
-          'ri.khan@sana-commerce.com',
-          'm.martinez@sana-commerce.com'
+      AND LOWER(RTRIM(r.Value)) IN (
+          'a.nouraldeen@sana-commerce.com',  'ahmed nouraldeen',
+          'a.hoyos@sana-commerce.com',       'alexander hoyos gonzalez',
+          'n.salgado@sana-commerce.com',     'najabi salgado giraldo',
+          'm.bayoumi@sana-commerce.com',     'mohamed bayoumi',
+          't.refaat@sana-commerce.com',      'toqa refaat', 'toqa refaat abo-khatwa',
+          's.elfaramawy@sana-commerce.com',  'sarah elfaramawy',
+          's.sreedharan@sana-commerce.com',  'sruthi sreedharan',
+          'm.johny@sana-commerce.com',       'meha johny',
+          'a.stephenson@sana-commerce.com',  'alexis stephenson',
+          'a.chakravarty@sana-commerce.com', 'archana chakravarty',
+          'g.overheul@sana-commerce.com',    'gert overheul',
+          'j.huneburg@sana-commerce.com',    'judith hüneburg',
+          'a.ohinska@sana-commerce.com',     'anna ohinska',
+          'k.durisova@sana-commerce.com',    'katie durisova',
+          'ri.khan@sana-commerce.com',       'rifa khan',
+          'm.martinez@sana-commerce.com',    'maria daniela martinez',
+          't.atef@sana-commerce.com',        'tarek atef',
+          'f.tovar@sana-commerce.com',       'francisco tovar',
+          'r.garcia@sana-commerce.com',      'raffery garcia'
       )
       AND r.WorkItemId IN (
           SELECT WorkitemId FROM dbo.AzureDevopsWorkitems
