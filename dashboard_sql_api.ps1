@@ -140,9 +140,37 @@ FROM clamped
 
 # ── Closed ticket attribution + business-hours resp (SecondLayer for all 2026 closed) ──
 $CLOSEDATTR_SQL = @"
-WITH last_touch AS (
+WITH state_changes AS (
+    -- Most recent revision where each support ticket moved to Done or Cancelled
     SELECT r.WorkItemId,
-           CASE LOWER(RTRIM(r.Value))
+           MAX(r.Revision) AS close_revision
+    FROM   AzureDevops_Issue_Revision r
+    WHERE  r.Field = 'System.State'
+      AND  LOWER(r.Value) IN ('done','cancelled')
+      AND  r.WorkItemId IN (
+               SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
+               WHERE  Type IN ('Ticket','TicketSimple')
+                 AND  (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
+                 AND  ProjectReleaseVersion NOT LIKE '%wishlist%'
+                 AND  CreatedDateUTC >= '2026-01-01'
+           )
+    GROUP BY r.WorkItemId
+),
+assigned_raw AS (
+    -- AssignedTo value at or just before the closure revision (snapshot at close)
+    SELECT sc.WorkItemId,
+           (SELECT TOP 1 RTRIM(r2.Value)
+            FROM   AzureDevops_Issue_Revision r2
+            WHERE  r2.WorkItemId = sc.WorkItemId
+              AND  r2.Field = 'System.AssignedTo'
+              AND  r2.Revision <= sc.close_revision
+            ORDER BY r2.Revision DESC) AS raw_value
+    FROM   state_changes sc
+),
+last_touch AS (
+    -- Map email/display-name to canonical SA name; non-SA closures produce NULL analyst
+    SELECT WorkItemId,
+           CASE LOWER(RTRIM(raw_value))
              WHEN 'a.nouraldeen@sana-commerce.com'  THEN 'Ahmed Nouraldeen'
              WHEN 'ahmed nouraldeen'                 THEN 'Ahmed Nouraldeen'
              WHEN 's.elfaramawy@sana-commerce.com'  THEN 'Sarah Elfaramawy'
@@ -182,38 +210,11 @@ WITH last_touch AS (
              WHEN 'anna ohinska'                    THEN 'Anna Ohinska'
              WHEN 'k.durisova@sana-commerce.com'    THEN 'Katie Durisova'
              WHEN 'katie durisova'                  THEN 'Katie Durisova'
-             ELSE RTRIM(r.Value)
+             ELSE NULL
            END AS analyst,
-           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
-    FROM   AzureDevops_Issue_Revision r
-    WHERE  r.Field IN ('System.AssignedTo','System.ChangedBy')
-      AND  LOWER(RTRIM(r.Value)) IN (
-               'a.nouraldeen@sana-commerce.com','a.hoyos@sana-commerce.com',
-               'n.salgado@sana-commerce.com','m.bayoumi@sana-commerce.com',
-               't.refaat@sana-commerce.com','s.elfaramawy@sana-commerce.com',
-               's.sreedharan@sana-commerce.com','m.johny@sana-commerce.com',
-               'a.stephenson@sana-commerce.com','a.chakravarty@sana-commerce.com',
-               'g.overheul@sana-commerce.com','j.huneburg@sana-commerce.com',
-               'a.ohinska@sana-commerce.com','k.durisova@sana-commerce.com',
-               'ri.khan@sana-commerce.com','m.martinez@sana-commerce.com',
-               'ahmed nouraldeen','alexander hoyos gonzalez',
-               'najabi salgado giraldo','mohamed bayoumi',
-               'toqa refaat','toqa refaat abo-khatwa',
-               'sarah elfaramawy','sruthi sreedharan',
-               'meha johny','alexis stephenson',
-               'archana chakravarty','gert overheul',
-               'judith hüneburg','anna ohinska',
-               'katie durisova','rifa khan',
-               'maria daniela martinez','tarek atef',
-               'francisco tovar','raffery garcia'
-           )
-      AND  r.WorkItemId IN (
-               SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
-               WHERE  Type IN ('Ticket','TicketSimple')
-                 AND  (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
-                 AND  ProjectReleaseVersion NOT LIKE '%wishlist%'
-                 AND  CreatedDateUTC >= '2026-01-01'
-           )
+           1 AS rn
+    FROM   assigned_raw
+    WHERE  raw_value IS NOT NULL
 ),
 resp_src AS (
     SELECT vr.WorkItemId,
@@ -255,6 +256,7 @@ SELECT lt.WorkItemId AS id, lt.analyst, rb.biz_h
 FROM   last_touch lt
 LEFT JOIN resp_biz rb ON rb.WorkItemId = lt.WorkItemId
 WHERE  lt.rn = 1
+  AND  lt.analyst IS NOT NULL
 ORDER  BY lt.WorkItemId DESC
 "@
 
