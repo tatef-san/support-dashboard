@@ -242,7 +242,7 @@ WITH all_touches AS (
     SELECT r.WorkItemId, r.Value AS email,
            ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn
     FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r
-    WHERE r.Field IN ('System.AssignedTo','System.ChangedBy')
+    WHERE r.Field = 'System.AssignedTo'
       AND LOWER(r.Value) IN (
           'a.nouraldeen@sana-commerce.com',
           'a.hoyos@sana-commerce.com',
