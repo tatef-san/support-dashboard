@@ -13434,7 +13434,7 @@ if(window.opener&&!window.opener.closed){
           lf('Querying Customer Support tickets via OData Analytics…');
           var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
           var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
-          var _odataExp  = 'AssignedTo($select=UserName,UniqueName),Area($select=AreaPath)';
+          var _odataExp  = 'AssignedTo($select=UserName),Area($select=AreaPath)';
           var _odataFlt  = "WorkItemType eq 'Ticket'" +
             " and Custom_ProjectReleaseVersion ne null" +
             " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
