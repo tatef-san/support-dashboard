@@ -13304,7 +13304,7 @@ if(window.opener&&!window.opener.closed){
         if (created && closed) age = Math.max(0, Math.floor((new Date(closed)-new Date(created))/86400000));
         // Always prefer Custom.ServiceConsultant (permanent SA record); hardcode
         // System.AssignedTo fallback so c.fldAnalyst OData name mismatches don't break it.
-        var analystRaw = fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
+        var analystRaw = fv(item, 'Custom.ClosedBy') || fv(item, 'Custom.ServiceConsultant') || fv(item, 'Custom.Analyst') || fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
         if (_isNonAnalyst(analystRaw)) {
           var _ato2 = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
           if (_ato2 && !_isNonAnalyst(_ato2)) analystRaw = _ato2;
@@ -13434,7 +13434,7 @@ if(window.opener&&!window.opener.closed){
           lf('Querying Customer Support tickets via OData Analytics…');
           var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
           var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
-          var _odataExp  = 'AssignedTo($select=UserName),Area($select=AreaPath)';
+          var _odataExp  = 'AssignedTo($select=UserName,UniqueName),Area($select=AreaPath),ClosedBy($select=UserName,UniqueName)';
           var _odataFlt  = "WorkItemType eq 'Ticket'" +
             " and Custom_ProjectReleaseVersion ne null" +
             " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
@@ -13468,6 +13468,7 @@ if(window.opener&&!window.opener.closed){
               'System.AssignedTo':  (r.AssignedTo && r.AssignedTo.UserName) || '',
               'System.AreaPath':    (r.Area && r.Area.AreaPath) || '',
               'Custom.ServiceConsultant':  r.Custom_ServiceConsultant || '',
+              'Custom.ClosedBy':           (r.ClosedBy && (r.ClosedBy.UserName || r.ClosedBy.UniqueName)) || '',
               'Custom.TicketMainCategory': r.Custom_TicketMainCategory || '',
               'Custom.TicketSubCategory':  r.Custom_TicketSubCategory || '',
             }};
