@@ -13570,6 +13570,48 @@ if(window.opener&&!window.opener.closed){
         });
         lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
 
+        // WorkItemRevisions: closure-moment attribution — AssignedTo at the exact revision
+        // where State became Done/Cancelled. This is the frozen snapshot and the primary
+        // source of truth for all closed tickets, regardless of current CRM ownership.
+        try {
+          lf('WorkItemRevisions: fetching closure-moment attribution…');
+          var _wrvBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
+          var _wrvUrl  = _wrvBase
+            + '?$select=' + encodeURIComponent('WorkItemId,State,RevisedDate')
+            + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName)')
+            + '&$filter=' + encodeURIComponent(
+                "WorkItemType eq 'Ticket'" +
+                " and (State eq 'Done' or State eq 'Cancelled')" +
+                " and Custom_ProjectReleaseVersion ne null" +
+                " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
+                " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
+                " and RevisedDate ge 2026-01-01T00:00:00Z"
+              );
+          var _wrvRows = await window._fetchODataAll(_wrvUrl, lf);
+          lf('WorkItemRevisions: ' + _wrvRows.length + ' closure revisions received.');
+          // Keep only the LAST Done/Cancelled revision per ticket (handles re-openings)
+          var _wrvMap = {};
+          _wrvRows.forEach(function(rv) {
+            var existing = _wrvMap[rv.WorkItemId];
+            if (!existing || rv.RevisedDate > existing.RevisedDate) _wrvMap[rv.WorkItemId] = rv;
+          });
+          var _wrvFixed = 0;
+          (closedArr || []).forEach(function(row) {
+            var rv = _wrvMap[+row.id];
+            if (!rv) return;
+            var raw = (rv.AssignedTo && rv.AssignedTo.UserName) || '';
+            if (!raw) return;
+            var emailKey = raw.toLowerCase().trim();
+            var name = _closedEmailMap[emailKey] || raw;
+            var norm = normalizeAnalystName(name);
+            row.c = (norm && norm !== 'Unassigned') ? norm : (name.indexOf('@') === -1 ? name : 'Unassigned');
+            _wrvFixed++;
+          });
+          lf('WorkItemRevisions: applied closure-moment attribution to ' + _wrvFixed + ' / ' + (closedArr||[]).length + ' tickets.');
+        } catch(_wrvErr) {
+          lf('WorkItemRevisions: not available — ' + (_wrvErr.message || _wrvErr));
+        }
+
         // SQL closedattr: override row.c (last-SC-before-close) and row.resp for 2026 tickets.
         // Corrects attribution skewed by account-ownership transfers — runs AFTER _closedEmailMap
         // so SQL wins. Falls back gracefully if the API is not running.
