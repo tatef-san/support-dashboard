@@ -142,30 +142,11 @@ FROM clamped
 $CLOSEDATTR_SQL = @"
 WITH last_touch AS (
     SELECT r.WorkItemId,
-           CASE LOWER(r.Value)
-             WHEN 'a.nouraldeen@sana-commerce.com'  THEN 'Ahmed Nouraldeen'
-             WHEN 's.elfaramawy@sana-commerce.com'  THEN 'Sarah Elfaramawy'
-             WHEN 't.refaat@sana-commerce.com'      THEN 'Toqa Refaat'
-             WHEN 'm.bayoumi@sana-commerce.com'     THEN 'Mohamed Bayoumi'
-             WHEN 't.atef@sana-commerce.com'        THEN 'Tarek Atef'
-             WHEN 'n.salgado@sana-commerce.com'     THEN 'Najabi Salgado Giraldo'
-             WHEN 'a.hoyos@sana-commerce.com'       THEN 'Alexander Hoyos Gonzalez'
-             WHEN 'm.martinez@sana-commerce.com'    THEN 'Maria Daniela Martinez'
-             WHEN 'f.tovar@sana-commerce.com'       THEN 'Francisco Tovar'
-             WHEN 'r.garcia@sana-commerce.com'      THEN 'Raffery Garcia'
-             WHEN 'ri.khan@sana-commerce.com'       THEN 'Rifa Khan'
-             WHEN 's.sreedharan@sana-commerce.com'  THEN 'Sruthi Sreedharan'
-             WHEN 'm.johny@sana-commerce.com'       THEN 'Meha Johny'
-             WHEN 'a.stephenson@sana-commerce.com'  THEN 'Alexis Stephenson'
-             WHEN 'a.chakravarty@sana-commerce.com' THEN 'Archana Chakravarty'
-             WHEN 'g.overheul@sana-commerce.com'    THEN 'Gert Overheul'
-             WHEN 'j.huneburg@sana-commerce.com'    THEN 'Judith Hüneburg'
-             WHEN 'a.ohinska@sana-commerce.com'     THEN 'Anna Ohinska'
-             WHEN 'k.durisova@sana-commerce.com'    THEN 'Katie Durisova'
-             ELSE r.Value
-           END AS analyst,
+           ISNULL(oe.DisplayName, r.Value) AS analyst,
            ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
     FROM   AzureDevops_Issue_Revision r
+    LEFT JOIN Prisma_sana_live.dbo.OrganizationEmployee oe
+           ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
     WHERE  r.Field IN ('System.AssignedTo','System.ChangedBy')
       AND  LOWER(r.Value) IN (
                'a.nouraldeen@sana-commerce.com','a.hoyos@sana-commerce.com',
@@ -232,17 +213,19 @@ ORDER  BY lt.WorkItemId DESC
 $_cache = @{}
 $CACHE_TTL_SEC = 1800
 
-# ── SecondLayer SQL — first-touch attribution per ticket ──────────────────────
+# ── SecondLayer SQL — last-touch attribution per ticket ───────────────────────
 # Runs on Prisma connection; cross-joins into Sana_Start_TicketIndex_live.
-# First-touch (ASC) ensures credit goes to whoever first handled the ticket,
-# not a later modifier (Gert/Judith etc.) — matches the working state 2026-07-17.
-# Returns raw email only (no OrganizationEmployee join); JS _SL_EMAIL_NAME resolves names.
+# For team-mailbox tickets: finds the last revision where one of our 16
+# analysts appears in AssignedTo OR ChangedBy (whoever last worked it).
 $SECONDLAYER_SQL = @"
 WITH all_touches AS (
     SELECT r.WorkItemId, r.Value AS email,
-           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn
+           ISNULL(oe.DisplayName, r.Value) AS analyst,
+           ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn
     FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r
-    WHERE r.Field = 'System.AssignedTo'
+    LEFT JOIN dbo.OrganizationEmployee oe
+           ON LOWER(oe.CompanyEmailAddress) = LOWER(r.Value)
+    WHERE r.Field IN ('System.AssignedTo','System.ChangedBy')
       AND LOWER(r.Value) IN (
           'a.nouraldeen@sana-commerce.com',
           'a.hoyos@sana-commerce.com',
@@ -269,7 +252,7 @@ WITH all_touches AS (
             AND CreatedDateUTC >= '2026-01-01'
       )
 )
-SELECT WorkItemId, email AS analyst
+SELECT WorkItemId, email, analyst
 FROM all_touches
 WHERE rn = 1
 ORDER BY WorkItemId DESC
