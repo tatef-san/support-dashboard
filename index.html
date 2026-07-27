@@ -7296,7 +7296,7 @@ if(window.opener&&!window.opener.closed){
     (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _wiToAcct[r.wi] = r.acct; });
     // Build wi→analyst map from DATA.closed for CSAT re-attribution (last-SC-before-close)
     const _wiToClosedC = {};
-    (DATA.closed || []).forEach(r => { if (r.wi && r.c) _wiToClosedC[+r.wi] = r.c; });
+    (DATA.closed || []).forEach(r => { if (r.wi && r.c && r.c !== 'Unassigned') _wiToClosedC[+r.wi] = r.c; });
     try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_wiToAcct[r.wi]) _wiToAcct[r.wi] = r.acct; }); } catch(e) {}
     // Build normalised → canonical name map: strips spaces + punctuation so
     // "HygienaLLC" → "hygienallc" matches "Hygiena, LLC" → "hygienallc"
