@@ -14407,7 +14407,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var _msalCfg = {
     auth: { clientId: _CLIENT_ID, authority: 'https://login.microsoftonline.com/'+_TENANT_ID, redirectUri: _REDIRECT, navigateToLoginRequestUrl: false },
-    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
   };
   var _msalApp = null;
 
