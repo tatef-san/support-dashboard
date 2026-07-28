@@ -13654,8 +13654,8 @@ if(window.opener&&!window.opener.closed){
           lf('Partner Support: fetching tickets…');
           var _psWIBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
           var _psUrl = _psWIBase
-            + '?$select=' + encodeURIComponent('WorkItemId,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount')
-            + '&$expand=' + encodeURIComponent('Area($select=AreaPath)')
+            + '?$select=' + encodeURIComponent('WorkItemId,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount,Custom_ServiceConsultant')
+            + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName),Area($select=AreaPath)')
             + '&$filter=' + encodeURIComponent(
                 "Custom_ProjectReleaseVersion eq 'Partner Support'"
                 + " and CreatedDate ge 2026-01-01T00:00:00Z"
@@ -13751,9 +13751,14 @@ if(window.opener&&!window.opener.closed){
           var _psActiveRows = _psActive.map(function(r){
             var id = r.WorkItemId;
             var area = (r.Area && r.Area.AreaPath) || '';
-            var analystName = _psResolveEmail(_psCommentMap[id])
-              || _psWrvActiveMap[id]
-              || 'Undefined - Partner Support';
+            // Priority: Custom_ServiceConsultant → AssignedTo.UserName → Sphere comment → WRV
+            var scRaw = (r.Custom_ServiceConsultant || '').trim();
+            var atRaw = (r.AssignedTo && r.AssignedTo.UserName) ? r.AssignedTo.UserName.trim() : '';
+            var fromOData = scRaw || atRaw;
+            var fromODataName = fromOData ? normalizeAnalystName(_closedEmailMap[fromOData.toLowerCase()] || fromOData) : null;
+            var analystName = (fromODataName && fromODataName !== 'Unassigned' && !_isNonAnalyst(fromODataName))
+              ? fromODataName
+              : (_psResolveEmail(_psCommentMap[id]) || _psWrvActiveMap[id] || 'Undefined - Partner Support');
             return {
               id:              String(id),
               title:           r.Title || '',
