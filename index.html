@@ -13570,51 +13570,46 @@ if(window.opener&&!window.opener.closed){
         });
         lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
 
-        // WorkItemRevisions: closure-moment attribution using $apply groupby.
-        // Groups by (WorkItemId, AssignedTo/UserName) and takes min(RevisedDate) — this
-        // collapses ~40k rows to ~4k and selects the FIRST Done/Cancelled revision per
-        // ticket (the actual closure transition, before any account-transfer field edits).
+        // WorkItemRevisions: last-AssignedTo before closure.
+        // Custom_ServiceConsultant is always null at Done/Cancelled revisions (cleared by ADO on close).
+        // Instead: fetch all revisions where AssignedTo is set, take the LAST per ticket.
+        // That is the analyst who was actively assigned just before the ticket was closed.
         try {
-          lf('WorkItemRevisions: fetching closure-moment attribution…');
+          lf('WorkItemRevisions: fetching last-assignee attribution…');
           var _wrvBase  = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          // Plain $filter + $select — no $apply (groupby not supported for custom fields).
-          // Custom_ServiceConsultant ne null keeps only revisions where the SA was set,
-          // which is the closure-moment value before account-transfer edits clear it.
           var _wrvUrl  = _wrvBase
-            + '?$select=' + encodeURIComponent('WorkItemId,State,RevisedDate,Custom_ServiceConsultant')
+            + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate')
+            + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName)')
             + '&$filter=' + encodeURIComponent(
                 "WorkItemType eq 'Ticket'" +
-                " and (State eq 'Done' or State eq 'Cancelled')" +
-                " and Custom_ServiceConsultant ne null" +
+                " and AssignedTo/UserName ne null" +
                 " and Custom_ProjectReleaseVersion ne null" +
                 " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
                 " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
                 " and RevisedDate ge 2026-01-01T00:00:00Z"
               );
           var _wrvRows = await window._fetchODataAll(_wrvUrl, lf);
-          lf('WorkItemRevisions: ' + _wrvRows.length + ' rows (Done/Cancelled with SC set).');
-          // Per ticket: keep the FIRST (earliest) Done/Cancelled revision where SC was set.
-          // That is the closure-transition snapshot, before any post-closure account transfers.
+          lf('WorkItemRevisions: ' + _wrvRows.length + ' rows (revisions with AssignedTo set).');
+          // Per ticket: keep the LAST revision where AssignedTo is set — the analyst working it at close.
           var _wrvMap = {};
           _wrvRows.forEach(function(rv) {
             var id   = rv.WorkItemId;
-            var user = rv.Custom_ServiceConsultant || '';
+            var user = (rv.AssignedTo && rv.AssignedTo.UserName) ? rv.AssignedTo.UserName : '';
             var dt   = rv.RevisedDate || '';
             if (!id || !user) return;
             var ex = _wrvMap[id];
-            if (!ex || dt < ex.dt) _wrvMap[id] = { dt: dt, user: user };
+            if (!ex || dt > ex.dt) _wrvMap[id] = { dt: dt, user: user };
           });
           var _wrvFixed = 0;
           (closedArr || []).forEach(function(row) {
             var d = _wrvMap[+row.id];
             if (!d) return;
-            var emailKey = d.user.toLowerCase().trim();
-            var name     = _closedEmailMap[emailKey] || d.user;
-            var norm     = normalizeAnalystName(name);
+            var name = _closedEmailMap[d.user.toLowerCase().trim()] || d.user;
+            var norm = normalizeAnalystName(name);
             row.c = (norm && norm !== 'Unassigned') ? norm : (name.indexOf('@') === -1 ? name : 'Unassigned');
             _wrvFixed++;
           });
-          lf('WorkItemRevisions: applied closure-moment attribution to ' + _wrvFixed + ' / ' + (closedArr||[]).length + ' tickets.');
+          lf('WorkItemRevisions: applied last-assignee attribution to ' + _wrvFixed + ' / ' + (closedArr||[]).length + ' tickets.');
         } catch(_wrvErr) {
           lf('WorkItemRevisions: not available — ' + (_wrvErr.message || _wrvErr));
         }
