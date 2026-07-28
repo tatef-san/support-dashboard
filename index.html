@@ -13575,6 +13575,34 @@ if(window.opener&&!window.opener.closed){
         });
         lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
 
+        // Prisma SQL fallback: fill Unassigned closed tickets from /api/active.
+        // Prisma stores AssignedToEmail at the time the ticket was active — not affected
+        // by post-closure account transfers that corrupt WRV last-AssignedTo.
+        try {
+          lf('ClosedSQL: fetching Prisma attribution for Unassigned closed tickets…');
+          var _sqlActResp = await fetch('http://localhost:3012/api/active');
+          if (_sqlActResp.ok) {
+            var _sqlActData = await _sqlActResp.json();
+            var _sqlClosedMap = {};
+            (_sqlActData.rows || []).forEach(function(r){
+              if (r.closed && r.id && r.c && r.c !== '') _sqlClosedMap[String(r.id)] = r.c;
+            });
+            var _sqlCFixed = 0;
+            (closedArr || []).forEach(function(row){
+              if (row.c && row.c !== 'Unassigned') return;
+              var sqlName = _sqlClosedMap[String(row.id)];
+              if (!sqlName) return;
+              var norm = normalizeAnalystName(sqlName);
+              if (norm && norm !== 'Unassigned') { row.c = norm; _sqlCFixed++; }
+            });
+            lf('ClosedSQL: fixed ' + _sqlCFixed + ' Unassigned closed tickets from Prisma.');
+          } else {
+            lf('ClosedSQL: HTTP ' + _sqlActResp.status);
+          }
+        } catch(_sqlCErr) {
+          lf('ClosedSQL: not available — ' + (_sqlCErr.message||''));
+        }
+
         // WorkItemRevisions: last-AssignedTo before closure.
         // Custom_ServiceConsultant is always null at Done/Cancelled revisions (cleared by ADO on close).
         // Instead: fetch all revisions where AssignedTo is set, take the LAST per ticket.
