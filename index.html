@@ -13607,6 +13607,8 @@ if(window.opener&&!window.opener.closed){
           });
           var _wrvFixed = 0;
           (closedArr || []).forEach(function(row) {
+            var cur = (row.c || '').trim();
+            if (cur && cur !== 'Unassigned' && cur.indexOf('@') === -1) return;
             var d = _wrvMap[+row.id];
             if (!d) return;
             var name = _closedEmailMap[d.user.toLowerCase().trim()] || d.user;
