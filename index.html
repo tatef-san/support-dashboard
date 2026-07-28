@@ -8791,9 +8791,12 @@ if(window.opener&&!window.opener.closed){
         const wiLink = href
           ? '<a href="' + href + '" target="_blank" class="ado-link">#' + (t.wi || t.id || '-') + '</a>'
           : esc('#' + (t.wi || t.id || '-'));
+        const partnerBadge = t.isPartner
+          ? ' <span style="display:inline-block;padding:1px 5px;background:#6d28d9;color:#fff;border-radius:3px;font-size:10px;font-weight:700;vertical-align:middle;line-height:1.4;">[Partner]</span>'
+          : '';
         return '<tr' + (i % 2 ? ' style="background:#f9fafb;"' : '') + '>' +
           '<td style="padding:6px 10px;white-space:nowrap;font-weight:600;">' + wiLink + '</td>' +
-          '<td style="padding:6px 10px;">' + esc(t.title || '-') + '</td>' +
+          '<td style="padding:6px 10px;">' + esc(t.title || '-') + partnerBadge + '</td>' +
           '<td style="padding:6px 10px;color:#6b7280;">' + esc(t.acct || t.account || '-') + '</td>' +
           '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
