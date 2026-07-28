@@ -13725,8 +13725,8 @@ if(window.opener&&!window.opener.closed){
               var user = ((rv.ChangedBy && rv.ChangedBy.UserName)||'').toLowerCase().trim();
               var dt   = rv.RevisedDate || '';
               if (!id || !user || _PS_SA_ROSTER.indexOf(user) === -1) return;
-              // Active: first revision changing to Backlog Analyze
-              if ((rv.State||'').toLowerCase() === 'backlog analyze' && !_psWrvActiveMap[id]) {
+              // Active: first revision changing to In Progress (TicketSimple equivalent of Backlog Analyze)
+              if ((rv.State||'').toLowerCase() === 'in progress' && !_psWrvActiveMap[id]) {
                 var nm = normalizeAnalystName(_closedEmailMap[user] || user);
                 _psWrvActiveMap[id] = (nm && nm !== 'Unassigned') ? nm : 'Undefined - Partner Support';
               }
