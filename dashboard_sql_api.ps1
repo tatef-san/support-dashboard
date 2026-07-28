@@ -398,7 +398,7 @@ Write-Host ""
 Write-Host "  Support Dashboard SQL API" -ForegroundColor Cyan
 Write-Host "  Listening: http://localhost:$Port/" -ForegroundColor Green
 Write-Host "  DB: $Server / Prisma_sana_live  |  Ctrl+C to stop" -ForegroundColor Gray
-Write-Host "  Endpoints: /api/active  /api/secondlayer  /api/resp  /api/closedattr" -ForegroundColor Gray
+Write-Host "  Endpoints: /api/active  /api/secondlayer  /api/resp  /api/closedattr  /api/partnercomments" -ForegroundColor Gray
 Write-Host ""
 
 try {
@@ -410,7 +410,7 @@ try {
 
         # CORS — allow dashboard on any origin
         $resp.Headers.Add("Access-Control-Allow-Origin", "*")
-        $resp.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS")
+        $resp.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         $resp.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization")
         $resp.ContentType = "application/json; charset=utf-8"
 
@@ -539,6 +539,46 @@ try {
                     $body = '{"count":' + $caDt.Rows.Count + ',"source":"closedattr","rows":[' + ($caParts -join ',') + ']}'
                     $_cache[$cKey] = @{ ts = Get-Date; body = $body }
                     Write-Host "$ts  /api/closedattr -> $($caDt.Rows.Count) attributions ($caAnalyst analyst, $caResp resp)" -ForegroundColor Green
+                }
+            }
+            elseif ($path -eq "/api/partnercomments") {
+                # POST — body: { ids: [workItemId, ...] }
+                $pcBodyRaw = (New-Object System.IO.StreamReader($req.InputStream)).ReadToEnd()
+                try { $pcParsed = $pcBodyRaw | ConvertFrom-Json } catch { $pcParsed = $null }
+                $pcIds = if ($pcParsed -and $pcParsed.ids) {
+                    ($pcParsed.ids | ForEach-Object { [int]$_ }) -join ','
+                } else { '' }
+                if (-not $pcIds) {
+                    $body = '{"rows":[]}'
+                } else {
+                    Write-Host "$ts POST /api/partnercomments — querying Sphere DB for $($pcParsed.ids.Count) IDs..." -ForegroundColor Yellow
+                    $pcCs = "Server=$Server;Database=sphere_sana_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
+                    $pcConn = New-Object System.Data.SqlClient.SqlConnection($pcCs); $pcConn.Open()
+                    $pcSql = @"
+SELECT c.WorkItemId AS id, c.RevisedByEmail AS email
+FROM (
+    SELECT WorkItemId, RevisedByEmail,
+           ROW_NUMBER() OVER (PARTITION BY WorkItemId ORDER BY DateCreated DESC) AS rn
+    FROM AzureDevopsWorkItemComment
+    WHERE WorkItemId IN ($pcIds)
+      AND RevisedByEmail LIKE '%@sana-commerce.com%'
+      AND RevisedByEmail NOT IN ('partner@sana-commerce.com','customer@sana-commerce.com','migrations@sana-commerce.com')
+) ranked
+WHERE rn = 1
+"@
+                    $pcCmd = $pcConn.CreateCommand(); $pcCmd.CommandText = $pcSql; $pcCmd.CommandTimeout = 30
+                    $pcDt = New-Object System.Data.DataTable
+                    $pcDa = New-Object System.Data.SqlClient.SqlDataAdapter($pcCmd)
+                    $pcDa.Fill($pcDt) | Out-Null
+                    $pcConn.Close()
+                    $pcParts = @()
+                    foreach ($row in $pcDt.Rows) {
+                        $pcId    = ($row['id']    -as [string])
+                        $pcEmail = (($row['email'] -as [string]).ToLower().Trim())
+                        $pcParts += ('{"id":"' + $pcId + '","email":"' + $pcEmail + '"}')
+                    }
+                    $body = '{"rows":[' + ($pcParts -join ',') + ']}'
+                    Write-Host "$ts  /api/partnercomments -> $($pcDt.Rows.Count) attributions" -ForegroundColor Green
                 }
             }
             else {

@@ -8866,9 +8866,11 @@ if(window.opener&&!window.opener.closed){
   function adoTicketUrl(r) { return (r.id || r.wi) ? ADO_WI_BASE + (r.id || r.wi) : (r.url || null); }
   function adoLink(r) {
     const href = adoTicketUrl(r);
+    const badge = r.isPartner ? '<span style="display:inline-block;margin-left:5px;padding:1px 5px;background:#6d28d9;color:#fff;border-radius:3px;font-size:10px;font-weight:700;vertical-align:middle;line-height:1.4;">[Partner]</span>' : '';
+    const text = esc(r.title || '#' + (r.id || r.wi));
     return href
-      ? '<a href="' + href + '" target="_blank" class="ado-link">' + esc(r.title || '#' + (r.id || r.wi)) + '</a>'
-      : esc(r.title || '-');
+      ? '<a href="' + href + '" target="_blank" class="ado-link">' + text + '</a>' + badge
+      : text + badge;
   }
 
   // Calendar hours elapsed since a given ISO date string
@@ -13638,6 +13640,170 @@ if(window.opener&&!window.opener.closed){
           }
         } catch(_caErr) {
           lf('ClosedAttr: not available — using OData attribution.');
+        }
+
+        // ── Partner Support tickets ────────────────────────────────────────────────
+        // Separate OData fetch: TicketSimple tickets with PRV = 'Partner Support'.
+        // Excluded from the main query (tolower('Partner Support') != startswith 'support').
+        // Attribution: active → WorkItemRevisions ChangedBy (state → Backlog Analyze);
+        //              closed → Sphere DB last SA comment; fallback: WRV last SA ChangedBy.
+        try {
+          lf('Partner Support: fetching tickets…');
+          var _psWIBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
+          var _psUrl = _psWIBase
+            + '?$select=' + encodeURIComponent('WorkItemId,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount')
+            + '&$expand=' + encodeURIComponent('Area($select=AreaPath)')
+            + '&$filter=' + encodeURIComponent(
+                "Custom_ProjectReleaseVersion eq 'Partner Support'"
+                + " and CreatedDate ge 2026-01-01T00:00:00Z"
+              );
+          var _psRows = await window._fetchODataAll(_psUrl, lf);
+          lf('Partner Support: ' + _psRows.length + ' total tickets.');
+
+          var _PS_TERMINAL = ['Done','Cancelled','Closed'];
+          var _psActive = _psRows.filter(function(r){ return _PS_TERMINAL.indexOf(r.State) === -1; });
+          var _psClosed = _psRows.filter(function(r){ return _PS_TERMINAL.indexOf(r.State) !== -1; });
+          lf('Partner Support: ' + _psActive.length + ' active, ' + _psClosed.length + ' closed.');
+
+          var _psAllIds = _psRows.map(function(r){ return r.WorkItemId; });
+
+          // Step 1: Sphere DB — last SA comment per ticket (primary for closed; helpful for active too)
+          var _psCommentMap = {};
+          try {
+            var _pcResp = await fetch('http://localhost:3012/api/partnercomments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids: _psAllIds })
+            });
+            if (_pcResp.ok) {
+              var _pcData = await _pcResp.json();
+              (_pcData.rows || []).forEach(function(r){
+                var email = (r.email||'').toLowerCase().trim();
+                if (r.id && email) _psCommentMap[+r.id] = email;
+              });
+              lf('Partner Support Sphere: ' + Object.keys(_psCommentMap).length + ' SA attributions.');
+            } else {
+              lf('Partner Support Sphere: HTTP ' + _pcResp.status);
+            }
+          } catch(_pcErr) {
+            lf('Partner Support Sphere: not available — ' + (_pcErr.message||''));
+          }
+
+          // Step 2: WorkItemRevisions — active (first Backlog Analyze) + closed fallback (last SA)
+          var _psWrvActiveMap = {};
+          var _psWrvClosedMap = {};
+          var _PS_SA_ROSTER = [
+            'a.nouraldeen@sana-commerce.com','a.hoyos@sana-commerce.com',
+            'n.salgado@sana-commerce.com','m.bayoumi@sana-commerce.com',
+            't.refaat@sana-commerce.com','s.elfaramawy@sana-commerce.com',
+            's.sreedharan@sana-commerce.com','m.johny@sana-commerce.com',
+            'a.stephenson@sana-commerce.com','a.chakravarty@sana-commerce.com',
+            'g.overheul@sana-commerce.com','j.huneburg@sana-commerce.com',
+            'a.ohinska@sana-commerce.com','k.durisova@sana-commerce.com',
+            'ri.khan@sana-commerce.com','m.martinez@sana-commerce.com'
+          ];
+          try {
+            lf('Partner Support WRV: fetching revisions…');
+            var _psWrvBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
+            var _psWrvUrl = _psWrvBase
+              + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,State')
+              + '&$expand=' + encodeURIComponent('ChangedBy($select=UserName)')
+              + '&$filter=' + encodeURIComponent(
+                  "Custom_ProjectReleaseVersion eq 'Partner Support'"
+                  + " and RevisedDate ge 2026-01-01T00:00:00Z"
+                );
+            var _psWrvRows = await window._fetchODataAll(_psWrvUrl, lf);
+            lf('Partner Support WRV: ' + _psWrvRows.length + ' revision rows.');
+
+            // Sort ascending for active (first Backlog Analyze wins)
+            _psWrvRows.sort(function(a,b){ return (a.RevisedDate||'') < (b.RevisedDate||'') ? -1 : 1; });
+            _psWrvRows.forEach(function(rv){
+              var id   = rv.WorkItemId;
+              var user = ((rv.ChangedBy && rv.ChangedBy.UserName)||'').toLowerCase().trim();
+              var dt   = rv.RevisedDate || '';
+              if (!id || !user || _PS_SA_ROSTER.indexOf(user) === -1) return;
+              // Active: first revision changing to Backlog Analyze
+              if ((rv.State||'').toLowerCase() === 'backlog analyze' && !_psWrvActiveMap[id]) {
+                var nm = normalizeAnalystName(_closedEmailMap[user] || user);
+                _psWrvActiveMap[id] = (nm && nm !== 'Unassigned') ? nm : 'Undefined - Partner Support';
+              }
+              // Closed: keep last SA revision (already sorted asc; overwrite to get last)
+              var nmC = normalizeAnalystName(_closedEmailMap[user] || user);
+              if (nmC && nmC !== 'Unassigned') _psWrvClosedMap[id] = nmC;
+            });
+            lf('Partner Support WRV: ' + Object.keys(_psWrvActiveMap).length + ' active, '
+              + Object.keys(_psWrvClosedMap).length + ' closed attributions.');
+          } catch(_psWrvErr) {
+            lf('Partner Support WRV: not available — ' + (_psWrvErr.message||''));
+          }
+
+          // Resolve email → display name via _closedEmailMap
+          var _psResolveEmail = function(email) {
+            if (!email) return null;
+            var nm = normalizeAnalystName(_closedEmailMap[email] || email);
+            return (nm && nm !== 'Unassigned') ? nm : null;
+          };
+
+          // Build active rows
+          var _psActiveRows = _psActive.map(function(r){
+            var id = r.WorkItemId;
+            var area = (r.Area && r.Area.AreaPath) || '';
+            var analystName = _psResolveEmail(_psCommentMap[id])
+              || _psWrvActiveMap[id]
+              || 'Undefined - Partner Support';
+            return {
+              id:              String(id),
+              title:           r.Title || '',
+              c:               analystName,
+              created:         dStr(r.CreatedDate),
+              age:             dAge(r.CreatedDate),
+              escalated:       false,
+              pendingCustomer: false,
+              region:          regionFromArea(area, c.project),
+              comments:        r.CommentCount || 0,
+              mainCat:         '',
+              subCat:          '',
+              state:           r.State || '',
+              acct:            area.split('\\').pop() || '',
+              isPartner:       true
+            };
+          });
+
+          // Build closed rows
+          var _psClosedRows = _psClosed.map(function(r){
+            var id = r.WorkItemId;
+            var area = (r.Area && r.Area.AreaPath) || '';
+            var created = r.CreatedDate;
+            var closed  = r.CompletedDate || r.ChangedDate;
+            var ttr = (created && closed)
+              ? Math.max(0, Math.floor((new Date(closed) - new Date(created)) / 86400000))
+              : null;
+            var analystName = _psResolveEmail(_psCommentMap[id])
+              || _psWrvClosedMap[id]
+              || 'Undefined - Partner Support';
+            return {
+              id:      String(id),
+              title:   r.Title || '',
+              c:       analystName,
+              created: dStr(created),
+              closed:  dStr(closed),
+              age:     ttr,
+              resp:    null,
+              solo:    1,
+              mainCat: '',
+              subCat:  '',
+              region:  regionFromArea(area, c.project),
+              acct:    area.split('\\').pop() || '',
+              teams:   [],
+              isPartner: true
+            };
+          });
+
+          active    = (active    || []).concat(_psActiveRows);
+          closedArr = (closedArr || []).concat(_psClosedRows);
+          lf('Partner Support: injected ' + _psActiveRows.length + ' active + ' + _psClosedRows.length + ' closed.');
+        } catch(_psMainErr) {
+          lf('Partner Support: failed — ' + (_psMainErr.message || _psMainErr));
         }
 
         lf('Injecting into dashboard…');
