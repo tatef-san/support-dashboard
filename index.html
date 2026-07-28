@@ -13570,40 +13570,38 @@ if(window.opener&&!window.opener.closed){
         });
         lf('Closed ticket attribution: fixed ' + _closedFixed + ' unresolved entries.');
 
-        // WorkItemRevisions: closure-moment attribution — AssignedTo at the exact revision
-        // where State became Done/Cancelled. This is the frozen snapshot and the primary
-        // source of truth for all closed tickets, regardless of current CRM ownership.
+        // WorkItemRevisions: closure-moment attribution using $apply groupby.
+        // Groups by (WorkItemId, AssignedTo/UserName) and takes min(RevisedDate) — this
+        // collapses ~40k rows to ~4k and selects the FIRST Done/Cancelled revision per
+        // ticket (the actual closure transition, before any account-transfer field edits).
         try {
           lf('WorkItemRevisions: fetching closure-moment attribution…');
-          var _wrvBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          var _wrvUrl  = _wrvBase
-            + '?$select=' + encodeURIComponent('WorkItemId,State,RevisedDate')
-            + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName)')
-            + '&$filter=' + encodeURIComponent(
-                "WorkItemType eq 'Ticket'" +
-                " and (State eq 'Done' or State eq 'Cancelled')" +
-                " and Custom_ProjectReleaseVersion ne null" +
-                " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
-                " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
-                " and RevisedDate ge 2026-01-01T00:00:00Z"
-              );
-          var _wrvRows = await window._fetchODataAll(_wrvUrl, lf);
-          lf('WorkItemRevisions: ' + _wrvRows.length + ' closure revisions received.');
-          // Keep only the LAST Done/Cancelled revision per ticket (handles re-openings)
+          var _wrvBase  = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
+          var _wrvApply = "filter(WorkItemType eq 'Ticket'" +
+            " and (State eq 'Done' or State eq 'Cancelled')" +
+            " and RevisedDate ge 2026-01-01T00:00:00Z)" +
+            "/groupby((WorkItemId,AssignedTo/UserName),aggregate(RevisedDate with min as FirstClosed))";
+          var _wrvUrl   = _wrvBase + '?$apply=' + encodeURIComponent(_wrvApply);
+          var _wrvRows  = await window._fetchODataAll(_wrvUrl, lf);
+          lf('WorkItemRevisions: ' + _wrvRows.length + ' rows (grouped by ticket + analyst).');
+          // Per ticket: pick the row with the earliest FirstClosed — that is the closure-
+          // transition moment, before any post-closure account transfers changed AssignedTo.
           var _wrvMap = {};
           _wrvRows.forEach(function(rv) {
-            var existing = _wrvMap[rv.WorkItemId];
-            if (!existing || rv.RevisedDate > existing.RevisedDate) _wrvMap[rv.WorkItemId] = rv;
+            var id   = rv.WorkItemId;
+            var user = (rv.AssignedTo && rv.AssignedTo.UserName) || rv['AssignedTo/UserName'] || '';
+            var dt   = rv.FirstClosed || rv.RevisedDate || '';
+            if (!id || !user) return;
+            var ex = _wrvMap[id];
+            if (!ex || dt < ex.dt) _wrvMap[id] = { dt: dt, user: user };
           });
           var _wrvFixed = 0;
           (closedArr || []).forEach(function(row) {
-            var rv = _wrvMap[+row.id];
-            if (!rv) return;
-            var raw = (rv.AssignedTo && rv.AssignedTo.UserName) || '';
-            if (!raw) return;
-            var emailKey = raw.toLowerCase().trim();
-            var name = _closedEmailMap[emailKey] || raw;
-            var norm = normalizeAnalystName(name);
+            var d = _wrvMap[+row.id];
+            if (!d) return;
+            var emailKey = d.user.toLowerCase().trim();
+            var name     = _closedEmailMap[emailKey] || d.user;
+            var norm     = normalizeAnalystName(name);
             row.c = (norm && norm !== 'Unassigned') ? norm : (name.indexOf('@') === -1 ? name : 'Unassigned');
             _wrvFixed++;
           });
