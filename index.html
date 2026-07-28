@@ -13577,23 +13577,29 @@ if(window.opener&&!window.opener.closed){
         try {
           lf('WorkItemRevisions: fetching closure-moment attribution…');
           var _wrvBase  = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          // Custom_ServiceConsultant is the correct closure field: it was set when the SA
-          // handled the ticket. Full-snapshot revisions carry it even at Done/Cancelled time,
-          // before account-transfer field edits clear it. AssignedTo is null for most closures.
-          var _wrvApply = "filter(WorkItemType eq 'Ticket'" +
-            " and (State eq 'Done' or State eq 'Cancelled')" +
-            " and Custom_ServiceConsultant ne null" +
-            " and RevisedDate ge 2026-01-01T00:00:00Z)" +
-            "/groupby((WorkItemId,Custom_ServiceConsultant),aggregate(RevisedDate with min as FirstClosed))";
-          var _wrvUrl   = _wrvBase + '?$apply=' + encodeURIComponent(_wrvApply);
-          var _wrvRows  = await window._fetchODataAll(_wrvUrl, lf);
-          lf('WorkItemRevisions: ' + _wrvRows.length + ' rows (grouped by ticket + SC).');
-          // Per ticket: pick the row with the earliest FirstClosed — closure-transition moment.
+          // Plain $filter + $select — no $apply (groupby not supported for custom fields).
+          // Custom_ServiceConsultant ne null keeps only revisions where the SA was set,
+          // which is the closure-moment value before account-transfer edits clear it.
+          var _wrvUrl  = _wrvBase
+            + '?$select=' + encodeURIComponent('WorkItemId,State,RevisedDate,Custom_ServiceConsultant')
+            + '&$filter=' + encodeURIComponent(
+                "WorkItemType eq 'Ticket'" +
+                " and (State eq 'Done' or State eq 'Cancelled')" +
+                " and Custom_ServiceConsultant ne null" +
+                " and Custom_ProjectReleaseVersion ne null" +
+                " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
+                " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
+                " and RevisedDate ge 2026-01-01T00:00:00Z"
+              );
+          var _wrvRows = await window._fetchODataAll(_wrvUrl, lf);
+          lf('WorkItemRevisions: ' + _wrvRows.length + ' rows (Done/Cancelled with SC set).');
+          // Per ticket: keep the FIRST (earliest) Done/Cancelled revision where SC was set.
+          // That is the closure-transition snapshot, before any post-closure account transfers.
           var _wrvMap = {};
           _wrvRows.forEach(function(rv) {
             var id   = rv.WorkItemId;
             var user = rv.Custom_ServiceConsultant || '';
-            var dt   = rv.FirstClosed || rv.RevisedDate || '';
+            var dt   = rv.RevisedDate || '';
             if (!id || !user) return;
             var ex = _wrvMap[id];
             if (!ex || dt < ex.dt) _wrvMap[id] = { dt: dt, user: user };
