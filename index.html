@@ -3117,24 +3117,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       var sN    = rows.reduce(function(s,a){return s+(a.slaN||0);}, 0);
       var mayaN = (window._mayaCsatData||[]).filter(function(r){return inRange(r.d, range);}).length;
       var frtSla = rMetN ? rMet/rMetN : null;
-      // Override frtSla from monthly respTime upload Total row if available
       var avgResp = null;
-      if (mi != null && mi >= 0 && mi <= 11) {
-        var _ups = loadUploads();
-        var _upKey = makeUploadKey('respTime', 'Monthly', String(mi).padStart(2,'0'));
-        if (_ups[_upKey]) {
-          var _tr = _ups[_upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
-          if (_tr && typeof _tr.avgHours === 'number') avgResp = _tr.avgHours;
-          if (_tr && typeof _tr.slaPct === 'number') {
-            frtSla = _tr.slaPct;
-          } else {
-            var _eTgt = (typeof DATA !== 'undefined' && DATA.targets && DATA.targets.resp) || 2;
-            var _eTix = _ups[_upKey].data.filter(function(r){ return !(/^total$/i.test((r.acct||'').trim())) && r.withResp > 0; });
-            var _eMet = _eTix.filter(function(r){ return typeof r.avgHours === 'number' && r.avgHours <= _eTgt; });
-            if (_eTix.length > 0) frtSla = _eMet.length / _eTix.length;
-          }
-        }
-      }
       var medianResp = null;
       var _rVals = [];
       (DATA.closed||[]).forEach(function(r){
@@ -6924,49 +6907,23 @@ if(window.opener&&!window.opener.closed){
         }
       }
     }
-    const respPick = pickUpload('respTime', period);
-    if (respPick) {
-      // Total row from Power BI export always wins — use it directly regardless of source or local data.
-      const _rTotalRow = respPick.upload.data.find(r => /^total$/i.test((r.acct || '').trim()));
-      if (_rTotalRow && typeof _rTotalRow.avgHours === 'number') {
-        out.resp = _rTotalRow.avgHours;
-      }
-      // FRT SLA %: count per-ticket rows (withResp > 0, not Total) where avgHours <= target
-      if (out.frtSla == null) {
-        if (_rTotalRow && typeof _rTotalRow.slaPct === 'number') {
-          out.frtSla = _rTotalRow.slaPct;
-        } else {
-          const _fTgt = DATA.targets.resp || 2;
-          const _fTix = respPick.upload.data.filter(r => !(/^total$/i.test((r.acct||'').trim())) && r.withResp > 0);
-          const _fMet = _fTix.filter(r => typeof r.avgHours === 'number' && r.avgHours <= _fTgt);
-          if (_fTix.length > 0) out.frtSla = _fMet.length / _fTix.length;
-        }
-      }
-      if (!(_rTotalRow && typeof _rTotalRow.avgHours === 'number')) {
-        // No Total row — fall back to weighted mean only when no better local data exists.
-        const scopeFilter3 = inScopeFilter(region || 'All', analyst || 'All');
-        const hasRespData = range && DATA.closed && DATA.closed.some(r =>
-          inRange(r.closed, range) && scopeFilter3(r.c) && typeof r.resp === 'number'
-        );
-        if (respPick.src === 'period' || !hasRespData) {
-          let closedWiSet = null;
-          if (range && DATA.closed && DATA.closed.length) {
-            closedWiSet = new Set(
-              DATA.closed
-                .filter(r => inRange(r.closed, range) && scopeFilter3(r.c))
-                .map(r => r.id || r.wi)
-                .filter(Boolean)
-            );
-          }
-          let totC = 0, totH = 0;
-          respPick.upload.data.forEach(r => {
-            if (/^total$/i.test((r.acct || '').trim())) return;
-            if (closedWiSet && r.wi != null && !closedWiSet.has(r.wi)) return;
-            const c = r.withResp || 0;
-            if (typeof r.avgHours === 'number' && c > 0) { totH += r.avgHours * c; totC += c; }
-          });
-          if (totC > 0) out.resp = totH / totC;
-        }
+    // Avg response time and FRT SLA % — computed from per-ticket SQL data in DATA.closed.
+    // SQL /api/resp already applies PowerBI filters: no-reopen, not-internal, not-Cancelled,
+    // Customer Support + Partner Support only, business hours (09:00-17:30 NL Mon-Fri).
+    {
+      const scopeFilter3 = inScopeFilter(region || 'All', analyst || 'All');
+      const _fTgt = DATA.targets.resp || 2;
+      let sumH = 0, cntH = 0, metH = 0;
+      (DATA.closed || []).forEach(function(r) {
+        if (range && !inRange(r.closed, range)) return;
+        if (!scopeFilter3(r.c)) return;
+        if (typeof r.resp !== 'number') return;
+        sumH += r.resp; cntH++;
+        if (r.resp <= _fTgt) metH++;
+      });
+      if (cntH > 0) {
+        out.resp = sumH / cntH;
+        if (out.frtSla == null) out.frtSla = metH / cntH;
       }
     }
     return out;
@@ -9673,15 +9630,9 @@ if(window.opener&&!window.opener.closed){
         const mEnd = _yr + '-' + String(mi+1).padStart(2,'0') + '-' + String(lastDay).padStart(2,'0');
         if (mStart > today) return { month: mn, avgH: null, pct2h: null, future: true };
 
-        // avg hours: prefer Total row from monthly upload
+        // avg hours: compute from per-ticket SQL resp data in DATA.closed
         let avgH = null;
-        const upKey = makeUploadKey('respTime', 'Monthly', String(mi).padStart(2,'0'));
-        if (_ups[upKey]) {
-          const tr = _ups[upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
-          if (tr && typeof tr.avgHours === 'number') avgH = tr.avgHours;
-        }
-        // fallback: compute from raw data
-        if (avgH == null && DATA.closed) {
+        if (DATA.closed) {
           let sum = 0, cnt = 0;
           DATA.closed.forEach(function(r) {
             if (!inRange(r.closed, {start:mStart,end:mEnd})) return;
@@ -9691,19 +9642,9 @@ if(window.opener&&!window.opener.closed){
           if (cnt > 0) avgH = sum / cnt;
         }
 
-        // % within 2h: count per-ticket rows from upload, fall back to raw data
+        // % within target: computed from per-ticket SQL resp data in DATA.closed
         let pct2h = null;
-        if (_ups[upKey]) {
-          const _slaTr = _ups[upKey].data.find(function(r){ return /^total$/i.test((r.acct||'').trim()); });
-          if (_slaTr && typeof _slaTr.slaPct === 'number') {
-            pct2h = _slaTr.slaPct;
-          } else {
-            const _cTix = _ups[upKey].data.filter(function(r){ return !(/^total$/i.test((r.acct||'').trim())) && r.withResp > 0; });
-            const _cMet = _cTix.filter(function(r){ return typeof r.avgHours === 'number' && r.avgHours <= _tgtH; });
-            if (_cTix.length > 0) pct2h = _cMet.length / _cTix.length;
-          }
-        }
-        if (pct2h == null && DATA.closed) {
+        if (DATA.closed) {
           let met = 0, tot = 0;
           DATA.closed.forEach(function(r) {
             if (!inRange(r.closed, {start:mStart,end:mEnd})) return;
