@@ -2055,7 +2055,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
           created:  _serialToISO(_num(get('Created date', r))),
           closed:   _serialToISO(_num(get('Closed date', r))),
           age:      _num(get('Age (Days)', r)),
-          resp:     _num(get('Average adjusted response time (Hours)', r)),
+          resp:     null, // per-ticket resp comes from /api/resp (SQL) only — Excel column is analyst-level average, not per-ticket
           solo:     _num(get('Solved alone', r)),
           mainCat:  _str(get('Main category', r)),
           subCat:   _str(get('Sub category', r)),
