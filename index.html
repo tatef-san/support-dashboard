@@ -13652,9 +13652,8 @@ if(window.opener&&!window.opener.closed){
               var d = _caMap[+row.id];
               if (!d) return;
               if (d.analyst) { row.c = d.analyst; _caFixed++; }
-              if (d.resp != null) { row.resp = d.resp; _caResp++; }
             });
-            lf('ClosedAttr: ' + _caFixed + ' analyst overrides, ' + _caResp + ' resp times applied.');
+            lf('ClosedAttr: ' + _caFixed + ' analyst overrides applied (resp handled by /api/resp).');
           } else {
             lf('ClosedAttr: HTTP ' + _caRaw.status + ' — using OData attribution.');
           }
