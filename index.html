@@ -4791,10 +4791,20 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     return resp.json();
   }
 
-  // ── ADO Analytics OData fetch (Bearer token only — PAT blocked by CORS) ─────
+  // ── ADO Analytics OData fetch — Bearer token preferred, PAT fallback ────────
   async function adoODataFetch(url) {
-    if (!window._adoAccessToken) throw new Error('Sign in with Microsoft to sync — the Analytics OData endpoint requires a Bearer token (PAT is blocked by CORS)');
-    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + window._adoAccessToken, 'Accept': 'application/json' } });
+    var authHeader;
+    if (window._adoAccessToken) {
+      authHeader = 'Bearer ' + window._adoAccessToken;
+    } else {
+      // Fall back to PAT if no Bearer token
+      var _pat = '';
+      try { var _pc = JSON.parse(localStorage.getItem('ado_cfg_v3') || '{}'); _pat = _pc.pat || ''; } catch(e) {}
+      if (!_pat) _pat = localStorage.getItem('adoPAT') || '';
+      if (!_pat) throw new Error('No ADO credentials — sign in with Microsoft or configure a PAT in Settings');
+      authHeader = 'Basic ' + btoa(':' + _pat);
+    }
+    const r = await fetch(url, { headers: { 'Authorization': authHeader, 'Accept': 'application/json' } });
     if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('OData ' + r.status + (t ? ': ' + t.slice(0,120) : '')); }
     return r.json();
   }
@@ -13979,7 +13989,8 @@ if(window.opener&&!window.opener.closed){
           }
         }
       } catch(e) {
-        setStatus('error','Sync failed');
+        var _errShort = (e.message || 'Unknown error').slice(0, 120);
+        setStatus('error','Sync failed: ' + _errShort);
         lf('✗ '+e.message);
         if (fromModal) {
           var msg2 = document.getElementById('adoModalStatus');
@@ -14741,20 +14752,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function _setStatus(msg) { var el = document.getElementById('msalStatus'); if (el) el.textContent = msg; }
 
-  // Acquire ADO Bearer token silently; schedule refresh 5 min before expiry
+  // Acquire ADO Bearer token silently; fall back to interactive popup if silent fails
   function _acquireAdoToken(account) {
     var app = _initMsal();
     if (!app) return Promise.resolve();
+    function _storeToken(result) {
+      if (result && result.accessToken) {
+        window._adoAccessToken = result.accessToken;
+        var expiry = result.expiresOn ? result.expiresOn.getTime() : (Date.now() + 3600000);
+        var refreshIn = Math.max(60000, expiry - Date.now() - 300000);
+        setTimeout(function() { _acquireAdoToken(account); }, refreshIn);
+      }
+    }
     return app.acquireTokenSilent({ scopes: [_ADO_SCOPE], account: account })
-      .then(function(result) {
-        if (result && result.accessToken) {
-          window._adoAccessToken = result.accessToken;
-          var expiry = result.expiresOn ? result.expiresOn.getTime() : (Date.now() + 3600000);
-          var refreshIn = Math.max(60000, expiry - Date.now() - 300000);
-          setTimeout(function() { _acquireAdoToken(account); }, refreshIn);
-        }
-      })
-      .catch(function(e) { console.warn('ADO token silent acquisition failed:', e.message); });
+      .then(_storeToken)
+      .catch(function(e) {
+        console.warn('ADO token silent acquisition failed, trying interactive:', e.message);
+        // Silent failed — try interactive popup so user can consent to ADO scope
+        return app.acquireTokenPopup({ scopes: [_ADO_SCOPE] })
+          .then(_storeToken)
+          .catch(function(e2) {
+            console.warn('ADO token interactive acquisition also failed:', e2.message);
+            // Leave _adoAccessToken unset — sync will surface the error
+          });
+      });
   }
 
   function _doAuth(account) {
