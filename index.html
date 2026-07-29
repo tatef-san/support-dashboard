@@ -13315,8 +13315,11 @@ if(window.opener&&!window.opener.closed){
           var _ato2 = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
           if (_ato2 && !_isNonAnalyst(_ato2)) analystRaw = _ato2;
           else {
+            // Only accept ChangedBy if the display name is a known SA in NAME_ALIASES.
+            // This prevents customer display names from being mistaken for analysts.
             var _cby = fv(item, 'System.ChangedBy') || '';
-            analystRaw = (_cby && !_isNonAnalyst(_cby)) ? _cby : '';
+            var _cbyNorm = _cby ? NAME_ALIASES[_cby.toLowerCase().trim()] : null;
+            analystRaw = _cbyNorm || '';
           }
         }
         var analystName = normalizeAnalystName(analystRaw);
