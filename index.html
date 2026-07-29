@@ -13314,7 +13314,10 @@ if(window.opener&&!window.opener.closed){
         if (_isNonAnalyst(analystRaw)) {
           var _ato2 = fv(item, 'System.AssignedTo') || fv(item, c.fldAnalyst) || '';
           if (_ato2 && !_isNonAnalyst(_ato2)) analystRaw = _ato2;
-          else analystRaw = '';
+          else {
+            var _cby = fv(item, 'System.ChangedBy') || '';
+            analystRaw = (_cby && !_isNonAnalyst(_cby)) ? _cby : '';
+          }
         }
         var analystName = normalizeAnalystName(analystRaw);
         _closedNameCounts[analystName] = (_closedNameCounts[analystName] || 0) + 1;
@@ -13440,7 +13443,7 @@ if(window.opener&&!window.opener.closed){
           lf('Querying Customer Support tickets via OData Analytics…');
           var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
           var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
-          var _odataExp  = 'AssignedTo($select=UserName),Area($select=AreaPath)';
+          var _odataExp  = 'AssignedTo($select=UserName),ChangedBy($select=UserName),Area($select=AreaPath)';
           var _odataFlt  = "WorkItemType eq 'Ticket'" +
             " and Custom_ProjectReleaseVersion ne null" +
             " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
@@ -13472,6 +13475,7 @@ if(window.opener&&!window.opener.closed){
               'System.ResolvedDate':endD,
               'System.ClosedDate':  endD,
               'System.AssignedTo':  (r.AssignedTo && r.AssignedTo.UserName) || '',
+              'System.ChangedBy':   (r.ChangedBy && r.ChangedBy.UserName) || '',
               'System.AreaPath':    (r.Area && r.Area.AreaPath) || '',
               'Custom.ServiceConsultant':  r.Custom_ServiceConsultant || '',
               'Custom.TicketMainCategory': r.Custom_TicketMainCategory || '',
