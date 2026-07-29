@@ -9755,9 +9755,10 @@ if(window.opener&&!window.opener.closed){
     // Avg & Median response time per analyst — computed from `rows` (in-scope closed tickets)
     (function(){
       const tgt = DATA.targets.resp || 2;
+      const _knownAnalysts = new Set((DATA.roster || []).map(function(r){ return r[0]; }));
       const aMap = {};
       rows.forEach(function(r) {
-        if (!r.c) return;
+        if (!r.c || !_knownAnalysts.has(r.c)) return;
         const a = aMap[r.c] = aMap[r.c] || { closed: 0, respVals: [], within: 0 };
         a.closed++;
         if (typeof r.resp === 'number') {
