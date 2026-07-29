@@ -13603,36 +13603,63 @@ if(window.opener&&!window.opener.closed){
           lf('ClosedSQL: not available — ' + (_sqlCErr.message||''));
         }
 
-        // WorkItemRevisions: last-AssignedTo before closure.
-        // Custom_ServiceConsultant is always null at Done/Cancelled revisions (cleared by ADO on close).
-        // Instead: fetch all revisions where AssignedTo is set, take the LAST per ticket.
-        // That is the analyst who was actively assigned just before the ticket was closed.
+        // WorkItemRevisions: use Custom_ServiceConsultant (permanent SA record, survives routing/transfers).
+        // Primary: last revision where Custom_ServiceConsultant is set per ticket.
+        // Fallback: if < 100 rows returned, use last AssignedTo (old approach).
         try {
-          lf('WorkItemRevisions: fetching last-assignee attribution…');
-          var _wrvBase  = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          var _wrvUrl  = _wrvBase
-            + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate')
-            + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName)')
+          lf('WorkItemRevisions: fetching Custom_ServiceConsultant attribution…');
+          var _wrvBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
+          var _wrvUrlSC = _wrvBase
+            + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,Custom_ServiceConsultant')
             + '&$filter=' + encodeURIComponent(
                 "WorkItemType eq 'Ticket'" +
-                " and AssignedTo/UserName ne null" +
+                " and Custom_ServiceConsultant ne null" +
                 " and Custom_ProjectReleaseVersion ne null" +
                 " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
                 " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
                 " and RevisedDate ge 2026-01-01T00:00:00Z"
               );
-          var _wrvRows = await window._fetchODataAll(_wrvUrl, lf);
-          lf('WorkItemRevisions: ' + _wrvRows.length + ' rows (revisions with AssignedTo set).');
-          // Per ticket: keep the LAST revision where AssignedTo is set — the analyst working it at close.
+          var _wrvRowsSC = await window._fetchODataAll(_wrvUrlSC, lf);
+          lf('WorkItemRevisions: ' + _wrvRowsSC.length + ' rows with Custom_ServiceConsultant set.');
+
           var _wrvMap = {};
-          _wrvRows.forEach(function(rv) {
-            var id   = rv.WorkItemId;
-            var user = (rv.AssignedTo && rv.AssignedTo.UserName) ? rv.AssignedTo.UserName : '';
-            var dt   = rv.RevisedDate || '';
-            if (!id || !user) return;
-            var ex = _wrvMap[id];
-            if (!ex || dt > ex.dt) _wrvMap[id] = { dt: dt, user: user };
-          });
+          if (_wrvRowsSC.length >= 100) {
+            // Primary path — Custom_ServiceConsultant
+            _wrvRowsSC.forEach(function(rv) {
+              var id = rv.WorkItemId;
+              var sc = (rv.Custom_ServiceConsultant || '').trim();
+              var dt = rv.RevisedDate || '';
+              if (!id || !sc) return;
+              var ex = _wrvMap[id];
+              if (!ex || dt > ex.dt) _wrvMap[id] = { dt: dt, user: sc };
+            });
+            lf('WorkItemRevisions: built map from Custom_ServiceConsultant (' + Object.keys(_wrvMap).length + ' tickets).');
+          } else {
+            // Fallback path — last AssignedTo
+            lf('WorkItemRevisions: Custom_ServiceConsultant too sparse, falling back to AssignedTo…');
+            var _wrvUrlAT = _wrvBase
+              + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate')
+              + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName)')
+              + '&$filter=' + encodeURIComponent(
+                  "WorkItemType eq 'Ticket'" +
+                  " and AssignedTo/UserName ne null" +
+                  " and Custom_ProjectReleaseVersion ne null" +
+                  " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
+                  " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
+                  " and RevisedDate ge 2026-01-01T00:00:00Z"
+                );
+            var _wrvRowsAT = await window._fetchODataAll(_wrvUrlAT, lf);
+            lf('WorkItemRevisions: ' + _wrvRowsAT.length + ' rows (AssignedTo fallback).');
+            _wrvRowsAT.forEach(function(rv) {
+              var id   = rv.WorkItemId;
+              var user = (rv.AssignedTo && rv.AssignedTo.UserName) ? rv.AssignedTo.UserName : '';
+              var dt   = rv.RevisedDate || '';
+              if (!id || !user) return;
+              var ex = _wrvMap[id];
+              if (!ex || dt > ex.dt) _wrvMap[id] = { dt: dt, user: user };
+            });
+          }
+
           var _wrvFixed = 0;
           (closedArr || []).forEach(function(row) {
             var cur = (row.c || '').trim();
@@ -13644,7 +13671,7 @@ if(window.opener&&!window.opener.closed){
             row.c = (norm && norm !== 'Unassigned') ? norm : (name.indexOf('@') === -1 ? name : 'Unassigned');
             _wrvFixed++;
           });
-          lf('WorkItemRevisions: applied last-assignee attribution to ' + _wrvFixed + ' / ' + (closedArr||[]).length + ' tickets.');
+          lf('WorkItemRevisions: applied attribution to ' + _wrvFixed + ' / ' + (closedArr||[]).length + ' tickets.');
         } catch(_wrvErr) {
           lf('WorkItemRevisions: not available — ' + (_wrvErr.message || _wrvErr));
         }
