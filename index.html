@@ -13676,6 +13676,27 @@ if(window.opener&&!window.opener.closed){
           lf('WorkItemRevisions: not available — ' + (_wrvErr.message || _wrvErr));
         }
 
+        // EMBEDDED attribution override: use the hardcoded PowerBI snapshot (EMBEDDED.closed)
+        // to fix tickets where WRV returned 'Customer' or 'Unassigned' because the ticket was
+        // in "On Customer" state when closed. EMBEDDED preserves Custom_ServiceConsultant values
+        // from before ADO clears them on closure — it is the authoritative source for those tickets.
+        try {
+          var _embMap = {};
+          var _embSrc = (typeof EMBEDDED !== 'undefined' && EMBEDDED.closed) ? EMBEDDED.closed : [];
+          _embSrc.forEach(function(r) {
+            if (r.wi && r.c && r.c !== 'Unassigned') _embMap[String(r.wi)] = r.c;
+          });
+          var _embFixed = 0;
+          (closedArr || []).forEach(function(row) {
+            var cur = (row.c || '').trim();
+            // Only override weak attributions (Customer, Unassigned, empty, or email-format)
+            if (cur && cur !== 'Unassigned' && cur !== 'Customer' && cur.indexOf('@') === -1) return;
+            var embName = _embMap[String(row.id)];
+            if (embName && embName !== 'Unassigned') { row.c = embName; _embFixed++; }
+          });
+          lf('EMBEDDEDOverride: fixed ' + _embFixed + ' / ' + (closedArr||[]).length + ' tickets (map: ' + Object.keys(_embMap).length + ').');
+        } catch(_embErr) { lf('EMBEDDEDOverride: error — ' + (_embErr.message || _embErr)); }
+
         // SQL closedattr: override row.c (last-SC-before-close) and row.resp for 2026 tickets.
         // Corrects attribution skewed by account-ownership transfers — runs AFTER _closedEmailMap
         // so SQL wins. Falls back gracefully if the API is not running.
