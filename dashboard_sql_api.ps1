@@ -102,6 +102,11 @@ WITH src AS (
     AND  ai.State      <> 'Cancelled'
     AND  vr.FirstResponseUTC IS NOT NULL
     AND  vr.CreatedUTC >= '2026-01-01'
+    AND  vr.WorkItemId IN (
+           SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
+           WHERE  (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
+             AND  ProjectReleaseVersion NOT LIKE '%wishlist%'
+         )
     AND  NOT EXISTS (
            SELECT 1 FROM AzureDevops_Issue_Revision rev
            WHERE  rev.WorkItemId = vr.WorkItemId
