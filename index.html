@@ -13294,14 +13294,7 @@ if(window.opener&&!window.opener.closed){
           created: dStr(created),
           closed:  dStr(closed),
           age:     age,
-          resp:    (function(){
-                     if (c.fldResp) { var v=parseFloat(fv(item,c.fldResp)); if(v>0) return v; }
-                     var rh=parseFloat(fv(item,'Custom.ResponseTimeHours')); if(rh>0) return rh;
-                     var rd=parseFloat(fv(item,'Custom.ResponseTimeDays')); if(rd>0) return rd*24;
-                     if(f['System.ActivatedDate']&&f['System.CreatedDate'])
-                       return Math.max(0,(new Date(f['System.ActivatedDate'])-new Date(f['System.CreatedDate']))/3600000);
-                     return null;
-                   })(),
+          resp:    null, // resp comes from /api/resp (SQL) only — OData calendar-hours fallback is inaccurate
           solo:    1,
           mainCat: fv(item, c.fldCat)    || '',
           subCat:  fv(item, c.fldSubCat) || '',

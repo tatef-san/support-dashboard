@@ -153,11 +153,11 @@ WITH state_changes AS (
     WHERE  r.Field = 'System.State'
       AND  LOWER(r.Value) IN ('done','cancelled')
       AND  r.WorkItemId IN (
-               SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems
-               WHERE  Type IN ('Ticket','TicketSimple')
+               SELECT IssueId FROM AzureDevops_Issue
+               WHERE  IssueType IN ('Ticket','TicketSimple')
+                 AND  IsInternal = 'False'
                  AND  (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion = 'Partner Support')
                  AND  ProjectReleaseVersion NOT LIKE '%wishlist%'
-                 AND  CreatedDateUTC >= '2026-01-01'
            )
     GROUP BY r.WorkItemId
 ),
