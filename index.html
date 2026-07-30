@@ -3120,8 +3120,8 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       var avgResp = null;
       var medianResp = null;
       var _rVals = [];
-      (DATA.closed||[]).forEach(function(r){
-        if (!inRange(r.closed, range) || typeof r.resp !== 'number') return;
+      ((DATA.closed||[]).concat(DATA.active||[])).forEach(function(r){
+        if (!inRange(r.created, range) || typeof r.resp !== 'number') return;
         _rVals.push(r.resp);
       });
       if (_rVals.length > 0) {
@@ -6907,15 +6907,14 @@ if(window.opener&&!window.opener.closed){
         }
       }
     }
-    // Avg response time and FRT SLA % — computed from per-ticket SQL data in DATA.closed.
-    // SQL /api/resp already applies PowerBI filters: no-reopen, not-internal, not-Cancelled,
-    // Customer Support + Partner Support only, business hours (09:00-17:30 NL Mon-Fri).
+    // Avg response time and FRT SLA % — active + closed, filtered by created date (matches PowerBI).
+    // PowerBI: State <> Cancelled (includes active), USERELATIONSHIP on Created_date.
     {
       const scopeFilter3 = inScopeFilter(region || 'All', analyst || 'All');
       const _fTgt = DATA.targets.resp || 2;
       let sumH = 0, cntH = 0, metH = 0;
-      (DATA.closed || []).forEach(function(r) {
-        if (range && !inRange(r.closed, range)) return;
+      ((DATA.closed || []).concat(DATA.active || [])).forEach(function(r) {
+        if (range && !inRange(r.created, range)) return;
         if (!scopeFilter3(r.c)) return;
         if (typeof r.resp !== 'number') return;
         sumH += r.resp; cntH++;
@@ -9048,6 +9047,16 @@ if(window.opener&&!window.opener.closed){
     return DATA.closed.filter(r => inRange(r.closed, range) && inScope(r.c));
   }
 
+  // Response time scope: active + closed, filtered by CREATED date (matches PowerBI).
+  // PowerBI uses USERELATIONSHIP on Created_date and includes all non-Cancelled states.
+  function respAllInScope(range, region, analyst) {
+    const rosterSet = rosterNames(region);
+    const inScope = name => (region === 'All' || rosterSet.has(name)) && (analyst === 'All' || analyst === name);
+    return (DATA.closed || []).concat(DATA.active || []).filter(function(r) {
+      return inRange(r.created, range) && inScope(r.c);
+    });
+  }
+
   // ---- One stat card for the active scope ----
   function statCardSingle(label, val, sub, focus) {
     return '<div class="stat-card' + (focus ? ' focus' : '') + '" style="' + (focus ? 'border-color:var(--primary);' : '') + '">' +
@@ -9590,7 +9599,7 @@ if(window.opener&&!window.opener.closed){
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const supportMaps = buildSupportTypeMaps();
-    const rows = closedInScope(range, region, analyst);
+    const rows = respAllInScope(range, region, analyst);
 
     function avg(arr) {
       const s = arr.filter(x => typeof x === 'number');
@@ -9630,24 +9639,26 @@ if(window.opener&&!window.opener.closed){
         const mEnd = _yr + '-' + String(mi+1).padStart(2,'0') + '-' + String(lastDay).padStart(2,'0');
         if (mStart > today) return { month: mn, avgH: null, pct2h: null, future: true };
 
-        // avg hours: compute from per-ticket SQL resp data in DATA.closed
+        // avg hours: active + closed filtered by created date (matches PowerBI)
         let avgH = null;
-        if (DATA.closed) {
+        {
+          const _allT = (DATA.closed || []).concat(DATA.active || []);
           let sum = 0, cnt = 0;
-          DATA.closed.forEach(function(r) {
-            if (!inRange(r.closed, {start:mStart,end:mEnd})) return;
+          _allT.forEach(function(r) {
+            if (!inRange(r.created, {start:mStart,end:mEnd})) return;
             if (typeof r.resp !== 'number') return;
             sum += r.resp; cnt++;
           });
           if (cnt > 0) avgH = sum / cnt;
         }
 
-        // % within target: computed from per-ticket SQL resp data in DATA.closed
+        // % within target: active + closed filtered by created date (matches PowerBI)
         let pct2h = null;
-        if (DATA.closed) {
+        {
+          const _allT = (DATA.closed || []).concat(DATA.active || []);
           let met = 0, tot = 0;
-          DATA.closed.forEach(function(r) {
-            if (!inRange(r.closed, {start:mStart,end:mEnd})) return;
+          _allT.forEach(function(r) {
+            if (!inRange(r.created, {start:mStart,end:mEnd})) return;
             if (typeof r.resp !== 'number') return;
             tot++; if (r.resp <= _tgtH) met++;
           });
@@ -9781,7 +9792,7 @@ if(window.opener&&!window.opener.closed){
       if (!analystRows.length) { $('rspRespDetail').innerHTML = '<div class="cat-empty">no response time data</div>'; return; }
       let html = '<table class="acct-table"><thead><tr>'
         + '<th>Analyst</th>'
-        + '<th class="num">Closed</th>'
+        + '<th class="num">Tickets</th>'
         + '<th class="num">With resp.</th>'
         + '<th class="num">Avg (h)</th>'
         + '<th class="num">Median (h)</th>'
@@ -13875,13 +13886,13 @@ if(window.opener&&!window.opener.closed){
             var _respMap = {};
             (_respJson.rows || []).forEach(function(r){ if (r.id != null) _respMap[String(r.id)] = r.resp; });
             var _respN = 0;
-            D.closed.forEach(function(row) {
+            (D.closed || []).concat(D.active || []).forEach(function(row) {
               var _wi = String(row.wi != null ? row.wi : (row.id || ''));
               if (!_wi) return;
               var _rt = _respMap[_wi];
               if (_rt != null) { row.resp = _rt; _respN++; }
             });
-            lf('FRT: applied response times to ' + _respN + ' / ' + D.closed.length + ' closed tickets.');
+            lf('FRT: applied response times to ' + _respN + ' tickets (active + closed).');
           } else {
             lf('FRT: /api/resp HTTP ' + _respRaw.status);
           }
