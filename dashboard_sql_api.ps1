@@ -560,7 +560,7 @@ try {
                     $pcCs = "Server=$Server;Database=sphere_sana_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
                     $pcConn = New-Object System.Data.SqlClient.SqlConnection($pcCs); $pcConn.Open()
                     $pcSql = @"
-SELECT c.WorkItemId AS id, c.RevisedByEmail AS email
+SELECT WorkItemId AS id, RevisedByEmail AS email
 FROM (
     SELECT WorkItemId, RevisedByEmail,
            ROW_NUMBER() OVER (PARTITION BY WorkItemId ORDER BY DateCreated DESC) AS rn
