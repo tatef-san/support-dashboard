@@ -13901,25 +13901,6 @@ if(window.opener&&!window.opener.closed){
           lf('FRT: /api/resp not available.');
         }
 
-        // Comment counts: POST the WI IDs we actually have so the server only queries those tickets
-        try {
-          var _ccWIs = [];
-          (D.active || []).forEach(function(t){ if (t.wi) _ccWIs.push(t.wi); });
-          (D.closed || []).forEach(function(r){ if (r.wi) _ccWIs.push(r.wi); });
-          var _ccUniq = _ccWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
-          lf('CommentCounts: querying ' + _ccUniq.length + ' tickets...');
-          var _ccRaw = await fetch('http://localhost:3012/api/commentcounts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: _ccUniq })
-          });
-          if (_ccRaw.ok) {
-            var _ccJson = await _ccRaw.json();
-            D.commentCounts = {};
-            (_ccJson.rows || []).forEach(function(r){ if (r.id != null) D.commentCounts[String(r.id)] = r.n; });
-            lf('CommentCounts: loaded ' + Object.keys(D.commentCounts).length + ' tickets.');
-          } else { lf('CommentCounts: HTTP ' + _ccRaw.status); }
-        } catch(_ccErr) { lf('CommentCounts: not available — ' + (_ccErr.message||'')); }
 
         // Persist closed tickets to IDB so they survive page reload
         if (window._dashSaveUploads && window._dashLoadUploads) {
@@ -13961,6 +13942,31 @@ if(window.opener&&!window.opener.closed){
             throw renderErr;
           }
         }
+
+        // Comment counts: fetch AFTER render so DATA.closed has .wi from resolveDataForPeriod
+        (async function() {
+          try {
+            var _ccWIs = [];
+            (DATA.active || []).forEach(function(t){ if (t.wi) _ccWIs.push(t.wi); });
+            (DATA.closed || []).forEach(function(r){ if (r.wi) _ccWIs.push(r.wi); });
+            var _ccUniq = _ccWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
+            if (_ccUniq.length === 0) { lf('CommentCounts: no tickets to query.'); return; }
+            lf('CommentCounts: querying ' + _ccUniq.length + ' tickets...');
+            var _ccRaw = await fetch('http://localhost:3012/api/commentcounts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids: _ccUniq })
+            });
+            if (_ccRaw.ok) {
+              var _ccJson = await _ccRaw.json();
+              DATA.commentCounts = {};
+              (_ccJson.rows || []).forEach(function(r){ if (r.id != null) DATA.commentCounts[String(r.id)] = r.n; });
+              lf('CommentCounts: loaded ' + Object.keys(DATA.commentCounts).length + ' tickets.');
+              if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
+            } else { lf('CommentCounts: HTTP ' + _ccRaw.status); }
+          } catch(_ccErr) { lf('CommentCounts: not available — ' + (_ccErr.message||'')); }
+        })();
+
       } catch(e) {
         var _errShort = (e.message || 'Unknown error').slice(0, 120);
         setStatus('error','Sync failed: ' + _errShort);
