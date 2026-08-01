@@ -13297,6 +13297,7 @@ if(window.opener&&!window.opener.closed){
         _closedNameCounts[analystName] = (_closedNameCounts[analystName] || 0) + 1;
         return {
           id:      String(f['System.Id'] || ''),
+          wi:      f['System.Id'] ? Number(f['System.Id']) : null,
           title:   f['System.Title'] || '',
           c:       analystName,
           created: dStr(created),
@@ -13304,6 +13305,7 @@ if(window.opener&&!window.opener.closed){
           age:     age,
           resp:    null, // resp comes from /api/resp (SQL) only — OData calendar-hours fallback is inaccurate
           solo:    1,
+          comments: f['System.CommentCount'] != null ? Number(f['System.CommentCount']) : null,
           mainCat: fv(item, c.fldCat)    || '',
           subCat:  fv(item, c.fldSubCat) || '',
           region:  c.fldRegion ? (fv(item,c.fldRegion) || regionFromArea(f['System.AreaPath'],c.project)) : regionFromArea(f['System.AreaPath'],c.project),
