@@ -13901,10 +13901,18 @@ if(window.opener&&!window.opener.closed){
           lf('FRT: /api/resp not available.');
         }
 
-        // Comment counts: number of System.History entries per ticket (= comment rounds)
+        // Comment counts: POST the WI IDs we actually have so the server only queries those tickets
         try {
-          lf('CommentCounts: fetching from /api/commentcounts...');
-          var _ccRaw = await fetch('http://localhost:3012/api/commentcounts');
+          var _ccWIs = [];
+          (D.active || []).forEach(function(t){ if (t.wi) _ccWIs.push(t.wi); });
+          (D.closed || []).forEach(function(r){ if (r.wi) _ccWIs.push(r.wi); });
+          var _ccUniq = _ccWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
+          lf('CommentCounts: querying ' + _ccUniq.length + ' tickets...');
+          var _ccRaw = await fetch('http://localhost:3012/api/commentcounts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: _ccUniq })
+          });
           if (_ccRaw.ok) {
             var _ccJson = await _ccRaw.json();
             D.commentCounts = {};

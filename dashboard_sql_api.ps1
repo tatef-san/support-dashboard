@@ -469,24 +469,38 @@ try {
                 $body = '{"count":' + $actDt.Rows.Count + ',"source":"prisma_sql","rows":[' + $jsonRows + ']}'
                 Write-Host "$ts GET /api/active → $($actDt.Rows.Count) tickets" -ForegroundColor Green
             }
-            elseif ($path -eq "/api/commentcounts") {
-                Write-Host "$ts GET /api/commentcounts — querying revision DB..." -ForegroundColor Yellow
-                $ccDt = New-Object System.Data.DataTable
-                $ccCs = "Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
-                $ccConn = New-Object System.Data.SqlClient.SqlConnection($ccCs); $ccConn.Open()
-                $ccCmd = $ccConn.CreateCommand()
-                $ccCmd.CommandText = "SELECT WorkItemId, COUNT(*) AS CommentCount FROM AzureDevops_Issue_Revision WHERE Field = 'System.History' AND ChangedDateUTC >= '2026-01-01' GROUP BY WorkItemId"
-                $ccCmd.CommandTimeout = 60
-                $ccDa = New-Object System.Data.SqlClient.SqlDataAdapter($ccCmd)
-                $ccDa.Fill($ccDt) | Out-Null
-                $ccConn.Close()
-                $ccParts = @()
-                foreach ($ccRow in $ccDt.Rows) {
-                    $ccParts += '{"id":"' + ($ccRow['WorkItemId'] -as [string]) + '","n":' + ($ccRow['CommentCount'] -as [string]) + '}'
+            elseif ($path -eq "/api/commentcounts" -and $req.HttpMethod -eq "POST") {
+                Write-Host "$ts POST /api/commentcounts — targeted query..." -ForegroundColor Yellow
+                $ccBodyRdr = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+                $ccBodyText = $ccBodyRdr.ReadToEnd()
+                $ccIds = ($ccBodyText | ConvertFrom-Json).ids
+                if (-not $ccIds -or $ccIds.Count -eq 0) {
+                    $body = '{"rows":[]}'
+                } else {
+                    $ccIdList = ($ccIds | ForEach-Object { [int]$_ }) -join ','
+                    $ccCs = "Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
+                    $ccConn = New-Object System.Data.SqlClient.SqlConnection($ccCs); $ccConn.Open()
+                    $ccCmd = $ccConn.CreateCommand()
+                    $ccCmd.CommandText = "SELECT WorkItemId, COUNT(*) AS CommentCount FROM AzureDevops_Issue_Revision WHERE Field = 'System.History' AND WorkItemId IN ($ccIdList) GROUP BY WorkItemId"
+                    $ccCmd.CommandTimeout = 60
+                    $ccRdr = $ccCmd.ExecuteReader()
+                    $ccSb = New-Object System.Text.StringBuilder
+                    $ccSb.Append('{"rows":[') | Out-Null
+                    $ccFirst = $true; $ccN = 0
+                    while ($ccRdr.Read()) {
+                        if (-not $ccFirst) { $ccSb.Append(',') | Out-Null }
+                        $ccSb.Append('{"id":"') | Out-Null
+                        $ccSb.Append($ccRdr.GetInt32(0)) | Out-Null
+                        $ccSb.Append('","n":') | Out-Null
+                        $ccSb.Append($ccRdr.GetInt32(1)) | Out-Null
+                        $ccSb.Append('}') | Out-Null
+                        $ccFirst = $false; $ccN++
+                    }
+                    $ccRdr.Close(); $ccConn.Close()
+                    $ccSb.Append(']}') | Out-Null
+                    $body = $ccSb.ToString()
                 }
-                $jsonRows = $ccParts -join ','
-                $body = '{"rows":[' + $jsonRows + ']}'
-                Write-Host "$ts GET /api/commentcounts → $($ccDt.Rows.Count) tickets" -ForegroundColor Green
+                Write-Host "$ts POST /api/commentcounts → $ccN tickets" -ForegroundColor Green
             }
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
