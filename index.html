@@ -8766,7 +8766,7 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:6px 10px;color:#6b7280;">' + esc(t.acct || t.account || '-') + '</td>' +
           '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
-          '<td style="padding:6px 10px;text-align:right;color:#6b7280;">' + (DATA.commentCounts ? (DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : '—') : '—') + '</td>' +
+          '<td style="padding:6px 10px;text-align:right;color:#6b7280;">' + (DATA.commentCounts && DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : (t.comments != null ? t.comments : '—')) + '</td>' +
           '</tr>';
       }).join('');
 
@@ -9371,7 +9371,7 @@ if(window.opener&&!window.opener.closed){
           +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.mainCat||'')+'">'+esc(r.mainCat||'—')+'</td>'
           +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.subCat||'')+'">'+esc(r.subCat||'—')+'</td>'
           +'<td style="padding:5px 8px;">'+teamHtml+'</td>'
-          +'<td style="padding:5px 8px;text-align:right;font-size:12px;white-space:nowrap;">'+(DATA.commentCounts ? (DATA.commentCounts[String(r.wi)] != null ? DATA.commentCounts[String(r.wi)] : '—') : '—')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;font-size:12px;white-space:nowrap;">'+(DATA.commentCounts && DATA.commentCounts[String(r.wi)] != null ? DATA.commentCounts[String(r.wi)] : (r.comments != null ? r.comments : '—'))+'</td>'
           +'</tr>';
       });
       var n = sorted.length;
