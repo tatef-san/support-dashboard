@@ -13934,6 +13934,20 @@ if(window.opener&&!window.opener.closed){
         }
 
         localStorage.setItem('ado_last_sync', JSON.stringify({ ts:new Date().toISOString(), active:active.length, closed:closedArr.length }));
+
+        // Pre-populate commentCounts from ADO data BEFORE render.
+        // resolveDataForPeriod() will overwrite DATA.closed with embedded/IDB data,
+        // stripping .comments — but DATA.commentCounts is not in SOURCES so it survives.
+        if (!D.commentCounts) D.commentCounts = {};
+        active.forEach(function(t) {
+          var wi = t.wi || parseInt(t.id || '', 10) || null;
+          if (wi && t.comments != null) D.commentCounts[String(wi)] = t.comments;
+        });
+        closedArr.forEach(function(r) {
+          var wi = r.wi || parseInt(r.id || '', 10) || null;
+          if (wi && r.comments != null) D.commentCounts[String(wi)] = r.comments;
+        });
+
         if (window._dashResolve) window._dashResolve();
         if (window._dashRender) {
           try {
