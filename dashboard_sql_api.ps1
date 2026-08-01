@@ -502,6 +502,45 @@ try {
                 }
                 Write-Host "$ts POST /api/commentcounts → $ccN tickets" -ForegroundColor Green
             }
+            elseif ($path -eq "/api/commentbreakdown" -and $req.HttpMethod -eq "POST") {
+                Write-Host "$ts POST /api/commentbreakdown — author breakdown..." -ForegroundColor Yellow
+                $bdBodyRdr = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+                $bdBodyText = $bdBodyRdr.ReadToEnd()
+                $bdIds = ($bdBodyText | ConvertFrom-Json).ids
+                if (-not $bdIds -or $bdIds.Count -eq 0) {
+                    $body = '{"rows":[]}'
+                } else {
+                    $bdIdList = ($bdIds | ForEach-Object { [int]$_ }) -join ','
+                    $bdCs = "Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
+                    $bdConn = New-Object System.Data.SqlClient.SqlConnection($bdCs); $bdConn.Open()
+                    $bdCmd = $bdConn.CreateCommand()
+                    $bdCmd.CommandText = "SELECT WorkItemId, ChangedBy, COUNT(*) AS n FROM AzureDevops_Issue_Revision WHERE Field = 'System.History' AND WorkItemId IN ($bdIdList) GROUP BY WorkItemId, ChangedBy"
+                    $bdCmd.CommandTimeout = 60
+                    $bdRdr = $bdCmd.ExecuteReader()
+                    $bdSb = New-Object System.Text.StringBuilder
+                    $bdSb.Append('{"rows":[') | Out-Null
+                    $bdFirst = $true; $bdN = 0
+                    while ($bdRdr.Read()) {
+                        if (-not $bdFirst) { $bdSb.Append(',') | Out-Null }
+                        $bdWI = $bdRdr.GetInt32(0)
+                        $bdAuthor = if ($bdRdr.IsDBNull(1)) { '' } else { $bdRdr.GetString(1) }
+                        $bdCount = $bdRdr.GetInt32(2)
+                        $bdAuthorEsc = $bdAuthor.Replace('\','\\').Replace('"','\"').Replace("`r",'').Replace("`n",' ').Replace("`t",' ')
+                        $bdSb.Append('{"id":') | Out-Null
+                        $bdSb.Append($bdWI) | Out-Null
+                        $bdSb.Append(',"a":"') | Out-Null
+                        $bdSb.Append($bdAuthorEsc) | Out-Null
+                        $bdSb.Append('","n":') | Out-Null
+                        $bdSb.Append($bdCount) | Out-Null
+                        $bdSb.Append('}') | Out-Null
+                        $bdFirst = $false; $bdN++
+                    }
+                    $bdRdr.Close(); $bdConn.Close()
+                    $bdSb.Append(']}') | Out-Null
+                    $body = $bdSb.ToString()
+                }
+                Write-Host "$ts POST /api/commentbreakdown → $bdN rows" -ForegroundColor Green
+            }
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
                 $slDt = New-Object System.Data.DataTable

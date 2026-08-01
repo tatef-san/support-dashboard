@@ -8767,6 +8767,7 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
           '<td style="padding:6px 10px;text-align:right;color:#6b7280;">' + (DATA.commentCounts && DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : (t.comments != null ? t.comments : '—')) + '</td>' +
+          '<td style="padding:6px 10px;white-space:nowrap;">' + (DATA.commentBreakdown && DATA.commentBreakdown[String(t.wi||t.id)] ? DATA.commentBreakdown[String(t.wi||t.id)] : '') + '</td>' +
           '</tr>';
       }).join('');
 
@@ -8792,6 +8793,7 @@ if(window.opener&&!window.opener.closed){
                   '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Analyst</th>' +
                   '<th style="padding:7px 10px;text-align:right;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Age</th>' +
                   '<th style="padding:7px 10px;text-align:right;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Comments</th>' +
+                  '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Breakdown</th>' +
                 '</tr></thead>' +
                 '<tbody>' + rowsHtml + '</tbody>' +
               '</table>' +
@@ -9372,6 +9374,7 @@ if(window.opener&&!window.opener.closed){
           +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.subCat||'')+'">'+esc(r.subCat||'—')+'</td>'
           +'<td style="padding:5px 8px;">'+teamHtml+'</td>'
           +'<td style="padding:5px 8px;text-align:right;font-size:12px;white-space:nowrap;">'+(DATA.commentCounts && DATA.commentCounts[String(r.wi)] != null ? DATA.commentCounts[String(r.wi)] : (r.comments != null ? r.comments : '—'))+'</td>'
+          +'<td style="padding:5px 8px;white-space:nowrap;font-size:11px;">'+(DATA.commentBreakdown && DATA.commentBreakdown[String(r.wi)] ? DATA.commentBreakdown[String(r.wi)] : '')+'</td>'
           +'</tr>';
       });
       var n = sorted.length;
@@ -9394,6 +9397,7 @@ if(window.opener&&!window.opener.closed){
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Sub Cat</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Involved Teams</th>'
         +'<th style="padding:7px 8px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Comments</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Breakdown</th>'
         +'</tr></thead>'
         +'<tbody>'+tbody+'</tbody>'
         +'</table>'
@@ -13982,6 +13986,88 @@ if(window.opener&&!window.opener.closed){
               if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
             } else { lf('CommentCounts: HTTP ' + _ccRaw.status); }
           } catch(_ccErr) { lf('CommentCounts: not available — ' + (_ccErr.message||'')); }
+        })();
+
+        // Comment breakdown: classify each comment author into Analyst / System / [Name] / Customer
+        (async function() {
+          try {
+            var _bdWIs = [];
+            (DATA.active || []).forEach(function(t){ if (t.wi) _bdWIs.push(t.wi); });
+            (DATA.closed || []).forEach(function(r){ if (r.wi) _bdWIs.push(r.wi); });
+            var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
+            if (_bdUniq.length === 0) return;
+            lf('CommentBreakdown: querying ' + _bdUniq.length + ' tickets...');
+            var _bdRaw = await fetch('http://localhost:3012/api/commentbreakdown', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ids: _bdUniq})
+            });
+            if (!_bdRaw.ok) { lf('CommentBreakdown: HTTP ' + _bdRaw.status); return; }
+            var _bdJson = await _bdRaw.json();
+
+            // Build analyst name set from NAME_ALIASES
+            var _analystSet = new Set(Object.values(NAME_ALIASES).map(function(n){ return n.toLowerCase(); }));
+
+            // Classify a ChangedBy string into a category + display label
+            function _classify(raw) {
+              var name = (raw || '').trim();
+              var email = '';
+              var em = name.match(/<([^>]+)>/);
+              if (em) { email = em[1].toLowerCase(); name = name.replace(/<[^>]+>/, '').trim(); }
+              var nl = name.toLowerCase();
+              // System / automation
+              if (/migrat|automat|pipeline|noreply|no.reply|service.account|devops.bot|import.bot|release.bot/i.test(name) ||
+                  /migrat|bot@|noreply@/i.test(email)) {
+                return {cat:'system', label:'System'};
+              }
+              // Analyst roster — exact match
+              if (_analystSet.has(nl)) return {cat:'analyst', label:'Analyst'};
+              // Analyst roster — first + last name match (handles middle name differences)
+              var parts = nl.split(/\s+/);
+              if (parts.length >= 2) {
+                for (const _an of _analystSet) {
+                  const _ap = _an.split(/\s+/);
+                  if (_ap.length >= 2 && _ap[0] === parts[0] && _ap[_ap.length-1] === parts[parts.length-1]) {
+                    return {cat:'analyst', label:'Analyst'};
+                  }
+                }
+              }
+              // Internal Sana employee (has sana email)
+              if (email && (email.includes('sana-commerce.com') || email.includes('sanacommerce.com'))) {
+                return {cat:'internal', label: name};
+              }
+              // Not in roster, no Sana email → Customer (external)
+              return {cat:'customer', label:'Customer'};
+            }
+
+            // Aggregate by WI → label → count
+            var _byWI = {};
+            (_bdJson.rows || []).forEach(function(row) {
+              var wi = String(row.id);
+              if (!_byWI[wi]) _byWI[wi] = {};
+              var cls = _classify(row.a);
+              if (!_byWI[wi][cls.label]) _byWI[wi][cls.label] = {n:0, cat:cls.cat};
+              _byWI[wi][cls.label].n += row.n;
+            });
+
+            // Render to HTML strings stored in DATA.commentBreakdown
+            var _catOrder = {analyst:0, internal:1, system:2, customer:3};
+            DATA.commentBreakdown = {};
+            Object.keys(_byWI).forEach(function(wi) {
+              var entries = Object.keys(_byWI[wi]).map(function(label) {
+                return {label: label, n: _byWI[wi][label].n, cat: _byWI[wi][label].cat};
+              }).filter(function(e){ return e.n > 0; }).sort(function(a,b){
+                return (_catOrder[a.cat]||1) - (_catOrder[b.cat]||1) || b.n - a.n;
+              });
+              DATA.commentBreakdown[wi] = entries.map(function(e) {
+                var clr = e.cat==='analyst' ? '#059669' : e.cat==='system' ? '#9ca3af' : e.cat==='customer' ? '#3b82f6' : '#7c3aed';
+                return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + esc(e.label) + '</span>';
+              }).join('<span style="color:#e5e7eb;margin:0 3px">·</span>');
+            });
+
+            lf('CommentBreakdown: ' + Object.keys(DATA.commentBreakdown).length + ' tickets classified.');
+            if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
+          } catch(_bdErr) { lf('CommentBreakdown: not available — ' + (_bdErr.message||'')); }
         })();
 
       } catch(e) {
