@@ -8766,6 +8766,7 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:6px 10px;color:#6b7280;">' + esc(t.acct || t.account || '-') + '</td>' +
           '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
+          '<td style="padding:6px 10px;text-align:right;color:#6b7280;">' + (DATA.commentCounts ? (DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : '—') : '—') + '</td>' +
           '</tr>';
       }).join('');
 
@@ -8790,6 +8791,7 @@ if(window.opener&&!window.opener.closed){
                   '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Account</th>' +
                   '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Analyst</th>' +
                   '<th style="padding:7px 10px;text-align:right;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Age</th>' +
+                  '<th style="padding:7px 10px;text-align:right;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Comments</th>' +
                 '</tr></thead>' +
                 '<tbody>' + rowsHtml + '</tbody>' +
               '</table>' +
@@ -8808,15 +8810,17 @@ if(window.opener&&!window.opener.closed){
       .filter(r => typeof r.age === 'number' && r.age >= minAge && r.age < maxAge)
       .sort((a, b) => b.age - a.age);
     if (!tickets.length) return;
-    const lines = [['WI #', 'Title', 'Account', 'Analyst', 'Age (days)', 'URL'].join(',')];
+    const lines = [['WI #', 'Title', 'Account', 'Analyst', 'Age (days)', 'URL', 'Comments'].join(',')];
     tickets.forEach(t => {
+      const _cmts = DATA.commentCounts ? (DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : '') : '';
       lines.push([
         t.wi || t.id || '',
         '"' + (t.title   || '').replace(/"/g, '""') + '"',
         '"' + (t.acct || t.account || '').replace(/"/g, '""') + '"',
         '"' + (t.c       || '').replace(/"/g, '""') + '"',
         Math.round(t.age || 0),
-        adoTicketUrl(t) || ''
+        adoTicketUrl(t) || '',
+        _cmts
       ].join(','));
     });
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
@@ -9326,9 +9330,10 @@ if(window.opener&&!window.opener.closed){
         return b.closed > a.closed ? 1 : b.closed < a.closed ? -1 : 0;
       });
       window._cloExportCsv = function() {
-        var lines = ['"WI#","Analyst","Account","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams"'];
+        var lines = ['"WI#","Analyst","Account","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams","Comments"'];
         sorted.forEach(function(r) {
           var teams = (mdata[r.wi] && mdata[r.wi].teams && mdata[r.wi].teams.length) ? mdata[r.wi].teams.join('; ') : '';
+          var cmtCount = DATA.commentCounts ? (DATA.commentCounts[String(r.wi)] != null ? DATA.commentCounts[String(r.wi)] : '') : '';
           lines.push([
             r.wi || '',
             '"'+(r.c||'').replace(/"/g,'""')+'"',
@@ -9338,7 +9343,8 @@ if(window.opener&&!window.opener.closed){
             r.age != null ? r.age : '',
             '"'+(r.mainCat||'').replace(/"/g,'""')+'"',
             '"'+(r.subCat||'').replace(/"/g,'""')+'"',
-            '"'+teams.replace(/"/g,'""')+'"'
+            '"'+teams.replace(/"/g,'""')+'"',
+            cmtCount
           ].join(','));
         });
         var blob = new Blob([lines.join('\n')], {type:'text/csv'});
@@ -9365,6 +9371,7 @@ if(window.opener&&!window.opener.closed){
           +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.mainCat||'')+'">'+esc(r.mainCat||'—')+'</td>'
           +'<td style="padding:5px 8px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.subCat||'')+'">'+esc(r.subCat||'—')+'</td>'
           +'<td style="padding:5px 8px;">'+teamHtml+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;font-size:12px;white-space:nowrap;">'+(DATA.commentCounts ? (DATA.commentCounts[String(r.wi)] != null ? DATA.commentCounts[String(r.wi)] : '—') : '—')+'</td>'
           +'</tr>';
       });
       var n = sorted.length;
@@ -9386,6 +9393,7 @@ if(window.opener&&!window.opener.closed){
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Main Cat</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Sub Cat</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Involved Teams</th>'
+        +'<th style="padding:7px 8px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Comments</th>'
         +'</tr></thead>'
         +'<tbody>'+tbody+'</tbody>'
         +'</table>'
@@ -13892,6 +13900,18 @@ if(window.opener&&!window.opener.closed){
         } catch(_respErr) {
           lf('FRT: /api/resp not available.');
         }
+
+        // Comment counts: number of System.History entries per ticket (= comment rounds)
+        try {
+          lf('CommentCounts: fetching from /api/commentcounts...');
+          var _ccRaw = await fetch('http://localhost:3012/api/commentcounts');
+          if (_ccRaw.ok) {
+            var _ccJson = await _ccRaw.json();
+            D.commentCounts = {};
+            (_ccJson.rows || []).forEach(function(r){ if (r.id != null) D.commentCounts[String(r.id)] = r.n; });
+            lf('CommentCounts: loaded ' + Object.keys(D.commentCounts).length + ' tickets.');
+          } else { lf('CommentCounts: HTTP ' + _ccRaw.status); }
+        } catch(_ccErr) { lf('CommentCounts: not available — ' + (_ccErr.message||'')); }
 
         // Persist closed tickets to IDB so they survive page reload
         if (window._dashSaveUploads && window._dashLoadUploads) {
