@@ -13260,7 +13260,7 @@ if(window.opener&&!window.opener.closed){
           escalated:      pending === 'team',
           pendingCustomer:pending === 'customer',
           region:         c.fldRegion ? (fv(item,c.fldRegion) || regionFromArea(f['System.AreaPath'],c.project)) : regionFromArea(f['System.AreaPath'],c.project),
-          comments:       f['System.CommentCount'] || 0,
+          comments:       f['System.CommentCount'] != null ? Number(f['System.CommentCount']) : null,
           mainCat:        fv(item, c.fldCat)    || '',
           subCat:         fv(item, c.fldSubCat) || '',
           state:          state,
@@ -13411,7 +13411,7 @@ if(window.opener&&!window.opener.closed){
           // ── Path B: OData Analytics — PowerBI-matching TicketType filter ────────────
           lf('Querying Customer Support tickets via OData Analytics…');
           var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
-          var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
+          var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
           var _odataExp  = 'AssignedTo($select=UserName),ChangedBy($select=UserName),Area($select=AreaPath)';
           var _odataFlt  = "WorkItemType eq 'Ticket'" +
             " and Custom_ProjectReleaseVersion ne null" +
@@ -13446,6 +13446,7 @@ if(window.opener&&!window.opener.closed){
               'System.AssignedTo':  (r.AssignedTo && r.AssignedTo.UserName) || '',
               'System.ChangedBy':   (r.ChangedBy && r.ChangedBy.UserName) || '',
               'System.AreaPath':    (r.Area && r.Area.AreaPath) || '',
+              'System.CommentCount': r.CommentCount != null ? Number(r.CommentCount) : null,
               'Custom.ServiceConsultant':  r.Custom_ServiceConsultant || '',
               'Custom.TicketMainCategory': r.Custom_TicketMainCategory || '',
               'Custom.TicketSubCategory':  r.Custom_TicketSubCategory || '',
