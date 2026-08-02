@@ -12460,14 +12460,6 @@ if(window.opener&&!window.opener.closed){
   window._dashSaveUploads = saveUploads;
   window._dashLoadUploads = loadUploads;
   window._adoFetch = adoFetch;
-  window._doBdFetch = function() { return _doBdFetch(); };
-
-  // Auto-fetch comment breakdown on page load if not already cached
-  setTimeout(function() {
-    if (!DATA.commentBreakdown || Object.keys(DATA.commentBreakdown).length === 0) {
-      _doBdFetch().catch(function(){});
-    }
-  }, 2000);
 
   document.querySelectorAll('.view-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -13234,10 +13226,15 @@ if(window.opener&&!window.opener.closed){
 
     async function _doBdFetch(logFn) {
       var _lf = logFn || function(m) { console.log('[BD] ' + m); };
+      var _esc = function(s) { return String(s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+      var _fetch = window._adoFetch;
+      if (!_fetch) { _lf('CommentBreakdown: adoFetch not ready.'); return; }
+      var D = window._dashDATA;
+      if (!D) { _lf('CommentBreakdown: _dashDATA not ready.'); return; }
       try {
         var _bdWIs = [];
-        (DATA.active || []).forEach(function(t){ if (t.wi && t.comments > 0) _bdWIs.push(t.wi); });
-        (DATA.closed || []).forEach(function(r){ if (r.wi && r.comments > 0) _bdWIs.push(r.wi); });
+        (D.active || []).forEach(function(t){ if (t.wi && t.comments > 0) _bdWIs.push(t.wi); });
+        (D.closed || []).forEach(function(r){ if (r.wi && r.comments > 0) _bdWIs.push(r.wi); });
         var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0, 200);
         if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
         _lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
@@ -13274,7 +13271,7 @@ if(window.opener&&!window.opener.closed){
         for (var _bi = 0; _bi < _bdUniq.length; _bi += _CONC) {
           var _chunk = _bdUniq.slice(_bi, _bi + _CONC);
           await Promise.all(_chunk.map(function(wi) {
-            return adoFetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
+            return _fetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
               .then(function(resp) {
                 (resp.comments || []).forEach(function(cmt) {
                   var cb = cmt.createdBy || {};
@@ -13290,24 +13287,32 @@ if(window.opener&&!window.opener.closed){
         }
 
         var _catOrder = {analyst:0, internal:1, system:2, customer:3};
-        DATA.commentBreakdown = {};
+        D.commentBreakdown = {};
         Object.keys(_byWI).forEach(function(wi) {
           var entries = Object.keys(_byWI[wi]).map(function(label) {
             return {label: label, n: _byWI[wi][label].n, cat: _byWI[wi][label].cat};
           }).filter(function(e){ return e.n > 0; }).sort(function(a,b){
             return (_catOrder[a.cat]||1) - (_catOrder[b.cat]||1) || b.n - a.n;
           });
-          DATA.commentBreakdown[wi] = entries.map(function(e) {
+          D.commentBreakdown[wi] = entries.map(function(e) {
             var clr = e.cat==='analyst' ? '#059669' : e.cat==='system' ? '#9ca3af' : e.cat==='customer' ? '#3b82f6' : '#7c3aed';
-            return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + esc(e.label) + '</span>';
+            return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + _esc(e.label) + '</span>';
           }).join('<span style="color:#e5e7eb;margin:0 3px">·</span>');
         });
 
-        try { localStorage.setItem('commentBreakdown', JSON.stringify(DATA.commentBreakdown)); } catch(_lsE) {}
-        _lf('CommentBreakdown: ' + Object.keys(DATA.commentBreakdown).length + ' tickets classified.');
+        try { localStorage.setItem('commentBreakdown', JSON.stringify(D.commentBreakdown)); } catch(_lsE) {}
+        _lf('CommentBreakdown: ' + Object.keys(D.commentBreakdown).length + ' tickets classified.');
         if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
       } catch(_bdErr) { _lf('CommentBreakdown: not available — ' + (_bdErr.message||'')); }
     }
+    window._doBdFetch = _doBdFetch;
+    // Auto-trigger on page load — fires after adoConnector finishes initialising
+    setTimeout(function() {
+      var _D = window._dashDATA;
+      if (!_D || !_D.commentBreakdown || Object.keys(_D.commentBreakdown).length === 0) {
+        _doBdFetch().catch(function(){});
+      }
+    }, 2000);
 
     // Non-analyst placeholder values that ADO puts in AssignedTo when ticket is pending
     var NON_ANALYST_VALUES = ['customer','customer support','core support','core_support','partner','team','unassigned','hosting','sci','add-on support','ax fo support','sapecc support','support planning','support-planning','migrations','partner support',''];
