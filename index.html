@@ -12460,6 +12460,14 @@ if(window.opener&&!window.opener.closed){
   window._dashSaveUploads = saveUploads;
   window._dashLoadUploads = loadUploads;
   window._adoFetch = adoFetch;
+  window._doBdFetch = function() { return _doBdFetch(); };
+
+  // Auto-fetch comment breakdown on page load if not already cached
+  setTimeout(function() {
+    if (!DATA.commentBreakdown || Object.keys(DATA.commentBreakdown).length === 0) {
+      _doBdFetch().catch(function(){});
+    }
+  }, 2000);
 
   document.querySelectorAll('.view-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -13222,6 +13230,83 @@ if(window.opener&&!window.opener.closed){
       var stripped = raw.replace(/\s*<[^>]+>/, '').trim();
       var lower = stripped.toLowerCase();
       return NAME_ALIASES[lower] || stripped || 'Unassigned';
+    }
+
+    async function _doBdFetch(logFn) {
+      var _lf = logFn || function(m) { console.log('[BD] ' + m); };
+      try {
+        var _bdWIs = [];
+        (DATA.active || []).forEach(function(t){ if (t.wi && t.comments > 0) _bdWIs.push(t.wi); });
+        (DATA.closed || []).forEach(function(r){ if (r.wi && r.comments > 0) _bdWIs.push(r.wi); });
+        var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0, 200);
+        if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
+        _lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
+
+        var _analystSet = new Set(Object.values(NAME_ALIASES).map(function(n){ return n.toLowerCase(); }));
+        var _analystArr = Array.from(_analystSet);
+
+        function _classify(displayName, uniqueName) {
+          var name = (displayName || '').trim();
+          var email = (uniqueName || '').toLowerCase();
+          var nl = name.toLowerCase();
+          if (!name || /migrat|automat|pipeline|noreply|no.reply|service.account|devops.bot|import.bot|release.bot/i.test(name) ||
+              /migrat|bot@|noreply@/i.test(email)) {
+            return {cat:'system', label:'System'};
+          }
+          if (_analystSet.has(nl)) return {cat:'analyst', label:'Analyst'};
+          var parts = nl.split(/\s+/);
+          if (parts.length >= 2) {
+            for (var _ai = 0; _ai < _analystArr.length; _ai++) {
+              var _ap = _analystArr[_ai].split(/\s+/);
+              if (_ap.length >= 2 && _ap[0] === parts[0] && _ap[_ap.length-1] === parts[parts.length-1]) {
+                return {cat:'analyst', label:'Analyst'};
+              }
+            }
+          }
+          if (email && (email.includes('sana-commerce.com') || email.includes('sanacommerce.com'))) {
+            return {cat:'internal', label: name};
+          }
+          return {cat:'customer', label:'Customer'};
+        }
+
+        var _byWI = {};
+        var _CONC = 10;
+        for (var _bi = 0; _bi < _bdUniq.length; _bi += _CONC) {
+          var _chunk = _bdUniq.slice(_bi, _bi + _CONC);
+          await Promise.all(_chunk.map(function(wi) {
+            return adoFetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
+              .then(function(resp) {
+                (resp.comments || []).forEach(function(cmt) {
+                  var cb = cmt.createdBy || {};
+                  var cls = _classify(cb.displayName, cb.uniqueName);
+                  var key = String(wi);
+                  if (!_byWI[key]) _byWI[key] = {};
+                  if (!_byWI[key][cls.label]) _byWI[key][cls.label] = {n:0, cat:cls.cat};
+                  _byWI[key][cls.label].n++;
+                });
+              })
+              .catch(function() {});
+          }));
+        }
+
+        var _catOrder = {analyst:0, internal:1, system:2, customer:3};
+        DATA.commentBreakdown = {};
+        Object.keys(_byWI).forEach(function(wi) {
+          var entries = Object.keys(_byWI[wi]).map(function(label) {
+            return {label: label, n: _byWI[wi][label].n, cat: _byWI[wi][label].cat};
+          }).filter(function(e){ return e.n > 0; }).sort(function(a,b){
+            return (_catOrder[a.cat]||1) - (_catOrder[b.cat]||1) || b.n - a.n;
+          });
+          DATA.commentBreakdown[wi] = entries.map(function(e) {
+            var clr = e.cat==='analyst' ? '#059669' : e.cat==='system' ? '#9ca3af' : e.cat==='customer' ? '#3b82f6' : '#7c3aed';
+            return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + esc(e.label) + '</span>';
+          }).join('<span style="color:#e5e7eb;margin:0 3px">·</span>');
+        });
+
+        try { localStorage.setItem('commentBreakdown', JSON.stringify(DATA.commentBreakdown)); } catch(_lsE) {}
+        _lf('CommentBreakdown: ' + Object.keys(DATA.commentBreakdown).length + ' tickets classified.');
+        if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
+      } catch(_bdErr) { _lf('CommentBreakdown: not available — ' + (_bdErr.message||'')); }
     }
 
     // Non-analyst placeholder values that ADO puts in AssignedTo when ticket is pending
@@ -14006,84 +14091,8 @@ if(window.opener&&!window.opener.closed){
           } catch(_ccErr) { lf('CommentCounts: not available — ' + (_ccErr.message||'')); }
         })();
 
-        // Comment breakdown via ADO comments API — no SQL server required
-        (async function() {
-          try {
-            // Only process tickets with at least 1 comment
-            var _bdWIs = [];
-            (DATA.active || []).forEach(function(t){ if (t.wi && t.comments > 0) _bdWIs.push(t.wi); });
-            (DATA.closed || []).forEach(function(r){ if (r.wi && r.comments > 0) _bdWIs.push(r.wi); });
-            var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0, 200);
-            if (_bdUniq.length === 0) { lf('CommentBreakdown: no tickets with comments.'); return; }
-            lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
-
-            var _analystSet = new Set(Object.values(NAME_ALIASES).map(function(n){ return n.toLowerCase(); }));
-            var _analystArr = Array.from(_analystSet);
-
-            function _classify(displayName, uniqueName) {
-              var name = (displayName || '').trim();
-              var email = (uniqueName || '').toLowerCase();
-              var nl = name.toLowerCase();
-              if (!name || /migrat|automat|pipeline|noreply|no.reply|service.account|devops.bot|import.bot|release.bot/i.test(name) ||
-                  /migrat|bot@|noreply@/i.test(email)) {
-                return {cat:'system', label:'System'};
-              }
-              if (_analystSet.has(nl)) return {cat:'analyst', label:'Analyst'};
-              var parts = nl.split(/\s+/);
-              if (parts.length >= 2) {
-                for (var _ai = 0; _ai < _analystArr.length; _ai++) {
-                  var _ap = _analystArr[_ai].split(/\s+/);
-                  if (_ap.length >= 2 && _ap[0] === parts[0] && _ap[_ap.length-1] === parts[parts.length-1]) {
-                    return {cat:'analyst', label:'Analyst'};
-                  }
-                }
-              }
-              if (email && (email.includes('sana-commerce.com') || email.includes('sanacommerce.com'))) {
-                return {cat:'internal', label: name};
-              }
-              return {cat:'customer', label:'Customer'};
-            }
-
-            // Batch fetch with 10 concurrent requests per round
-            var _byWI = {};
-            var _CONC = 10;
-            for (var _bi = 0; _bi < _bdUniq.length; _bi += _CONC) {
-              var _chunk = _bdUniq.slice(_bi, _bi + _CONC);
-              await Promise.all(_chunk.map(function(wi) {
-                return adoFetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
-                  .then(function(resp) {
-                    (resp.comments || []).forEach(function(cmt) {
-                      var cb = cmt.createdBy || {};
-                      var cls = _classify(cb.displayName, cb.uniqueName);
-                      var key = String(wi);
-                      if (!_byWI[key]) _byWI[key] = {};
-                      if (!_byWI[key][cls.label]) _byWI[key][cls.label] = {n:0, cat:cls.cat};
-                      _byWI[key][cls.label].n++;
-                    });
-                  })
-                  .catch(function() {});
-              }));
-            }
-
-            var _catOrder = {analyst:0, internal:1, system:2, customer:3};
-            DATA.commentBreakdown = {};
-            Object.keys(_byWI).forEach(function(wi) {
-              var entries = Object.keys(_byWI[wi]).map(function(label) {
-                return {label: label, n: _byWI[wi][label].n, cat: _byWI[wi][label].cat};
-              }).filter(function(e){ return e.n > 0; }).sort(function(a,b){
-                return (_catOrder[a.cat]||1) - (_catOrder[b.cat]||1) || b.n - a.n;
-              });
-              DATA.commentBreakdown[wi] = entries.map(function(e) {
-                var clr = e.cat==='analyst' ? '#059669' : e.cat==='system' ? '#9ca3af' : e.cat==='customer' ? '#3b82f6' : '#7c3aed';
-                return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + esc(e.label) + '</span>';
-              }).join('<span style="color:#e5e7eb;margin:0 3px">·</span>');
-            });
-
-            try { localStorage.setItem('commentBreakdown', JSON.stringify(DATA.commentBreakdown)); } catch(_lsE) {}
-            lf('CommentBreakdown: ' + Object.keys(DATA.commentBreakdown).length + ' tickets classified.');
-            if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
-          } catch(_bdErr) { lf('CommentBreakdown: not available — ' + (_bdErr.message||'')); }
-        })();
+        // Comment breakdown — delegates to _doBdFetch (also auto-runs on page load)
+        _doBdFetch(lf);
 
       } catch(e) {
         var _errShort = (e.message || 'Unknown error').slice(0, 120);
