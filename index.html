@@ -9322,6 +9322,9 @@ if(window.opener&&!window.opener.closed){
     (function() {
       var el = $('cloTicketList');
       if (!el) return;
+      var _prevBody = document.getElementById('cloTicketListBody');
+      var _wasOpen = _prevBody && !_prevBody.hidden;
+      var _prevScroll = _wasOpen ? _prevBody.scrollLeft : 0;
       var mdata = {};
       try { var mc = JSON.parse(localStorage.getItem('closedMentions') || 'null'); if (mc && mc.data) mdata = mc.data; } catch(e) {}
       var hasMentions = Object.keys(mdata).length > 0;
@@ -9402,6 +9405,12 @@ if(window.opener&&!window.opener.closed){
         +'<tbody>'+tbody+'</tbody>'
         +'</table>'
         +'</div>';
+      if (_wasOpen) {
+        var _bd2 = document.getElementById('cloTicketListBody');
+        var _btn2 = document.getElementById('cloTicketToggleBtn');
+        if (_bd2) { _bd2.hidden = false; _bd2.scrollLeft = _prevScroll; }
+        if (_btn2) _btn2.textContent = 'Hide tickets ▲';
+      }
     })();
   }
 
@@ -13918,6 +13927,7 @@ if(window.opener&&!window.opener.closed){
                 url: r.id ? 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/'+r.id : null,
                 acct: r.acct, c: r.c, title: r.title,
                 created: r.created, closed: r.closed, age: r.age, resp: r.resp, solo: r.solo||1,
+                comments: r.comments != null ? r.comments : null,
                 mainCat: r.mainCat||'', subCat: r.subCat||'', funcArea: '', subFunc: '', feature: '', capability: ''
               };
             });
