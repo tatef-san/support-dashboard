@@ -13962,6 +13962,14 @@ if(window.opener&&!window.opener.closed){
           if (wi && r.comments != null) D.commentCounts[String(wi)] = r.comments;
         });
 
+        // Load cached commentBreakdown from localStorage so it shows immediately on re-render
+        if (!D.commentBreakdown) {
+          try {
+            var _bdLS = localStorage.getItem('commentBreakdown');
+            if (_bdLS) D.commentBreakdown = JSON.parse(_bdLS);
+          } catch(_lsE) {}
+        }
+
         if (window._dashResolve) window._dashResolve();
         if (window._dashRender) {
           try {
@@ -13998,69 +14006,65 @@ if(window.opener&&!window.opener.closed){
           } catch(_ccErr) { lf('CommentCounts: not available — ' + (_ccErr.message||'')); }
         })();
 
-        // Comment breakdown: classify each comment author into Analyst / System / [Name] / Customer
+        // Comment breakdown via ADO comments API — no SQL server required
         (async function() {
           try {
+            // Only process tickets with at least 1 comment
             var _bdWIs = [];
-            (DATA.active || []).forEach(function(t){ if (t.wi) _bdWIs.push(t.wi); });
-            (DATA.closed || []).forEach(function(r){ if (r.wi) _bdWIs.push(r.wi); });
-            var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
-            if (_bdUniq.length === 0) return;
-            lf('CommentBreakdown: querying ' + _bdUniq.length + ' tickets...');
-            var _bdRaw = await fetch('http://localhost:3012/api/commentbreakdown', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ids: _bdUniq})
-            });
-            if (!_bdRaw.ok) { lf('CommentBreakdown: HTTP ' + _bdRaw.status); return; }
-            var _bdJson = await _bdRaw.json();
+            (DATA.active || []).forEach(function(t){ if (t.wi && t.comments > 0) _bdWIs.push(t.wi); });
+            (DATA.closed || []).forEach(function(r){ if (r.wi && r.comments > 0) _bdWIs.push(r.wi); });
+            var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0, 200);
+            if (_bdUniq.length === 0) { lf('CommentBreakdown: no tickets with comments.'); return; }
+            lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
 
-            // Build analyst name set from NAME_ALIASES
             var _analystSet = new Set(Object.values(NAME_ALIASES).map(function(n){ return n.toLowerCase(); }));
+            var _analystArr = Array.from(_analystSet);
 
-            // Classify a ChangedBy string into a category + display label
-            function _classify(raw) {
-              var name = (raw || '').trim();
-              var email = '';
-              var em = name.match(/<([^>]+)>/);
-              if (em) { email = em[1].toLowerCase(); name = name.replace(/<[^>]+>/, '').trim(); }
+            function _classify(displayName, uniqueName) {
+              var name = (displayName || '').trim();
+              var email = (uniqueName || '').toLowerCase();
               var nl = name.toLowerCase();
-              // System / automation
-              if (/migrat|automat|pipeline|noreply|no.reply|service.account|devops.bot|import.bot|release.bot/i.test(name) ||
+              if (!name || /migrat|automat|pipeline|noreply|no.reply|service.account|devops.bot|import.bot|release.bot/i.test(name) ||
                   /migrat|bot@|noreply@/i.test(email)) {
                 return {cat:'system', label:'System'};
               }
-              // Analyst roster — exact match
               if (_analystSet.has(nl)) return {cat:'analyst', label:'Analyst'};
-              // Analyst roster — first + last name match (handles middle name differences)
               var parts = nl.split(/\s+/);
               if (parts.length >= 2) {
-                for (const _an of _analystSet) {
-                  const _ap = _an.split(/\s+/);
+                for (var _ai = 0; _ai < _analystArr.length; _ai++) {
+                  var _ap = _analystArr[_ai].split(/\s+/);
                   if (_ap.length >= 2 && _ap[0] === parts[0] && _ap[_ap.length-1] === parts[parts.length-1]) {
                     return {cat:'analyst', label:'Analyst'};
                   }
                 }
               }
-              // Internal Sana employee (has sana email)
               if (email && (email.includes('sana-commerce.com') || email.includes('sanacommerce.com'))) {
                 return {cat:'internal', label: name};
               }
-              // Not in roster, no Sana email → Customer (external)
               return {cat:'customer', label:'Customer'};
             }
 
-            // Aggregate by WI → label → count
+            // Batch fetch with 10 concurrent requests per round
             var _byWI = {};
-            (_bdJson.rows || []).forEach(function(row) {
-              var wi = String(row.id);
-              if (!_byWI[wi]) _byWI[wi] = {};
-              var cls = _classify(row.a);
-              if (!_byWI[wi][cls.label]) _byWI[wi][cls.label] = {n:0, cat:cls.cat};
-              _byWI[wi][cls.label].n += row.n;
-            });
+            var _CONC = 10;
+            for (var _bi = 0; _bi < _bdUniq.length; _bi += _CONC) {
+              var _chunk = _bdUniq.slice(_bi, _bi + _CONC);
+              await Promise.all(_chunk.map(function(wi) {
+                return adoFetch('/_apis/wit/workItems/' + wi + '/comments?api-version=7.1-preview.3')
+                  .then(function(resp) {
+                    (resp.comments || []).forEach(function(cmt) {
+                      var cb = cmt.createdBy || {};
+                      var cls = _classify(cb.displayName, cb.uniqueName);
+                      var key = String(wi);
+                      if (!_byWI[key]) _byWI[key] = {};
+                      if (!_byWI[key][cls.label]) _byWI[key][cls.label] = {n:0, cat:cls.cat};
+                      _byWI[key][cls.label].n++;
+                    });
+                  })
+                  .catch(function() {});
+              }));
+            }
 
-            // Render to HTML strings stored in DATA.commentBreakdown
             var _catOrder = {analyst:0, internal:1, system:2, customer:3};
             DATA.commentBreakdown = {};
             Object.keys(_byWI).forEach(function(wi) {
@@ -14071,10 +14075,11 @@ if(window.opener&&!window.opener.closed){
               });
               DATA.commentBreakdown[wi] = entries.map(function(e) {
                 var clr = e.cat==='analyst' ? '#059669' : e.cat==='system' ? '#9ca3af' : e.cat==='customer' ? '#3b82f6' : '#7c3aed';
-                return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + esc(e.label) + '</span>';
+                return '<b style="color:' + clr + '">' + e.n + '</b> <span style="font-size:11px;color:#6b7280;">' + esc(e.label) + '</span>';
               }).join('<span style="color:#e5e7eb;margin:0 3px">·</span>');
             });
 
+            try { localStorage.setItem('commentBreakdown', JSON.stringify(DATA.commentBreakdown)); } catch(_lsE) {}
             lf('CommentBreakdown: ' + Object.keys(DATA.commentBreakdown).length + ' tickets classified.');
             if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
           } catch(_bdErr) { lf('CommentBreakdown: not available — ' + (_bdErr.message||'')); }
