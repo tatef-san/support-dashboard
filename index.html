@@ -14050,7 +14050,7 @@ if(window.opener&&!window.opener.closed){
             for (var _bi = 0; _bi < _bdUniq.length; _bi += _CONC) {
               var _chunk = _bdUniq.slice(_bi, _bi + _CONC);
               await Promise.all(_chunk.map(function(wi) {
-                return adoFetch('/_apis/wit/workItems/' + wi + '/comments?api-version=7.1-preview.3')
+                return adoFetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
                   .then(function(resp) {
                     (resp.comments || []).forEach(function(cmt) {
                       var cb = cmt.createdBy || {};
