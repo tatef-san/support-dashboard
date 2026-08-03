@@ -13245,32 +13245,14 @@ if(window.opener&&!window.opener.closed){
           var _wi = t.wi || parseInt(t.id || '', 10) || null;
           if (_wi && _hasComments(t)) _bdWIs.push(_wi);
         });
-        var _closedUnknown = [];
         (D.closed || []).forEach(function(r){
           var _wi = r.wi || parseInt(r.id || '', 10) || null;
           if (!_wi) return;
-          if (_hasComments(r)) {
-            _bdWIs.push(_wi);
-          } else if (r.comments == null && !(D.commentCounts && D.commentCounts[String(_wi)] === 0)) {
-            _closedUnknown.push(_wi);
-          }
+          var _key = String(_wi);
+          var _knownZero = (r.comments === 0) || (D.commentCounts && D.commentCounts[_key] === 0);
+          var _alreadyDone = D.commentBreakdown && D.commentBreakdown[_key];
+          if (!_knownZero && !_alreadyDone) _bdWIs.push(_wi);
         });
-        if (_closedUnknown.length > 0) {
-          _lf('CommentBreakdown: discovering comment counts for ' + _closedUnknown.length + ' closed tickets...');
-          var _CB = 200;
-          for (var _ci = 0; _ci < _closedUnknown.length; _ci += _CB) {
-            var _cids = _closedUnknown.slice(_ci, _ci + _CB);
-            try {
-              var _cResp = await _fetch('/_apis/wit/workitems?ids=' + _cids.join(',') + '&fields=System.CommentCount&api-version=7.0');
-              (_cResp.value || []).forEach(function(item) {
-                var _cnt = ((item.fields || {})['System.CommentCount']) || 0;
-                if (!D.commentCounts) D.commentCounts = {};
-                D.commentCounts[String(item.id)] = _cnt;
-                if (_cnt > 0) _bdWIs.push(item.id);
-              });
-            } catch(_ce) {}
-          }
-        }
         var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
         if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
         _lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
@@ -13327,7 +13309,7 @@ if(window.opener&&!window.opener.closed){
         }
 
         var _catOrder = {analyst:0, internal:1, system:2, customer:3};
-        D.commentBreakdown = {};
+        if (!D.commentBreakdown) D.commentBreakdown = {};
         Object.keys(_byWI).forEach(function(wi) {
           var entries = Object.keys(_byWI[wi]).map(function(label) {
             return {label: label, n: _byWI[wi][label].n, cat: _byWI[wi][label].cat};
@@ -13348,12 +13330,7 @@ if(window.opener&&!window.opener.closed){
     }
     window._doBdFetch = _doBdFetch;
     // Auto-trigger on page load — fires after adoConnector finishes initialising
-    setTimeout(function() {
-      var _D = window._dashDATA;
-      if (!_D || !_D.commentBreakdown || Object.keys(_D.commentBreakdown).length === 0) {
-        _doBdFetch().catch(function(){});
-      }
-    }, 2000);
+    setTimeout(function() { _doBdFetch().catch(function(){}); }, 2000);
 
     // Non-analyst placeholder values that ADO puts in AssignedTo when ticket is pending
     var NON_ANALYST_VALUES = ['customer','customer support','core support','core_support','partner','team','unassigned','hosting','sci','add-on support','ax fo support','sapecc support','support planning','support-planning','migrations','partner support',''];
