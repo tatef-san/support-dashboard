@@ -13233,8 +13233,15 @@ if(window.opener&&!window.opener.closed){
       if (!D) { _lf('CommentBreakdown: _dashDATA not ready.'); return; }
       try {
         var _bdWIs = [];
-        (D.active || []).forEach(function(t){ if (t.wi && t.comments > 0) _bdWIs.push(t.wi); });
-        (D.closed || []).forEach(function(r){ if (r.wi && r.comments > 0) _bdWIs.push(r.wi); });
+        // mapActive produces {id, comments} (no wi); mapClosed and IDB data produce {wi, id, comments}
+        (D.active || []).forEach(function(t){
+          var _wi = t.wi || parseInt(t.id || '', 10) || null;
+          if (_wi && t.comments > 0) _bdWIs.push(_wi);
+        });
+        (D.closed || []).forEach(function(r){
+          var _wi = r.wi || parseInt(r.id || '', 10) || null;
+          if (_wi && r.comments > 0) _bdWIs.push(_wi);
+        });
         var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0, 200);
         if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
         _lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
@@ -13273,10 +13280,14 @@ if(window.opener&&!window.opener.closed){
           await Promise.all(_chunk.map(function(wi) {
             return _fetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
               .then(function(resp) {
-                (resp.comments || []).forEach(function(cmt) {
+                var key = String(wi);
+                var cmts = resp.comments || [];
+                // Populate commentCounts from ADO (so Comments column works without SQL)
+                if (!D.commentCounts) D.commentCounts = {};
+                D.commentCounts[key] = resp.count != null ? resp.count : cmts.length;
+                cmts.forEach(function(cmt) {
                   var cb = cmt.createdBy || {};
                   var cls = _classify(cb.displayName, cb.uniqueName);
-                  var key = String(wi);
                   if (!_byWI[key]) _byWI[key] = {};
                   if (!_byWI[key][cls.label]) _byWI[key][cls.label] = {n:0, cat:cls.cat};
                   _byWI[key][cls.label].n++;
