@@ -13319,6 +13319,7 @@ if(window.opener&&!window.opener.closed){
         });
 
         try { localStorage.setItem('commentBreakdown', JSON.stringify(D.commentBreakdown)); } catch(_lsE) {}
+        try { localStorage.setItem('commentCounts', JSON.stringify(D.commentCounts)); } catch(_lsE) {}
         _lf('CommentBreakdown: ' + Object.keys(D.commentBreakdown).length + ' tickets classified.');
         if (window._dashRender) { try { window._dashRender(); } catch(e2) {} }
       } catch(_bdErr) { _lf('CommentBreakdown: not available — ' + (_bdErr.message||'')); }
@@ -14070,11 +14071,17 @@ if(window.opener&&!window.opener.closed){
           if (wi && r.comments != null) D.commentCounts[String(wi)] = r.comments;
         });
 
-        // Load cached commentBreakdown from localStorage so it shows immediately on re-render
+        // Load cached commentBreakdown and commentCounts from localStorage so they show immediately on re-render
         if (!D.commentBreakdown) {
           try {
             var _bdLS = localStorage.getItem('commentBreakdown');
             if (_bdLS) D.commentBreakdown = JSON.parse(_bdLS);
+          } catch(_lsE) {}
+        }
+        if (!D.commentCounts || Object.keys(D.commentCounts).length === 0) {
+          try {
+            var _ccLS = localStorage.getItem('commentCounts');
+            if (_ccLS) { var _ccParsed = JSON.parse(_ccLS); Object.assign(D.commentCounts || (D.commentCounts = {}), _ccParsed); }
           } catch(_lsE) {}
         }
 
