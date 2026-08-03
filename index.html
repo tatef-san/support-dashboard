@@ -13245,10 +13245,32 @@ if(window.opener&&!window.opener.closed){
           var _wi = t.wi || parseInt(t.id || '', 10) || null;
           if (_wi && _hasComments(t)) _bdWIs.push(_wi);
         });
+        var _closedUnknown = [];
         (D.closed || []).forEach(function(r){
           var _wi = r.wi || parseInt(r.id || '', 10) || null;
-          if (_wi && _hasComments(r)) _bdWIs.push(_wi);
+          if (!_wi) return;
+          if (_hasComments(r)) {
+            _bdWIs.push(_wi);
+          } else if (r.comments == null && !(D.commentCounts && D.commentCounts[String(_wi)] === 0)) {
+            _closedUnknown.push(_wi);
+          }
         });
+        if (_closedUnknown.length > 0) {
+          _lf('CommentBreakdown: discovering comment counts for ' + _closedUnknown.length + ' closed tickets...');
+          var _CB = 200;
+          for (var _ci = 0; _ci < _closedUnknown.length; _ci += _CB) {
+            var _cids = _closedUnknown.slice(_ci, _ci + _CB);
+            try {
+              var _cResp = await _fetch('/_apis/wit/workitems?ids=' + _cids.join(',') + '&fields=System.CommentCount&api-version=7.0');
+              (_cResp.value || []).forEach(function(item) {
+                var _cnt = ((item.fields || {})['System.CommentCount']) || 0;
+                if (!D.commentCounts) D.commentCounts = {};
+                D.commentCounts[String(item.id)] = _cnt;
+                if (_cnt > 0) _bdWIs.push(item.id);
+              });
+            } catch(_ce) {}
+          }
+        }
         var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
         if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
         _lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
