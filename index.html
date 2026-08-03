@@ -13249,9 +13249,9 @@ if(window.opener&&!window.opener.closed){
           var _wi = r.wi || parseInt(r.id || '', 10) || null;
           if (!_wi) return;
           var _key = String(_wi);
-          var _knownZero = (r.comments === 0) || (D.commentCounts && D.commentCounts[_key] === 0);
-          var _alreadyDone = D.commentBreakdown && D.commentBreakdown[_key];
-          if (!_knownZero && !_alreadyDone) _bdWIs.push(_wi);
+          // Queue if never fetched before — undefined means not in cache at all
+          // '' means fetched but 0 comments; both skip re-fetch
+          if (!D.commentBreakdown || D.commentBreakdown[_key] === undefined) _bdWIs.push(_wi);
         });
         var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
         if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
@@ -13308,6 +13308,11 @@ if(window.opener&&!window.opener.closed){
           }));
         }
 
+        // Mark fetched-but-empty WIs so they are skipped on next load
+        _bdUniq.forEach(function(wi) {
+          var _k = String(wi);
+          if (!_byWI[_k] && D.commentBreakdown[_k] === undefined) D.commentBreakdown[_k] = '';
+        });
         var _catOrder = {analyst:0, internal:1, system:2, customer:3};
         if (!D.commentBreakdown) D.commentBreakdown = {};
         Object.keys(_byWI).forEach(function(wi) {
