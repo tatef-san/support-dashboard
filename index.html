@@ -13234,15 +13234,22 @@ if(window.opener&&!window.opener.closed){
       try {
         var _bdWIs = [];
         // mapActive produces {id, comments} (no wi); mapClosed and IDB data produce {wi, id, comments}
+        // For closed IDB data, r.comments may be null — fall back to D.commentCounts
+        function _hasComments(item) {
+          var _wi = item.wi || parseInt(item.id || '', 10) || null;
+          if (!_wi) return false;
+          if (item.comments > 0) return true;
+          return !!(D.commentCounts && D.commentCounts[String(_wi)] > 0);
+        }
         (D.active || []).forEach(function(t){
           var _wi = t.wi || parseInt(t.id || '', 10) || null;
-          if (_wi && t.comments > 0) _bdWIs.push(_wi);
+          if (_wi && _hasComments(t)) _bdWIs.push(_wi);
         });
         (D.closed || []).forEach(function(r){
           var _wi = r.wi || parseInt(r.id || '', 10) || null;
-          if (_wi && r.comments > 0) _bdWIs.push(_wi);
+          if (_wi && _hasComments(r)) _bdWIs.push(_wi);
         });
-        var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0, 200);
+        var _bdUniq = _bdWIs.filter(function(v,i,a){ return a.indexOf(v)===i; });
         if (_bdUniq.length === 0) { _lf('CommentBreakdown: no tickets with comments.'); return; }
         _lf('CommentBreakdown: fetching comments for ' + _bdUniq.length + ' tickets via ADO...');
 
