@@ -2595,7 +2595,14 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     return { region: r ? r[1] : 'All', analyst: v, label: v, kind: 'analyst' };
   }
   function getSegment() { return ($('segment') && $('segment').value) || ''; }
-  function segmentOf(acct) { return (window._acctSegments && window._acctSegments[acct||'']) || 'Unknown'; }
+  // Normalized segment lookup — strips spaces/punctuation/case so "ArizonaFasteners" matches "Arizona Fasteners"
+  const _segNormKey = s => (s||'').toLowerCase().replace(/[\s\-_.,&'"/\\()]+/g,'');
+  const _segNormMap = (() => {
+    const m = {}; const src = window._acctSegments || {};
+    Object.keys(src).forEach(k => { m[_segNormKey(k)] = src[k]; });
+    return m;
+  })();
+  function segmentOf(acct) { return _segNormMap[_segNormKey(acct)] || 'Unknown'; }
   function inSegment(acct) { const s = getSegment(); return !s || segmentOf(acct) === s; }
   function populateScope() {
     const sel = $('scope');
