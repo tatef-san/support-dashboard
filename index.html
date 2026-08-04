@@ -907,9 +907,21 @@
 
       <!-- Q1 / Q2 Summary Bar — collapsible -->
       <details class="csat-panel" style="margin-bottom:14px;">
-        <summary class="dd-section-title">Q1 / Q2 — Satisfaction &amp; Ease of Resolution</summary>
+        <summary class="dd-section-title">Q1 / Q2 — Satisfaction &amp; Ease of Resolution (CES)</summary>
         <div style="padding-top:10px;">
           <div id="csatQ1Q2Summary"></div>
+          <div style="margin-top:16px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--panel);">
+            <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;">Ease of Resolution (CES) — Distribution &amp; Avg CSAT per category</div>
+            <div id="csatCet"></div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Reason for Rating breakdown — collapsible -->
+      <details class="csat-panel" style="margin-bottom:14px;" open>
+        <summary class="dd-section-title">Reason for Rating — Why customers rated the way they did</summary>
+        <div style="padding-top:10px;">
+          <div id="csatReasonBreak"></div>
         </div>
       </details>
 
@@ -7353,7 +7365,7 @@ if(window.opener&&!window.opener.closed){
         const total = visible.length;
         if (cntEl) cntEl.textContent = intg(total)+' rows';
         const show = visible.slice(0,500);
-        const COLS = ['Date','Ticket','Account','Consultant','Rating','Score','Ease of Resolution','Main Category','Sub Category','Comment'];
+        const COLS = ['Date','Ticket','Account','Consultant','Rating','Score','Ease of Resolution','Reason for Rating','Main Category','Sub Category','Comment'];
         let h = '<table style="width:100%;border-collapse:collapse;min-width:900px;"><thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
         COLS.forEach(c => { h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap;">'+c+'</th>'; });
         h += '</tr></thead><tbody>';
@@ -7372,6 +7384,7 @@ if(window.opener&&!window.opener.closed){
             '<td style="padding:7px 10px;font-weight:700;color:'+rcol+';">'+esc(rlabel)+'</td>' +
             '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+rcol+';">'+score+'</td>' +
             '<td style="padding:7px 10px;color:'+cetcol+';font-weight:600;">'+esc(r.cet||'')+'</td>' +
+            '<td style="padding:7px 10px;color:var(--muted);font-size:11.5px;max-width:180px;white-space:normal;">'+esc(r.reason||'')+'</td>' +
             '<td style="padding:7px 10px;color:var(--muted);">'+esc(r.mainCat||'')+'</td>' +
             '<td style="padding:7px 10px;color:var(--muted);">'+esc(r.subCat||'')+'</td>' +
             '<td style="padding:7px 10px;max-width:220px;">'+comment+'</td>' +
@@ -7853,6 +7866,48 @@ if(window.opener&&!window.opener.closed){
             return v.toLocaleString() + '  (' + pct + ')' + (cesScore != null ? '  CES: ' + cesScore + '/5' : '') + csatStr;
           } })
       : '<div class="cat-empty">no data</div>';
+
+    // ---- E. Reason for Rating breakdown ----
+    {
+      const reasonCounts = {}, reasonCsatSum = {}, reasonCsatN = {};
+      rows.forEach(r => {
+        const reason = (r.reason || '').trim();
+        if (!reason) return;
+        reasonCounts[reason] = (reasonCounts[reason]||0) + 1;
+        const csatScore = RATING_NUM[String(r.rating||'').trim().toLowerCase()];
+        if (csatScore != null) {
+          reasonCsatSum[reason] = (reasonCsatSum[reason]||0) + csatScore;
+          reasonCsatN[reason]   = (reasonCsatN[reason]||0) + 1;
+        }
+      });
+      const reasonItems = Object.entries(reasonCounts)
+        .map(([k,v]) => ({ label: k, value: v, avgCsat: reasonCsatN[k] ? reasonCsatSum[k]/reasonCsatN[k] : null }))
+        .sort((a,b) => b.value - a.value)
+        .slice(0, 10);
+      const reasonTotal = reasonItems.reduce((s, it) => s + it.value, 0);
+      const noReason = rows.filter(r => !(r.reason||'').trim()).length;
+      const reasonHeader =
+        '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px;">' +
+          '<div style="background:#f0f4ff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 18px;display:flex;align-items:baseline;gap:8px;">' +
+            '<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">With a reason</span>' +
+            '<span style="font-size:26px;font-weight:800;color:var(--primary);">' + reasonTotal.toLocaleString() + '</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);line-height:1.8;">' +
+            '<div><b>' + noReason.toLocaleString() + '</b> responses submitted without selecting a reason</div>' +
+            '<div>Top reasons show which issues drive each rating — Avg CSAT per reason helps identify most impactful areas</div>' +
+          '</div>' +
+        '</div>';
+      const elR = $('csatReasonBreak');
+      if (elR) elR.innerHTML = reasonItems.length
+        ? reasonHeader + svgBars(reasonItems, { width: 700, barH: 26, labelW: 250, padR: 200,
+            formatter: (v, it) => {
+              const pct = reasonTotal > 0 ? (v / reasonTotal * 100).toFixed(1) + '%' : '';
+              const csatStr = (it && it.avgCsat != null) ? '  Avg CSAT: ' + it.avgCsat.toFixed(2) + '/5' : '';
+              return v.toLocaleString() + '  (' + pct + ')' + csatStr;
+            }
+          })
+        : '<div class="cat-empty">no reason data</div>';
+    }
 
     // ---- F. Top 5 accounts by response rate ----
     {
