@@ -7358,6 +7358,7 @@ if(window.opener&&!window.opener.closed){
         return canon !== e.acct ? Object.assign({}, e, { acct: canon }) : e;
       })
       .filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
+    window._csatRows = rows; // expose for Account Health tab
 
     // ── Q1 / Q2 Summary Bar (stats + pills, no label box) ────────────────────
     (function() {
@@ -12632,9 +12633,8 @@ if(window.opener&&!window.opener.closed){
     const esc2  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
 
-    // Pull all 2026 CSAT rows with an account name
-    const source = (window._vfCsatAutoData||[]);
-    const allRows = source.filter(r => r.d && r.d >= '2026-01-01' && (r.acct||'').trim());
+    // Use the same enriched rows the CSAT tab uses (includes period/scope filter + account enrichment)
+    const allRows = (window._csatRows || []).filter(r => (r.acct||'').trim());
 
     // Build per-account map
     const map = {};
@@ -12785,7 +12785,7 @@ if(window.opener&&!window.opener.closed){
       if (btn.dataset.view === 'maya-csat' || btn.dataset.view === 'kpi-csat') {
         render();
       } else if (btn.dataset.view === 'acct-health') {
-        renderAccountHealth();
+        render(); renderAccountHealth();
       }
     });
   });
