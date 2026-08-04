@@ -2597,12 +2597,27 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   function getSegment() { return ($('segment') && $('segment').value) || ''; }
   // Normalized segment lookup — strips spaces/punctuation/case so "ArizonaFasteners" matches "Arizona Fasteners"
   const _segNormKey = s => (s||'').toLowerCase().replace(/[\s\-_.,&'"/\\()]+/g,'');
+  // Manual aliases: CSAT normalized key → segment (for names that differ too much to auto-match)
+  const _ACCT_ALIASES = {
+    'vanleeuwenpipeandtubegroup':                         'Dedicated',
+    'plumberexspecialtyproductsinc':                      'Pooled',
+    'grandmedicinehealthservicesoaspiritrxservices':      'Pooled',
+    'buvarationelebouwproductenbv':                       'Pooled',
+    'thereliancebearinggearcompanyltd':                   'Pooled',
+    'representacionesdeaudiosadecv':                      'Dedicated',
+    'forehandnetworkcomponentsdevices':                   'Pooled',
+    'brsiggmbhelectronicdistributor':                     'Dedicated',
+    'mdmcommercialenterprisesinc':                        'Pooled',
+    'asmodeebelgium':                                     'Dedicated',
+    'thibobvformerhitmetal':                              'Pooled',
+  };
   let _segNormMap = null;
   function _getSegNormMap() {
     if (!_segNormMap) {
       _segNormMap = {};
       const src = window._acctSegments || {};
       Object.keys(src).forEach(k => { _segNormMap[_segNormKey(k)] = src[k]; });
+      Object.assign(_segNormMap, _ACCT_ALIASES); // manual overrides win
     }
     return _segNormMap;
   }
