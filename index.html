@@ -931,27 +931,70 @@
           <button onclick="event.stopPropagation();window._csatExportCsv&&window._csatExportCsv();" style="margin-left:auto;padding:5px 14px;border-radius:6px;border:1px solid var(--primary);background:var(--panel);color:var(--primary);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.03em;">&#11015; Export CSV</button>
         </summary>
         <div style="padding-top:10px;">
-          <div id="csatFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
-            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">SEARCH</span>
-            <input id="csatSearch" placeholder="Search any column…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:160px;background:var(--panel);color:var(--text);">
-            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">RATING</span>
-            <select id="csatRatingFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
-              <option value="">All ratings</option>
-              <option>Very Satisfied</option><option>Satisfied</option><option>Neutral</option><option>Dissatisfied</option><option>Very Dissatisfied</option>
-            </select>
-            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CUSTOMER</span>
-            <select id="csatCustomerFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:220px;">
-              <option value="">All customers</option>
-            </select>
-            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">CONSULTANT</span>
-            <select id="csatConsultantFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);max-width:200px;">
-              <option value="">All consultants</option>
-            </select>
-            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">EASE OF RESOLUTION</span>
-            <select id="csatCetFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
-              <option value="">All</option>
-              <option>Very Easy</option><option>Easy</option><option>Neutral</option><option>Difficult</option><option>Very Difficult</option>
-            </select>
+          <style>
+            .cms-wrap{position:relative;}
+            .cms-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11.5px;font-weight:700;background:var(--panel);color:var(--text);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;}
+            .cms-btn.cms-active{border-color:var(--primary);color:var(--primary);background:#eef3ff;}
+            .cms-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px #0003;min-width:200px;max-height:280px;overflow-y:auto;}
+            .cms-panel.cms-open{display:block;}
+            .cms-panel-head{padding:6px 12px 6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);}
+            .cms-panel-head span{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+            .cms-panel-head a{font-size:11px;color:var(--primary);text-decoration:none;font-weight:600;}
+            .cms-label{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:12px;cursor:pointer;color:var(--text);}
+            .cms-label:hover{background:var(--bg);}
+            .cms-label input{accent-color:var(--primary);width:14px;height:14px;flex-shrink:0;}
+            .cms-search{width:calc(100% - 24px);margin:6px 12px;padding:4px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;background:var(--bg);color:var(--text);}
+          </style>
+          <div id="csatFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+            <input id="csatSearch" placeholder="🔍 Search any column…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:180px;background:var(--panel);color:var(--text);">
+
+            <!-- RATING multi-select -->
+            <div class="cms-wrap">
+              <button class="cms-btn" id="csatRatingBtn" onclick="window._cmsToggle('csatRatingPanel',this,event)">Rating: All ▾</button>
+              <div class="cms-panel" id="csatRatingPanel">
+                <div class="cms-panel-head"><span>Rating</span><a href="#" onclick="window._cmsClear('csatRatingPanel','csatRatingBtn','Rating');return false;">Clear</a></div>
+                <label class="cms-label"><input type="checkbox" value="Very Satisfied" onchange="window._cmsChange('csatRatingPanel','csatRatingBtn','Rating')"> ✅ Very Satisfied</label>
+                <label class="cms-label"><input type="checkbox" value="Satisfied" onchange="window._cmsChange('csatRatingPanel','csatRatingBtn','Rating')"> 👍 Satisfied</label>
+                <label class="cms-label"><input type="checkbox" value="Neutral" onchange="window._cmsChange('csatRatingPanel','csatRatingBtn','Rating')"> 😐 Neutral</label>
+                <label class="cms-label"><input type="checkbox" value="Dissatisfied" onchange="window._cmsChange('csatRatingPanel','csatRatingBtn','Rating')"> 👎 Dissatisfied</label>
+                <label class="cms-label"><input type="checkbox" value="Very Dissatisfied" onchange="window._cmsChange('csatRatingPanel','csatRatingBtn','Rating')"> ❌ Very Dissatisfied</label>
+              </div>
+            </div>
+
+            <!-- ACCOUNT multi-select -->
+            <div class="cms-wrap">
+              <button class="cms-btn" id="csatCustomerBtn" onclick="window._cmsToggle('csatCustomerPanel',this,event)">Account: All ▾</button>
+              <div class="cms-panel" id="csatCustomerPanel">
+                <div class="cms-panel-head"><span>Account</span><a href="#" onclick="window._cmsClear('csatCustomerPanel','csatCustomerBtn','Account');return false;">Clear</a></div>
+                <input class="cms-search" placeholder="Filter accounts…" oninput="window._cmsFilterList('csatCustomerPanel',this.value)">
+                <div id="csatCustomerList"></div>
+              </div>
+            </div>
+
+            <!-- CONSULTANT multi-select -->
+            <div class="cms-wrap">
+              <button class="cms-btn" id="csatConsultantBtn" onclick="window._cmsToggle('csatConsultantPanel',this,event)">Consultant: All ▾</button>
+              <div class="cms-panel" id="csatConsultantPanel">
+                <div class="cms-panel-head"><span>Consultant</span><a href="#" onclick="window._cmsClear('csatConsultantPanel','csatConsultantBtn','Consultant');return false;">Clear</a></div>
+                <input class="cms-search" placeholder="Filter consultants…" oninput="window._cmsFilterList('csatConsultantPanel',this.value)">
+                <div id="csatConsultantList"></div>
+              </div>
+            </div>
+
+            <!-- EASE OF RESOLUTION multi-select -->
+            <div class="cms-wrap">
+              <button class="cms-btn" id="csatCetBtn" onclick="window._cmsToggle('csatCetPanel',this,event)">Ease: All ▾</button>
+              <div class="cms-panel" id="csatCetPanel">
+                <div class="cms-panel-head"><span>Ease of Resolution</span><a href="#" onclick="window._cmsClear('csatCetPanel','csatCetBtn','Ease');return false;">Clear</a></div>
+                <label class="cms-label"><input type="checkbox" value="Very Easy" onchange="window._cmsChange('csatCetPanel','csatCetBtn','Ease')"> Very Easy</label>
+                <label class="cms-label"><input type="checkbox" value="Easy" onchange="window._cmsChange('csatCetPanel','csatCetBtn','Ease')"> Easy</label>
+                <label class="cms-label"><input type="checkbox" value="Neither" onchange="window._cmsChange('csatCetPanel','csatCetBtn','Ease')"> Neither</label>
+                <label class="cms-label"><input type="checkbox" value="Difficult" onchange="window._cmsChange('csatCetPanel','csatCetBtn','Ease')"> Difficult</label>
+                <label class="cms-label"><input type="checkbox" value="Very Difficult" onchange="window._cmsChange('csatCetPanel','csatCetBtn','Ease')"> Very Difficult</label>
+              </div>
+            </div>
+
+            <a href="#" onclick="window._csatClearAll();return false;" style="font-size:11px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:5px;">✕ Clear all</a>
             <span id="csatRowCount" style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;"></span>
           </div>
           <div id="csatRawTable" style="overflow-x:auto;font-size:12px;"></div>
@@ -7335,30 +7378,90 @@ if(window.opener&&!window.opener.closed){
       const SCORE_COL = {'Very Satisfied':'#059669','Satisfied':'#16a34a','Neutral':'#6b7280','Dissatisfied':'#dc2626','Very Dissatisfied':'#991b1b'};
       const CET_COL = {'Very Easy':'#059669','Easy':'#16a34a','Neutral':'#6b7280','Difficult':'#dc2626','Very Difficult':'#991b1b'};
       // Populate customer dropdown
-      const custSel = $('csatCustomerFilter');
-      if (custSel && custSel.options.length <= 1) {
+      // ── Multi-select helpers (shared globally) ───────────────────────────────
+      if (!window._cmsToggle) {
+        window._cmsGetChecked = function(panelId) {
+          const p = document.getElementById(panelId); if (!p) return [];
+          return [...p.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
+        };
+        window._cmsUpdateBtn = function(btnId, label, checked) {
+          const btn = document.getElementById(btnId); if (!btn) return;
+          btn.textContent = checked.length ? label+': '+checked.length+' selected ▾' : label+': All ▾';
+          btn.classList.toggle('cms-active', checked.length > 0);
+        };
+        window._cmsChange = function(panelId, btnId, label) {
+          window._cmsUpdateBtn(btnId, label, window._cmsGetChecked(panelId));
+          if (window._csatRenderTable) window._csatRenderTable();
+        };
+        window._cmsClear = function(panelId, btnId, label) {
+          const p = document.getElementById(panelId); if (!p) return;
+          p.querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.checked=false; });
+          window._cmsUpdateBtn(btnId, label, []);
+          if (window._csatRenderTable) window._csatRenderTable();
+        };
+        window._cmsToggle = function(panelId, btn, e) {
+          e && e.stopPropagation();
+          const p = document.getElementById(panelId); if (!p) return;
+          const isOpen = p.classList.contains('cms-open');
+          document.querySelectorAll('.cms-panel.cms-open').forEach(el=>el.classList.remove('cms-open'));
+          if (!isOpen) p.classList.add('cms-open');
+        };
+        window._cmsFilterList = function(panelId, query) {
+          const p = document.getElementById(panelId); if (!p) return;
+          const q = query.toLowerCase();
+          p.querySelectorAll('.cms-label').forEach(lbl=>{
+            lbl.style.display = (!q || lbl.textContent.toLowerCase().includes(q)) ? '' : 'none';
+          });
+        };
+        document.addEventListener('click', function(e) {
+          if (!e.target.closest('.cms-wrap')) {
+            document.querySelectorAll('.cms-panel.cms-open').forEach(el=>el.classList.remove('cms-open'));
+          }
+        });
+      }
+      window._csatClearAll = function() {
+        ['csatRatingPanel','csatCustomerPanel','csatConsultantPanel','csatCetPanel'].forEach(id=>{
+          const p=document.getElementById(id); if(p) p.querySelectorAll('input[type=checkbox]').forEach(cb=>{cb.checked=false;});
+        });
+        [['csatRatingBtn','Rating'],['csatCustomerBtn','Account'],['csatConsultantBtn','Consultant'],['csatCetBtn','Ease']].forEach(([b,l])=>window._cmsUpdateBtn(b,l,[]));
+        const s=$('csatSearch'); if(s) s.value='';
+        if(window._csatRenderTable) window._csatRenderTable();
+      };
+
+      // Populate Account list
+      const custListEl = $('csatCustomerList');
+      if (custListEl && !custListEl.children.length) {
         const accts = [...new Set(rows.map(r=>r.acct||'').filter(Boolean))].sort();
-        accts.forEach(a => { const o=document.createElement('option'); o.value=a; o.textContent=a; custSel.appendChild(o); });
+        accts.forEach(a => {
+          const lbl = document.createElement('label'); lbl.className='cms-label';
+          lbl.innerHTML='<input type="checkbox" value="'+a.replace(/"/g,'&quot;')+'" onchange="window._cmsChange(\'csatCustomerPanel\',\'csatCustomerBtn\',\'Account\')"> '+a;
+          custListEl.appendChild(lbl);
+        });
       }
-      // Populate consultant dropdown
-      const consSel = $('csatConsultantFilter');
-      if (consSel && consSel.options.length <= 1) {
+      // Populate Consultant list
+      const consListEl = $('csatConsultantList');
+      if (consListEl && !consListEl.children.length) {
         const cons = [...new Set(rows.map(r=>r.c||'').filter(Boolean))].sort();
-        cons.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; consSel.appendChild(o); });
+        cons.forEach(c => {
+          const lbl = document.createElement('label'); lbl.className='cms-label';
+          lbl.innerHTML='<input type="checkbox" value="'+c.replace(/"/g,'&quot;')+'" onchange="window._cmsChange(\'csatConsultantPanel\',\'csatConsultantBtn\',\'Consultant\')"> '+c;
+          consListEl.appendChild(lbl);
+        });
       }
+
       const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
       function renderTable() {
         const search = ($('csatSearch')||{}).value||''; const sq = search.toLowerCase();
-        const ratingF = ($('csatRatingFilter')||{}).value||'';
-        const custF   = ($('csatCustomerFilter')||{}).value||'';
-        const consF   = ($('csatConsultantFilter')||{}).value||'';
-        const cetF    = ($('csatCetFilter')||{}).value||'';
+        const ratingF = window._cmsGetChecked('csatRatingPanel');
+        const custF   = window._cmsGetChecked('csatCustomerPanel');
+        const consF   = window._cmsGetChecked('csatConsultantPanel');
+        const cetF    = window._cmsGetChecked('csatCetPanel');
         let visible = rows.filter(r => {
           const rlabel = RATING_LABEL[(r.rating||'').trim().toLowerCase()] || r.rating || '';
-          if (ratingF && rlabel !== ratingF) return false;
-          if (custF   && r.acct !== custF) return false;
-          if (consF   && r.c !== consF) return false;
-          if (cetF    && r.cet !== cetF) return false;
+          if (ratingF.length && !ratingF.includes(rlabel)) return false;
+          if (custF.length   && !custF.includes(r.acct||'')) return false;
+          if (consF.length   && !consF.includes(r.c||'')) return false;
+          if (cetF.length    && !cetF.includes(r.cet||'')) return false;
           if (sq) { const blob = [r.d||'',r.acct||'',r.c||'',rlabel,r.cet||'',r.mainCat||'',r.subCat||'',r.reason||'',r.comment||''].join(' ').toLowerCase(); return blob.indexOf(sq)>=0; }
           return true;
         });
@@ -7394,12 +7497,11 @@ if(window.opener&&!window.opener.closed){
         h += '</tbody></table>';
         tableEl.innerHTML = h;
       }
+      window._csatRenderTable = renderTable;
       renderTable();
-      // Wire filters — debounced
+      // Wire search input — debounced
       let _ct; const debounce = () => { clearTimeout(_ct); _ct = setTimeout(renderTable, 180); };
-      ['csatSearch','csatRatingFilter','csatCustomerFilter','csatConsultantFilter','csatCetFilter'].forEach(id => {
-        const el2 = $(id); if (el2) { el2.removeEventListener('input', debounce); el2.removeEventListener('change', debounce); el2.addEventListener('input', debounce); el2.addEventListener('change', debounce); }
-      });
+      const srchEl = $('csatSearch'); if (srchEl) { srchEl.addEventListener('input', debounce); }
     })();
 
     // ── CSV export (wired to button in HTML) ─────────────────────────────────
