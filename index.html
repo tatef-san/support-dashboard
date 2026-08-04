@@ -7971,7 +7971,7 @@ if(window.opener&&!window.opener.closed){
 
     // ---- E. Reason for Rating — High vs Low breakdown ----
     {
-      const LOW_SET  = new Set(['dissatisfied','very dissatisfied','very unsatisfied','unsatisfied']);
+      const LOW_SET  = new Set(['dissatisfied','very dissatisfied','very unsatisfied','unsatisfied','neutral']);
       const HIGH_SET = new Set(['satisfied','very satisfied']);
       const lowReasons = {}, highReasons = {};
       let lowTotal = 0, highTotal = 0, noReasonLow = 0, noReasonHigh = 0;
@@ -8008,7 +8008,7 @@ if(window.opener&&!window.opener.closed){
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px;">' +
           '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:14px 16px;">' +
             '<div style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">🔴 Low Scores — Reasons</div>' +
-            '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Dissatisfied + Very Dissatisfied &nbsp;·&nbsp; <b>'+lowTotal+'</b> selected a reason &nbsp;·&nbsp; '+noReasonLow+' did not</div>' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Neutral + Dissatisfied + Very Dissatisfied &nbsp;·&nbsp; <b>'+lowTotal+'</b> selected a reason &nbsp;·&nbsp; '+noReasonLow+' did not</div>' +
             mkReasonBars(sortedLow,  lowTotal,  '#dc2626') +
           '</div>' +
           '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;">' +
