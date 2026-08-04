@@ -636,6 +636,7 @@
     <span class="row2-label">KPI Deep-Dive</span>
     <button class="view-tab" data-view="kpi-csat">CSAT</button>
     <button class="view-tab" data-view="maya-csat">&#x1F916; Maya AI CSAT</button>
+    <button class="view-tab" data-view="acct-health">🏥 Account Health</button>
     <button class="view-tab" data-view="kpi-active">Active tickets</button>
     <button class="view-tab" data-view="kpi-closed">Closed tickets</button>
     <button class="view-tab" data-view="kpi-ttr">TTR</button>
@@ -1019,6 +1020,52 @@
       <details class="csat-panel" open style="margin-top:10px;">
         <summary class="dd-section-title">How to Improve CSAT — Auto Insights</summary>
         <div id="csatImprove" style="padding-top:8px;"></div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ACCOUNT HEALTH TAB -->
+  <div id="view-acct-health" class="view">
+    <div style="max-width:1300px;margin:0 auto;padding:0 4px;">
+      <div class="dd-hero" style="margin-bottom:18px;">
+        <div class="dd-hero-text">
+          <h2>🏥 Account Health</h2>
+          <p>CSAT trend analysis per account — declining scores, below-target accounts, and links to individual ratings.</p>
+        </div>
+      </div>
+      <!-- Summary strip -->
+      <div id="ahSummary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;"></div>
+      <!-- Declining accounts -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">📉 Declining Accounts — Last 3 Months</summary>
+        <div style="padding-top:10px;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Accounts where avg CSAT dropped month-over-month. Sorted by biggest decline.</div>
+          <div id="ahDeclining" style="overflow-x:auto;font-size:12px;"></div>
+        </div>
+      </details>
+      <!-- Below target -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">🔴 Below Neutral — Accounts with Negative CSAT</summary>
+        <div style="padding-top:10px;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Accounts whose overall avg CSAT score is below Neutral (score &lt; 3.0 on 1–5 scale). Sorted worst first.</div>
+          <div id="ahBelowTarget" style="overflow-x:auto;font-size:12px;"></div>
+        </div>
+      </details>
+      <!-- All accounts scorecard -->
+      <details class="csat-panel" style="margin-bottom:14px;">
+        <summary class="dd-section-title">📋 All Accounts Scorecard</summary>
+        <div style="padding-top:10px;">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <input id="ahSearch" placeholder="🔍 Search account…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:200px;background:var(--panel);color:var(--text);">
+            <select id="ahSort" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="score_asc">Worst score first</option>
+              <option value="score_desc">Best score first</option>
+              <option value="count_desc">Most ratings first</option>
+              <option value="name_asc">Account A–Z</option>
+            </select>
+          </div>
+          <div id="ahScorecard" style="overflow-x:auto;font-size:12px;"></div>
+        </div>
       </details>
     </div>
   </div>
@@ -12578,6 +12625,139 @@ if(window.opener&&!window.opener.closed){
   };
 
   // ===========================================================================
+  // ACCOUNT HEALTH TAB
+  // ===========================================================================
+  function renderAccountHealth() {
+    const RNUM  = {'very satisfied':5,'satisfied':4,'neutral':3,'dissatisfied':2,'very dissatisfied':1,'very unsatisfied':1,'unsatisfied':2};
+    const esc2  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+
+    // Pull all 2026 CSAT rows with an account name
+    const source = (window._vfCsatAutoData||[]);
+    const allRows = source.filter(r => r.d && r.d >= '2026-01-01' && (r.acct||'').trim());
+
+    // Build per-account map
+    const map = {};
+    allRows.forEach(r => {
+      const k = (r.acct||'').trim();
+      if (!map[k]) map[k] = [];
+      map[k].push(r);
+    });
+
+    // Last 3 calendar months relative to most recent data point
+    const latestDate = allRows.reduce((m,r) => r.d > m ? r.d : m, '2026-01-01');
+    const lBase = new Date(latestDate + 'T00:00:00');
+    const months = [0,1,2].map(i => {
+      const d = new Date(lBase.getFullYear(), lBase.getMonth() - i, 1);
+      return d.toISOString().slice(0,7);
+    }); // [latest, -1, -2]
+
+    const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mLabel = m => MONTH_LABELS[parseInt(m.split('-')[1])-1] + ' ' + m.split('-')[0].slice(2);
+
+    // Compute per-account stats
+    const acctData = Object.entries(map).map(([name, rows]) => {
+      const scores = rows.map(r => RNUM[String(r.rating||'').trim().toLowerCase()]).filter(s=>s!=null);
+      const avg    = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : null;
+
+      const mScores = months.map(m => {
+        const ms = rows.filter(r=>(r.d||'').slice(0,7)===m)
+                       .map(r=>RNUM[String(r.rating||'').trim().toLowerCase()]).filter(s=>s!=null);
+        return ms.length ? ms.reduce((a,b)=>a+b,0)/ms.length : null;
+      });
+
+      // Trend = latest month minus previous month (where both exist)
+      let trend = null;
+      if (mScores[0]!=null && mScores[1]!=null) trend = mScores[0]-mScores[1];
+      else if (mScores[0]!=null && mScores[2]!=null) trend = mScores[0]-mScores[2];
+
+      const rsnCount = {};
+      rows.forEach(r=>{ const rs=(r.reason||'').trim(); if(rs) rsnCount[rs]=(rsnCount[rs]||0)+1; });
+      const topReason = Object.entries(rsnCount).sort((a,b)=>b[1]-a[1])[0];
+
+      return { name, count: rows.length, avg, mScores, trend, topReason: topReason?.[0]||'', rows };
+    }).filter(a=>a.avg!=null);
+
+    // ── helpers
+    const sCol  = s => s==null?'#6b7280':s>=4?'#16a34a':s>=3.5?'#65a30d':s>=3?'#b45309':'#dc2626';
+    const sBg   = s => s==null?'transparent':s>=4?'#f0fdf4':s>=3.5?'#f7fee7':s>=3?'#fffbeb':'#fef2f2';
+    const arrow = t => t==null?'<span style="color:var(--muted)">—</span>':
+      t> 0.25?'<span style="color:#16a34a;font-weight:700">▲ +'+t.toFixed(2)+'</span>':
+      t<-0.25?'<span style="color:#dc2626;font-weight:700">▼ '+t.toFixed(2)+'</span>':
+      '<span style="color:#6b7280">↔ stable</span>';
+
+    // ── Summary strip
+    const declining   = acctData.filter(a=>a.trend!=null&&a.trend<-0.25);
+    const belowNeutral= acctData.filter(a=>a.avg<3);
+    const el = $('ahSummary');
+    if (el) {
+      const kpi=(v,lab,col,bg)=>'<div style="background:'+bg+';border:1px solid '+col+'55;border-radius:8px;padding:10px 22px;text-align:center;">'+
+        '<div style="font-size:28px;font-weight:800;color:'+col+';">'+v+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+lab+'</div></div>';
+      el.innerHTML =
+        kpi(acctData.length,  'Accounts with 2026 CSAT',  '#2e4470','#eef3ff')+
+        kpi(declining.length, 'Declining (month-over-month)','#b45309','#fffbeb')+
+        kpi(belowNeutral.length,'Below neutral (avg < 3.0)','#dc2626','#fef2f2');
+    }
+
+    // ── Table builder
+    function mkTbl(data) {
+      if (!data.length) return '<div style="padding:12px;font-size:12px;color:var(--muted);">No accounts in this category.</div>';
+      let h='<table style="width:100%;border-collapse:collapse;min-width:750px;">'+
+        '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
+        '<th style="padding:8px 10px;text-align:left;">Account</th>'+
+        '<th style="padding:8px 10px;text-align:center;"># Ratings</th>'+
+        '<th style="padding:8px 10px;text-align:center;">Overall Avg</th>'+
+        months.slice().reverse().map(m=>'<th style="padding:8px 10px;text-align:center;">'+mLabel(m)+'</th>').join('')+
+        '<th style="padding:8px 10px;text-align:center;">Trend</th>'+
+        '<th style="padding:8px 10px;text-align:left;">Top Reason</th>'+
+        '<th style="padding:8px 10px;text-align:left;">Recent Tickets</th>'+
+        '</tr></thead><tbody>';
+      data.forEach((a,i)=>{
+        const bg=i%2===0?'var(--panel)':'var(--bg)';
+        const sc=a.avg!=null?a.avg.toFixed(2):'—';
+        const links=a.rows.filter(r=>r.wi).slice(-6).reverse().map(r=>
+          '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);font-family:monospace;font-size:11px;">#'+r.wi+'</a>'
+        ).join(' ');
+        h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+          '<td style="padding:8px 10px;font-weight:600;">'+esc2(a.name)+'</td>'+
+          '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+a.count+'</td>'+
+          '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+sCol(a.avg)+';background:'+sBg(a.avg)+';">'+sc+'</td>'+
+          [...a.mScores].reverse().map(ms=>'<td style="padding:8px 10px;text-align:center;color:'+sCol(ms)+';font-weight:600;">'+(ms!=null?ms.toFixed(1):'—')+'</td>').join('')+
+          '<td style="padding:8px 10px;text-align:center;">'+arrow(a.trend)+'</td>'+
+          '<td style="padding:8px 10px;font-size:11px;color:var(--muted);max-width:180px;">'+esc2(a.topReason||'—')+'</td>'+
+          '<td style="padding:8px 10px;">'+( links||'<span style="color:var(--muted);font-size:11px;">—</span>' )+'</td>'+
+        '</tr>';
+      });
+      return h+'</tbody></table>';
+    }
+
+    // ── Declining section
+    const decEl=$('ahDeclining');
+    if(decEl) decEl.innerHTML=mkTbl(declining.sort((a,b)=>a.trend-b.trend));
+
+    // ── Below neutral section
+    const belEl=$('ahBelowTarget');
+    if(belEl) belEl.innerHTML=mkTbl(belowNeutral.sort((a,b)=>a.avg-b.avg));
+
+    // ── Scorecard (all accounts, sortable/searchable)
+    function renderScorecard(){
+      const q=(($('ahSearch')||{}).value||'').toLowerCase();
+      const by=($('ahSort')||{}).value||'score_asc';
+      let data=acctData.filter(a=>!q||a.name.toLowerCase().includes(q));
+      if(by==='score_asc')  data.sort((a,b)=>(a.avg||0)-(b.avg||0));
+      else if(by==='score_desc') data.sort((a,b)=>(b.avg||0)-(a.avg||0));
+      else if(by==='count_desc') data.sort((a,b)=>b.count-a.count);
+      else data.sort((a,b)=>a.name.localeCompare(b.name));
+      const el2=$('ahScorecard'); if(el2) el2.innerHTML=mkTbl(data);
+    }
+    renderScorecard();
+    const s2=$('ahSearch'); if(s2) s2.oninput=renderScorecard;
+    const s3=$('ahSort');   if(s3) s3.onchange=renderScorecard;
+  }
+  window.renderAccountHealth = renderAccountHealth;
+
+  // ===========================================================================
   // WIRING
   // ===========================================================================
   function switchView(name) {
@@ -12604,6 +12784,8 @@ if(window.opener&&!window.opener.closed){
       // Re-render when switching to data-injected views (injection runs after IIFE)
       if (btn.dataset.view === 'maya-csat' || btn.dataset.view === 'kpi-csat') {
         render();
+      } else if (btn.dataset.view === 'acct-health') {
+        renderAccountHealth();
       }
     });
   });
