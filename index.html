@@ -2597,12 +2597,16 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   function getSegment() { return ($('segment') && $('segment').value) || ''; }
   // Normalized segment lookup — strips spaces/punctuation/case so "ArizonaFasteners" matches "Arizona Fasteners"
   const _segNormKey = s => (s||'').toLowerCase().replace(/[\s\-_.,&'"/\\()]+/g,'');
-  const _segNormMap = (() => {
-    const m = {}; const src = window._acctSegments || {};
-    Object.keys(src).forEach(k => { m[_segNormKey(k)] = src[k]; });
-    return m;
-  })();
-  function segmentOf(acct) { return _segNormMap[_segNormKey(acct)] || 'Unknown'; }
+  let _segNormMap = null;
+  function _getSegNormMap() {
+    if (!_segNormMap) {
+      _segNormMap = {};
+      const src = window._acctSegments || {};
+      Object.keys(src).forEach(k => { _segNormMap[_segNormKey(k)] = src[k]; });
+    }
+    return _segNormMap;
+  }
+  function segmentOf(acct) { return _getSegNormMap()[_segNormKey(acct)] || 'Unknown'; }
   function inSegment(acct) { const s = getSegment(); return !s || segmentOf(acct) === s; }
   function populateScope() {
     const sel = $('scope');
