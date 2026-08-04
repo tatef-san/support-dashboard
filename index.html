@@ -619,6 +619,14 @@
         <option value="Americas">Americas — region</option>
         <option value="EMEA 2 (Alex)">EMEA 2 (Alex) — region</option>
       </select>
+      <label for="segment" style="margin-left:8px;">Segment</label>
+      <select id="segment" style="min-width:130px;">
+        <option value="">All segments</option>
+        <option value="Dedicated">Dedicated</option>
+        <option value="Pooled">Pooled</option>
+        <option value="Partner">Partner</option>
+        <option value="Unknown">Unknown</option>
+      </select>
     </div>
     <div id="authBadge" class="auth-badge" style="display:none;"></div>
   </div>
@@ -2586,6 +2594,9 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     const r = DATA.roster.find(x => x[0] === v);
     return { region: r ? r[1] : 'All', analyst: v, label: v, kind: 'analyst' };
   }
+  function getSegment() { return ($('segment') && $('segment').value) || ''; }
+  function segmentOf(acct) { return (window._acctSegments && window._acctSegments[acct||'']) || 'Unknown'; }
+  function inSegment(acct) { const s = getSegment(); return !s || segmentOf(acct) === s; }
   function populateScope() {
     const sel = $('scope');
     if (!sel) return;
@@ -7364,7 +7375,7 @@ if(window.opener&&!window.opener.closed){
         const canon = _canonAcct(e.acct);
         return canon !== e.acct ? Object.assign({}, e, { acct: canon }) : e;
       })
-      .filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()]);
+      .filter(r => inRange(r.d, range) && inScope(r.c) && RATING_NUM[String(r.rating).trim().toLowerCase()] && inSegment(r.acct));
     window._csatRows = rows; // expose for Account Health tab
 
     // ── Q1 / Q2 Summary Bar (stats + pills, no label box) ────────────────────
@@ -8734,6 +8745,8 @@ if(window.opener&&!window.opener.closed){
       }
     }
 
+    rows = rows.filter(r => inSegment(r.acct));
+
     // Categories panel — must use the same enriched+filtered rows as the rest of this function
     renderActCatInsight(rows);
 
@@ -9458,7 +9471,7 @@ if(window.opener&&!window.opener.closed){
   function renderKpiClosed() {
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
-    const rows = closedInScope(range, region, analyst);
+    const rows = closedInScope(range, region, analyst).filter(r => inSegment(r.acct));
 
     // ---- A. Closed count only ----
     $('cloSummary').innerHTML = '<div class="stat-row" style="grid-template-columns:1fr;">' +
@@ -9611,7 +9624,7 @@ if(window.opener&&!window.opener.closed){
     renderTargetBadge('ttrTargetBadge', r => r.slaMetPct != null && r.slaMetPct >= DATA.targets.closedSlaMet, r => r.closed === 0);
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
-    const rows = closedInScope(range, region, analyst);
+    const rows = closedInScope(range, region, analyst).filter(r => inSegment(r.acct));
     const withAge = rows.filter(r => typeof r.age === 'number');
     const _ageVals = withAge.map(r => r.age).sort((a, b) => a - b);
     let medianTTR = _ageVals.length
@@ -9810,7 +9823,7 @@ if(window.opener&&!window.opener.closed){
     const range = periodRange();
     const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
     const supportMaps = buildSupportTypeMaps();
-    const rows = respAllInScope(range, region, analyst);
+    const rows = respAllInScope(range, region, analyst).filter(r => inSegment(r.acct));
 
     function avg(arr) {
       const s = arr.filter(x => typeof x === 'number');
@@ -10119,6 +10132,7 @@ if(window.opener&&!window.opener.closed){
       (DATA.closed || []).forEach(r => {
         if (!r.wi) return;
         if (inScope && !inScope(r.c)) return;
+        if (!inSegment(r.acct)) return;
         closedWIs.add(String(r.wi));
         completed++;
         if (_escapedSet.has(String(r.wi))) escaped++;
@@ -11135,6 +11149,13 @@ if(window.opener&&!window.opener.closed){
 
     var range    = periodRange();
     var filtered = raw.filter(function(r){ return inRange(r.d, range); });
+    // Segment filter: join wi→acct from closed/active, then apply inSegment
+    if (getSegment()) {
+      var _mayaWiAcct = {};
+      (DATA.closed||[]).forEach(function(r){ if(r.wi && r.acct) _mayaWiAcct[+r.wi]=r.acct; });
+      (DATA.active||[]).forEach(function(r){ var wi=+(r.id||r.wi); if(wi && r.acct) _mayaWiAcct[wi]=r.acct; });
+      filtered = filtered.filter(function(r){ return inSegment(_mayaWiAcct[+r.wi]||''); });
+    }
     var total    = filtered.length;
     var rc  = {1:0,2:0,3:0,4:0,5:0};
     filtered.forEach(function(r){ if(rc[r.rating]!==undefined) rc[r.rating]++; });
@@ -12820,6 +12841,7 @@ if(window.opener&&!window.opener.closed){
 
   $('period').addEventListener('change', () => { showCtl($('period').value); render(); });
   $('scope').addEventListener('change', render);
+  if ($('segment')) $('segment').addEventListener('change', render);
   $('ctlDaily').addEventListener('change', render);
   $('ctlWeekly').addEventListener('change', render);
   $('ctlMonthly').addEventListener('change', render);
