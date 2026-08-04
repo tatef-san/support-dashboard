@@ -1056,7 +1056,7 @@
         <summary class="dd-section-title">📋 All Accounts Scorecard</summary>
         <div style="padding-top:10px;">
           <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-            <input id="ahSearch" placeholder="🔍 Search account…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:200px;background:var(--panel);color:var(--text);">
+            <select id="ahSearch" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:220px;background:var(--panel);color:var(--text);"><option value="">All accounts</option></select>
             <select id="ahSort" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
               <option value="score_asc">Worst score first</option>
               <option value="score_desc">Best score first</option>
@@ -12740,11 +12740,18 @@ if(window.opener&&!window.opener.closed){
     const belEl=$('ahBelowTarget');
     if(belEl) belEl.innerHTML=mkTbl(belowNeutral.sort((a,b)=>a.avg-b.avg));
 
-    // ── Scorecard (all accounts, sortable/searchable)
+    // ── Populate account dropdown
+    const s2=$('ahSearch');
+    if(s2){
+      const sorted=acctData.slice().sort((a,b)=>a.name.localeCompare(b.name));
+      s2.innerHTML='<option value="">All accounts</option>'+sorted.map(a=>'<option value="'+esc2(a.name)+'">'+esc2(a.name)+'</option>').join('');
+    }
+
+    // ── Scorecard (all accounts, sortable/filterable)
     function renderScorecard(){
-      const q=(($('ahSearch')||{}).value||'').toLowerCase();
+      const q=($('ahSearch')||{}).value||'';
       const by=($('ahSort')||{}).value||'score_asc';
-      let data=acctData.filter(a=>!q||a.name.toLowerCase().includes(q));
+      let data=q ? acctData.filter(a=>a.name===q) : acctData.slice();
       if(by==='score_asc')  data.sort((a,b)=>(a.avg||0)-(b.avg||0));
       else if(by==='score_desc') data.sort((a,b)=>(b.avg||0)-(a.avg||0));
       else if(by==='count_desc') data.sort((a,b)=>b.count-a.count);
@@ -12752,8 +12759,8 @@ if(window.opener&&!window.opener.closed){
       const el2=$('ahScorecard'); if(el2) el2.innerHTML=mkTbl(data);
     }
     renderScorecard();
-    const s2=$('ahSearch'); if(s2) s2.oninput=renderScorecard;
-    const s3=$('ahSort');   if(s3) s3.onchange=renderScorecard;
+    if(s2) s2.onchange=renderScorecard;
+    const s3=$('ahSort'); if(s3) s3.onchange=renderScorecard;
   }
   window.renderAccountHealth = renderAccountHealth;
 
