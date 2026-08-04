@@ -653,6 +653,7 @@
     <button class="view-tab" data-view="kpi-esc">Escape rate</button>
     <button class="view-tab" data-view="kpi-util">Utilization</button>
     <button class="view-tab" data-view="kpi-dq">Data Quality</button>
+    <button class="view-tab" data-view="ticket-status">🎫 Ticket Status</button>
     <button class="view-tab" data-view="kpi-guide">📖 KPI Guide</button>
   </div>
 </header>
@@ -1630,6 +1631,50 @@
     </div>
   </div>
 
+
+  <!-- TICKET STATUS -->
+  <div id="view-ticket-status" class="view">
+    <div class="panel" style="margin-bottom:12px;">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <label style="font-size:11px;color:var(--muted);font-weight:600;">ACCOUNT</label>
+          <select id="tsAcct" style="min-width:240px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--panel);color:var(--text);">
+            <option value="">All accounts</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <label style="font-size:11px;color:var(--muted);font-weight:600;">SEGMENT</label>
+          <select id="tsSeg" style="min-width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--panel);color:var(--text);">
+            <option value="">All segments</option>
+            <option value="Dedicated">Dedicated</option>
+            <option value="Pooled">Pooled</option>
+            <option value="Partner">Partner</option>
+            <option value="Partner's Customer">Partner's Customer</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <label style="font-size:11px;color:var(--muted);font-weight:600;">ANALYST</label>
+          <select id="tsAnalyst" style="min-width:200px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--panel);color:var(--text);">
+            <option value="">All analysts</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <!-- Summary strip -->
+    <div id="tsSummary" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
+    <!-- Monthly trend (closed) -->
+    <div id="tsMonthly" style="margin-bottom:14px;"></div>
+    <!-- Active tickets -->
+    <div class="panel" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--primary);">🔵 Active Tickets</h3>
+      <div id="tsActiveTable" style="overflow-x:auto;"></div>
+    </div>
+    <!-- Closed tickets -->
+    <div class="panel">
+      <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--primary);">✅ Closed Tickets</h3>
+      <div id="tsClosedTable" style="overflow-x:auto;"></div>
+    </div>
+  </div>
 
   <!-- KPI GUIDE -->
   <div id="view-kpi-guide" class="view">
@@ -12969,6 +13014,205 @@ if(window.opener&&!window.opener.closed){
   window.renderAccountHealth = renderAccountHealth;
 
   // ===========================================================================
+  // TICKET STATUS TAB
+  // ===========================================================================
+  function renderTicketStatus() {
+    const esc2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const YEAR = 2026;
+
+    const allActive = (DATA.active  || []).filter(r => r.acct);
+    const allClosed = (DATA.closed  || []).filter(r => r.acct);
+
+    // ── Populate analyst dropdown ────────────────────────────────────────────
+    const tsAnalystEl = $('tsAnalyst');
+    if (tsAnalystEl && tsAnalystEl.options.length <= 1) {
+      const analysts = [...new Set([
+        ...allActive.map(r => r.c), ...allClosed.map(r => r.c)
+      ].filter(Boolean))].sort();
+      analysts.forEach(a => {
+        const o = document.createElement('option'); o.value = a; o.textContent = a;
+        tsAnalystEl.appendChild(o);
+      });
+    }
+
+    // ── Read filters ─────────────────────────────────────────────────────────
+    const selAcct    = ($('tsAcct')    || {}).value || '';
+    const selSeg     = ($('tsSeg')     || {}).value || '';
+    const selAnalyst = ($('tsAnalyst') || {}).value || '';
+
+    // ── Filter helpers ───────────────────────────────────────────────────────
+    const matchSeg  = acct => !selSeg     || segmentOf(acct) === selSeg;
+    const matchAcct = acct => !selAcct    || acct === selAcct;
+    const matchAn   = c    => !selAnalyst || c === selAnalyst;
+
+    // ── Populate account dropdown (respects seg + analyst filters) ───────────
+    const tsAcctEl = $('tsAcct');
+    if (tsAcctEl) {
+      const cur = tsAcctEl.value;
+      const accts = [...new Set([
+        ...allActive.filter(r => matchSeg(r.acct) && matchAn(r.c)).map(r => r.acct),
+        ...allClosed.filter(r => matchSeg(r.acct) && matchAn(r.c)).map(r => r.acct),
+      ])].sort();
+      tsAcctEl.innerHTML = '<option value="">All accounts</option>' +
+        accts.map(a => '<option value="'+esc2(a)+'"'+(a===cur?' selected':'')+'>'+esc2(a)+'</option>').join('');
+    }
+
+    // ── Apply all filters ────────────────────────────────────────────────────
+    const active = allActive.filter(r => matchAcct(r.acct) && matchSeg(r.acct) && matchAn(r.c));
+    const closed = allClosed.filter(r => matchAcct(r.acct) && matchSeg(r.acct) && matchAn(r.c));
+
+    // ── Summary strip ────────────────────────────────────────────────────────
+    const overdue   = active.filter(r => (r.age||0) > 20);
+    const ages      = active.map(r => r.age||0);
+    const bk1 = ages.filter(a=>a<7).length;
+    const bk2 = ages.filter(a=>a>=7&&a<=15).length;
+    const bk3 = ages.filter(a=>a>15&&a<=20).length;
+    const bk4 = ages.filter(a=>a>20).length;
+    const closedWithAge = closed.filter(r => r.age!=null && r.age > 0);
+    const avgTTR = closedWithAge.length
+      ? (closedWithAge.reduce((s,r)=>s+(r.age||0),0)/closedWithAge.length).toFixed(1)
+      : '—';
+
+    const kpi = (v, lab, col, bg) =>
+      '<div style="background:'+bg+';border:1px solid '+col+'33;border-radius:8px;padding:10px 18px;text-align:center;min-width:110px;">'+
+      '<div style="font-size:24px;font-weight:800;color:'+col+';">'+v+'</div>'+
+      '<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3;">'+lab+'</div></div>';
+
+    const sumEl = $('tsSummary');
+    if (sumEl) sumEl.innerHTML =
+      kpi(active.length,  'Open tickets',        '#2563eb','#eff6ff') +
+      kpi(closed.length,  'Closed tickets',      '#059669','#f0fdf4') +
+      kpi(bk1,            'Open &lt;7d',         '#16a34a','#f0fdf4') +
+      kpi(bk2,            'Open 7–15d',          '#b45309','#fffbeb') +
+      kpi(bk3,            'Open 16–20d',         '#ea580c','#fff7ed') +
+      kpi(bk4,            'Open &gt;20d ⚠',      '#dc2626','#fef2f2') +
+      kpi(avgTTR,         'Avg TTR (days)',       '#7c3aed','#f5f3ff');
+
+    // ── Monthly trend (closed tickets per month 2026) ─────────────────────
+    const mCount = Array(12).fill(0);
+    closed.forEach(r => {
+      const d = r.closed || r.created || '';
+      if (!d || !d.startsWith(YEAR+'')) return;
+      const m = parseInt(d.slice(5,7),10) - 1;
+      if (m>=0 && m<12) mCount[m]++;
+    });
+    const mMax = Math.max(...mCount, 1);
+    const monthEl = $('tsMonthly');
+    if (monthEl) {
+      let h = '<div class="panel" style="padding:14px 18px;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;">CLOSED TICKETS — MONTHLY TREND '+YEAR+'</div>'+
+        '<div style="display:flex;align-items:flex-end;gap:6px;height:70px;">';
+      mCount.forEach((c,i) => {
+        const pct = Math.round((c/mMax)*60);
+        const col = c===0?'#e5e7eb':'#2563eb';
+        h += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;">'+
+             '<div style="font-size:10px;font-weight:700;color:var(--text);">'+(c||'')+'</div>'+
+             '<div style="width:100%;background:'+col+';border-radius:3px 3px 0 0;height:'+(pct||2)+'px;"></div>'+
+             '<div style="font-size:9px;color:var(--muted);">'+MONTHS[i]+'</div>'+
+             '</div>';
+      });
+      h += '</div></div>';
+      monthEl.innerHTML = h;
+    }
+
+    // ── Active tickets table ─────────────────────────────────────────────────
+    const atEl = $('tsActiveTable');
+    if (atEl) {
+      if (!active.length) {
+        atEl.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No active tickets match the selected filters.</div>';
+      } else {
+        const sorted = [...active].sort((a,b) => (b.age||0)-(a.age||0));
+        let h = '<table style="width:100%;border-collapse:collapse;min-width:900px;font-size:12px;">'+
+          '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
+          '<th style="padding:7px 10px;text-align:left;">Ticket</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Account</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Segment</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Analyst</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Age (days)</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Comments</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Category</th>'+
+          '</tr></thead><tbody>';
+        sorted.forEach((r,i) => {
+          const age   = r.age || 0;
+          const over  = age > 20;
+          const bg    = over ? '#fef2f2' : (i%2===0?'var(--panel)':'var(--bg)');
+          const ageCol= age>20?'#dc2626':age>15?'#ea580c':age>7?'#b45309':'#16a34a';
+          const url   = r.wi ? ADO_BASE + r.wi : null;
+          const link  = url
+            ? '<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+r.wi+'</a>'
+            : (r.wi ? '#'+r.wi : '—');
+          const seg   = segmentOf(r.acct||'');
+          h += '<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+            '<td style="padding:7px 10px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+'<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,60))+'</div></td>'+
+            '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
+            '<td style="padding:7px 10px;">'+esc2(seg)+'</td>'+
+            '<td style="padding:7px 10px;">'+esc2(r.c||'—')+'</td>'+
+            '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ageCol+';">'+age+'</td>'+
+            '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+(r.comments||0)+'</td>'+
+            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+esc2(r.mainCat||'—')+(r.subCat?' / '+esc2(r.subCat):'')+'</td>'+
+            '</tr>';
+        });
+        atEl.innerHTML = h + '</tbody></table>';
+      }
+    }
+
+    // ── Closed tickets table ─────────────────────────────────────────────────
+    const ctEl = $('tsClosedTable');
+    if (ctEl) {
+      if (!closed.length) {
+        ctEl.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No closed tickets match the selected filters.</div>';
+      } else {
+        const sorted = [...closed].sort((a,b) => (b.closed||'').localeCompare(a.closed||''));
+        let h = '<table style="width:100%;border-collapse:collapse;min-width:1000px;font-size:12px;">'+
+          '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
+          '<th style="padding:7px 10px;text-align:left;">Ticket</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Account</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Segment</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Analyst</th>'+
+          '<th style="padding:7px 10px;text-align:center;">TTR (days)</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Comments</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Closed date</th>'+
+          '<th style="padding:7px 10px;text-align:left;">Category</th>'+
+          '</tr></thead><tbody>';
+        sorted.forEach((r,i) => {
+          const ttr   = r.age != null ? r.age : null;
+          const over  = ttr != null && ttr > 20;
+          const bg    = over ? '#fef2f2' : (i%2===0?'var(--panel)':'var(--bg)');
+          const ttrCol= ttr==null?'var(--muted)':ttr>20?'#dc2626':ttr>10?'#b45309':'#16a34a';
+          const url   = r.url || (r.wi ? ADO_BASE+r.wi : null);
+          const link  = url
+            ? '<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+r.wi+'</a>'
+            : (r.wi?'#'+r.wi:'—');
+          const seg   = segmentOf(r.acct||'');
+          const closedDt = (r.closed||'').slice(0,10) || '—';
+          h += '<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+            '<td style="padding:7px 10px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+'<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,60))+'</div></td>'+
+            '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
+            '<td style="padding:7px 10px;">'+esc2(seg)+'</td>'+
+            '<td style="padding:7px 10px;">'+esc2(r.c||'—')+'</td>'+
+            '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ttrCol+';">'+(ttr!=null?ttr:'—')+'</td>'+
+            '<td style="padding:7px 10px;text-align:center;color:var(--muted);">—</td>'+
+            '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+closedDt+'</td>'+
+            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+esc2(r.mainCat||'—')+(r.subCat?' / '+esc2(r.subCat):'')+'</td>'+
+            '</tr>';
+        });
+        ctEl.innerHTML = h + '</tbody></table>';
+      }
+    }
+    // ── Wire filter change events (once) ───────────────────────────────────
+    ['tsAcct','tsSeg','tsAnalyst'].forEach(id => {
+      const el = $(id);
+      if (el && !el._tsBound) {
+        el._tsBound = true;
+        el.addEventListener('change', renderTicketStatus);
+      }
+    });
+  }
+  window.renderTicketStatus = renderTicketStatus;
+
+  // ===========================================================================
   // WIRING
   // ===========================================================================
   function switchView(name) {
@@ -12997,6 +13241,8 @@ if(window.opener&&!window.opener.closed){
         render();
       } else if (btn.dataset.view === 'acct-health') {
         render(); renderAccountHealth();
+      } else if (btn.dataset.view === 'ticket-status') {
+        renderTicketStatus();
       }
     });
   });
@@ -14751,8 +14997,9 @@ if(window.opener&&!window.opener.closed){
     { v: 'kpi-esc',     label: 'Escape Rate' },
     { v: 'kpi-util',    label: 'Utilization' },
     { v: 'kpi-dq',      label: 'Data Quality' },
-    { v: 'acct-health', label: 'Account Health' },
-    { v: 'kpi-guide',   label: '📖 KPI Guide' },
+    { v: 'acct-health',    label: 'Account Health' },
+    { v: 'ticket-status', label: '🎫 Ticket Status' },
+    { v: 'kpi-guide',     label: '📖 KPI Guide' },
   ];
 
   function _cpEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
