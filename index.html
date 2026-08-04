@@ -2652,6 +2652,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     const csatStat = {};
     DATA.csat.forEach(r => {
       if (!inRange(r.d, range)) return;
+      if (!inSegment(r.acct)) return;
       const _effC = (r.wi != null && _csatWiAttr[+r.wi]) ? _csatWiAttr[+r.wi] : r.c;
       if (!inRoster(_effC)) return;
       const num = RATING_NUM[String(r.rating).trim().toLowerCase()];
@@ -2667,6 +2668,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     const actPoolStat = {};
     const _slMapKpi = window._sqlSecondLayer || {};
     DATA.active.forEach(r => {
+      if (!inSegment(r.acct)) return;
       const _wi = +(r.id || r.wi);
       const rc = (inRoster(r.c) ? r.c : (_slMapKpi[_wi] || r.c));
       if (!inRoster(rc)) return;
@@ -2748,6 +2750,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     DATA.closed.forEach(r => {
       // Closed-derived KPIs filter by closure date (when the ticket was closed)
       if (!inRange(r.closed, range)) return;
+      if (!inSegment(r.acct)) return;
       if (!inRoster(r.c)) return;
       const k = cStat[r.c] = cStat[r.c] || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,respVals:[],escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
       k.closed++;
