@@ -8905,17 +8905,23 @@ if(window.opener&&!window.opener.closed){
       return;
     }
     const maxVal = multi[0][1];
+    const _segC={'Dedicated':'#1d4ed8','Pooled':'#059669','Partner':'#7c3aed','Unknown':'#6b7280'};
+    const _segB={'Dedicated':'#eff6ff','Pooled':'#f0fdf4','Partner':'#f5f3ff','Unknown':'#f9fafb'};
+    const _segPill=s=>'<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:'+(_segB[s]||_segB.Unknown)+';color:'+(_segC[s]||_segC.Unknown)+';border:1px solid '+(_segC[s]||_segC.Unknown)+'44;white-space:nowrap;">'+s+'</span>';
     let html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
       '<thead><tr>' +
       '<th style="text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;">Account</th>' +
+      '<th style="padding:6px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;">Segment</th>' +
       '<th style="text-align:right;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;width:80px;">Tickets</th>' +
       '<th style="padding:6px 10px;border-bottom:2px solid var(--border);width:200px;"></th>' +
       '</tr></thead><tbody>';
     multi.forEach(([acct, n], i) => {
       const pct = Math.round(n / maxVal * 100);
       const bg = i % 2 === 0 ? '' : 'background:var(--bg-alt,rgba(0,0,0,0.02));';
+      const seg = segmentOf(acct);
       html += '<tr style="' + bg + '">' +
         '<td style="padding:6px 10px;">' + esc(acct) + '</td>' +
+        '<td style="padding:6px 10px;">' + _segPill(seg) + '</td>' +
         '<td style="text-align:right;padding:6px 10px;font-weight:600;font-variant-numeric:tabular-nums;">' + n + '</td>' +
         '<td style="padding:6px 10px;">' +
           '<div style="background:var(--border);border-radius:3px;height:10px;overflow:hidden;">' +
@@ -9552,7 +9558,7 @@ if(window.opener&&!window.opener.closed){
         return b.closed > a.closed ? 1 : b.closed < a.closed ? -1 : 0;
       });
       window._cloExportCsv = function() {
-        var lines = ['"WI#","Analyst","Account","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams","Comments"'];
+        var lines = ['"WI#","Analyst","Account","Segment","Created","Closed","TTR (days)","Main Category","Sub Category","Involved Teams","Comments"'];
         sorted.forEach(function(r) {
           var teams = (mdata[r.wi] && mdata[r.wi].teams && mdata[r.wi].teams.length) ? mdata[r.wi].teams.join('; ') : '';
           var cmtCount = DATA.commentCounts ? (DATA.commentCounts[String(r.wi)] != null ? DATA.commentCounts[String(r.wi)] : '') : '';
@@ -9560,6 +9566,7 @@ if(window.opener&&!window.opener.closed){
             r.wi || '',
             '"'+(r.c||'').replace(/"/g,'""')+'"',
             '"'+(r.acct||'').replace(/"/g,'""')+'"',
+            segmentOf(r.acct||''),
             r.created ? r.created.slice(0,10) : '',
             r.closed  ? r.closed.slice(0,10)  : '',
             r.age != null ? r.age : '',
@@ -9583,10 +9590,15 @@ if(window.opener&&!window.opener.closed){
         var wiCell = r.wi
           ? '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;">#'+r.wi+'</a>'
           : '—';
+        var _cloSeg=segmentOf(r.acct||'');
+        var _cloSegC={'Dedicated':'#1d4ed8','Pooled':'#059669','Partner':'#7c3aed','Unknown':'#6b7280'};
+        var _cloSegB={'Dedicated':'#eff6ff','Pooled':'#f0fdf4','Partner':'#f5f3ff','Unknown':'#f9fafb'};
+        var _cloSegPill='<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:'+(_cloSegB[_cloSeg]||'#f9fafb')+';color:'+(_cloSegC[_cloSeg]||'#6b7280')+';border:1px solid '+(_cloSegC[_cloSeg]||'#6b7280')+'44;white-space:nowrap;">'+_cloSeg+'</span>';
         tbody += '<tr style="border-top:0.5px solid var(--border);">'
           +'<td style="padding:5px 8px;white-space:nowrap;">'+wiCell+'</td>'
           +'<td style="padding:5px 8px;font-size:12px;white-space:nowrap;">'+esc(r.c||'—')+'</td>'
           +'<td style="padding:5px 8px;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.acct||'')+'">'+esc(r.acct||'—')+'</td>'
+          +'<td style="padding:5px 8px;">'+_cloSegPill+'</td>'
           +'<td style="padding:5px 8px;white-space:nowrap;font-size:12px;">'+(r.created?r.created.slice(0,10):'—')+'</td>'
           +'<td style="padding:5px 8px;white-space:nowrap;font-size:12px;">'+(r.closed?r.closed.slice(0,10):'—')+'</td>'
           +'<td style="padding:5px 8px;text-align:right;font-size:12px;white-space:nowrap;">'+(r.age!=null?r.age+'d':'—')+'</td>'
@@ -9610,6 +9622,7 @@ if(window.opener&&!window.opener.closed){
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">WI #</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Analyst</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Account</th>'
+        +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Segment</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Created</th>'
         +'<th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;">Closed</th>'
         +'<th style="padding:7px 8px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">TTR</th>'
