@@ -1638,9 +1638,9 @@
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
         <div style="display:flex;flex-direction:column;gap:2px;">
           <label style="font-size:11px;color:var(--muted);font-weight:600;">ACCOUNT</label>
-          <select id="tsAcct" style="min-width:240px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--panel);color:var(--text);">
-            <option value="">All accounts</option>
-          </select>
+          <input type="text" id="tsAcct" list="tsAcctList" placeholder="Type to search account..." autocomplete="off"
+            style="min-width:260px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--panel);color:var(--text);">
+          <datalist id="tsAcctList"></datalist>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;">
           <label style="font-size:11px;color:var(--muted);font-weight:600;">SEGMENT</label>
@@ -1664,6 +1664,8 @@
     <div id="tsSummary" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
     <!-- Monthly trend (closed) -->
     <div id="tsMonthly" style="margin-bottom:14px;"></div>
+    <!-- Detailed open/closed summary -->
+    <div id="tsSummaryDetail" style="margin-bottom:14px;"></div>
     <!-- Active tickets -->
     <div class="panel" style="margin-bottom:14px;">
       <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--primary);">🔵 Active Tickets</h3>
@@ -13038,25 +13040,23 @@ if(window.opener&&!window.opener.closed){
     }
 
     // ── Read filters ─────────────────────────────────────────────────────────
-    const selAcct    = ($('tsAcct')    || {}).value || '';
+    const selAcct    = (($('tsAcct')    || {}).value || '').trim();
     const selSeg     = ($('tsSeg')     || {}).value || '';
     const selAnalyst = ($('tsAnalyst') || {}).value || '';
 
     // ── Filter helpers ───────────────────────────────────────────────────────
     const matchSeg  = acct => !selSeg     || segmentOf(acct) === selSeg;
-    const matchAcct = acct => !selAcct    || acct === selAcct;
+    const matchAcct = acct => !selAcct    || acct.toLowerCase().includes(selAcct.toLowerCase());
     const matchAn   = c    => !selAnalyst || c === selAnalyst;
 
-    // ── Populate account dropdown (respects seg + analyst filters) ───────────
-    const tsAcctEl = $('tsAcct');
-    if (tsAcctEl) {
-      const cur = tsAcctEl.value;
+    // ── Populate account datalist (respects seg + analyst) ───────────────────
+    const dlEl = document.getElementById('tsAcctList');
+    if (dlEl) {
       const accts = [...new Set([
         ...allActive.filter(r => matchSeg(r.acct) && matchAn(r.c)).map(r => r.acct),
         ...allClosed.filter(r => matchSeg(r.acct) && matchAn(r.c)).map(r => r.acct),
       ])].sort();
-      tsAcctEl.innerHTML = '<option value="">All accounts</option>' +
-        accts.map(a => '<option value="'+esc2(a)+'"'+(a===cur?' selected':'')+'>'+esc2(a)+'</option>').join('');
+      dlEl.innerHTML = accts.map(a => '<option value="'+esc2(a)+'">').join('');
     }
 
     // ── Apply all filters ────────────────────────────────────────────────────
@@ -13117,44 +13117,105 @@ if(window.opener&&!window.opener.closed){
       monthEl.innerHTML = h;
     }
 
+    // ── Detailed open / closed summary cards ─────────────────────────────────
+    const sdEl = $('tsSummaryDetail');
+    if (sdEl) {
+      const activeWithAge = active.filter(r => r.age!=null);
+      const avgOpen = activeWithAge.length
+        ? (activeWithAge.reduce((s,r)=>s+(r.age||0),0)/activeWithAge.length).toFixed(1) : '—';
+      const maxOpen = activeWithAge.length ? Math.max(...activeWithAge.map(r=>r.age)) : '—';
+      const minOpen = activeWithAge.length ? Math.min(...activeWithAge.map(r=>r.age)) : '—';
+      const createdDates = active.filter(r=>r.created).map(r=>r.created.slice(0,10)).sort();
+      const createdRange = createdDates.length ? createdDates[0]+' → '+createdDates[createdDates.length-1] : '—';
+      const maxTTR = closedWithAge.length ? Math.max(...closedWithAge.map(r=>r.age)) : '—';
+      const minTTR = closedWithAge.length ? Math.min(...closedWithAge.map(r=>r.age)) : '—';
+      const closedDates2 = closed.filter(r=>r.closed).map(r=>r.closed.slice(0,10)).sort();
+      const closedRange = closedDates2.length ? closedDates2[0]+' → '+closedDates2[closedDates2.length-1] : '—';
+      const openedDates = closed.filter(r=>r.created).map(r=>r.created.slice(0,10)).sort();
+      const openedRange = openedDates.length ? openedDates[0]+' → '+openedDates[openedDates.length-1] : '—';
+      const card = (title,col,items) =>
+        '<div style="flex:1;min-width:240px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 18px;">'+
+        '<div style="font-size:11px;font-weight:800;color:'+col+';letter-spacing:.06em;margin-bottom:10px;text-transform:uppercase;">'+title+'</div>'+
+        items.map(([l,v])=>
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);gap:12px;">'+
+          '<span style="font-size:12px;color:var(--muted);">'+l+'</span>'+
+          '<span style="font-size:12px;font-weight:700;color:var(--text);">'+v+'</span>'+
+          '</div>'
+        ).join('')+'</div>';
+      sdEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:12px;">'+
+        card('🔵 Active Tickets — Open','#2563eb',[
+          ['Total open', active.length],
+          ['Avg time open', avgOpen==='—'?'—':avgOpen+' days'],
+          ['Oldest open', maxOpen==='—'?'—':maxOpen+' days'],
+          ['Newest open', minOpen==='—'?'—':minOpen+' days'],
+          ['Creation range', createdRange],
+        ])+
+        card('✅ Closed Tickets — Resolution','#059669',[
+          ['Total closed', closed.length],
+          ['Avg TTR', avgTTR==='—'?'—':avgTTR+' days'],
+          ['Fastest TTR', minTTR==='—'?'—':minTTR+' days'],
+          ['Slowest TTR', maxTTR==='—'?'—':maxTTR+' days'],
+          ['Opened range', openedRange],
+          ['Closed range', closedRange],
+        ])+
+        '</div>';
+    }
+
     // ── Active tickets table ─────────────────────────────────────────────────
     const atEl = $('tsActiveTable');
     if (atEl) {
       if (!active.length) {
         atEl.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No active tickets match the selected filters.</div>';
       } else {
-        const sorted = [...active].sort((a,b) => (b.age||0)-(a.age||0));
-        let h = '<table style="width:100%;border-collapse:collapse;min-width:900px;font-size:12px;">'+
+        // Group by account, sorted by ticket count desc then alpha
+        const grouped = {};
+        active.forEach(r => { const k=r.acct||'—'; (grouped[k]=grouped[k]||[]).push(r); });
+        const keys = Object.keys(grouped).sort((a,b)=>grouped[b].length-grouped[a].length||a.localeCompare(b));
+        let h = '<table style="width:100%;border-collapse:collapse;min-width:960px;font-size:12px;">'+
           '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
           '<th style="padding:7px 10px;text-align:left;">Ticket</th>'+
           '<th style="padding:7px 10px;text-align:left;">Account</th>'+
           '<th style="padding:7px 10px;text-align:left;">Segment</th>'+
           '<th style="padding:7px 10px;text-align:left;">Analyst</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Created</th>'+
           '<th style="padding:7px 10px;text-align:center;">Age (days)</th>'+
           '<th style="padding:7px 10px;text-align:center;">Comments</th>'+
           '<th style="padding:7px 10px;text-align:left;">Category</th>'+
           '</tr></thead><tbody>';
-        sorted.forEach((r,i) => {
-          const age   = r.age || 0;
-          const over  = age > 20;
-          const bg    = over ? '#fef2f2' : (i%2===0?'var(--panel)':'var(--bg)');
-          const ageCol= age>20?'#dc2626':age>15?'#ea580c':age>7?'#b45309':'#16a34a';
-          const url   = r.wi ? ADO_BASE + r.wi : null;
-          const link  = url
-            ? '<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+r.wi+'</a>'
-            : (r.wi ? '#'+r.wi : '—');
-          const seg   = segmentOf(r.acct||'');
-          h += '<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
-            '<td style="padding:7px 10px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+'<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,60))+'</div></td>'+
-            '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
-            '<td style="padding:7px 10px;">'+esc2(seg)+'</td>'+
-            '<td style="padding:7px 10px;">'+esc2(r.c||'—')+'</td>'+
-            '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ageCol+';">'+age+'</td>'+
-            '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+(r.comments||0)+'</td>'+
-            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+esc2(r.mainCat||'—')+(r.subCat?' / '+esc2(r.subCat):'')+'</td>'+
-            '</tr>';
+        keys.forEach(acctKey => {
+          const rows = grouped[acctKey].sort((a,b)=>(b.age||0)-(a.age||0));
+          const seg  = segmentOf(acctKey);
+          const over20 = rows.filter(r=>(r.age||0)>20).length;
+          // Account group header
+          h += '<tr style="background:#e8f0fe;border-top:2px solid #2563eb;">'+
+            '<td colspan="8" style="padding:7px 12px;font-weight:700;font-size:12px;color:#1e3a5f;">'+
+            esc2(acctKey)+
+            ' <span style="font-weight:500;font-size:11px;color:#2563eb;">('+rows.length+' open ticket'+(rows.length!==1?'s':'')+')</span>'+
+            (over20?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;">⚠ '+over20+' &gt;20d</span>':'')+
+            ' <span style="font-size:10px;color:#6b7280;margin-left:8px;">'+esc2(seg)+'</span>'+
+            '</td></tr>';
+          // Ticket rows (indented)
+          rows.forEach((r,i) => {
+            const age=r.age||0, over=age>20;
+            const bg=over?'#fef2f2':(i%2===0?'var(--panel)':'var(--bg)');
+            const ageCol=age>20?'#dc2626':age>15?'#ea580c':age>7?'#b45309':'#16a34a';
+            const url=r.wi?ADO_BASE+r.wi:null;
+            const link=url?'<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+r.wi+'</a>':(r.wi?'#'+r.wi:'—');
+            const createdStr=(r.created||'').slice(0,10)||'—';
+            h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+              '<td style="padding:7px 10px 7px 24px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+
+              '<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,70))+'</div></td>'+
+              '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
+              '<td style="padding:7px 10px;">'+esc2(seg)+'</td>'+
+              '<td style="padding:7px 10px;">'+esc2(r.c||'—')+'</td>'+
+              '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+createdStr+'</td>'+
+              '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ageCol+';">'+age+'</td>'+
+              '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+(r.comments||0)+'</td>'+
+              '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+esc2(r.mainCat||'—')+(r.subCat?' / '+esc2(r.subCat):'')+'</td>'+
+              '</tr>';
+          });
         });
-        atEl.innerHTML = h + '</tbody></table>';
+        atEl.innerHTML = h+'</tbody></table>';
       }
     }
 
@@ -13171,9 +13232,9 @@ if(window.opener&&!window.opener.closed){
           '<th style="padding:7px 10px;text-align:left;">Account</th>'+
           '<th style="padding:7px 10px;text-align:left;">Segment</th>'+
           '<th style="padding:7px 10px;text-align:left;">Analyst</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Created</th>'+
+          '<th style="padding:7px 10px;text-align:center;">Closed</th>'+
           '<th style="padding:7px 10px;text-align:center;">TTR (days)</th>'+
-          '<th style="padding:7px 10px;text-align:center;">Comments</th>'+
-          '<th style="padding:7px 10px;text-align:center;">Closed date</th>'+
           '<th style="padding:7px 10px;text-align:left;">Category</th>'+
           '</tr></thead><tbody>';
         sorted.forEach((r,i) => {
@@ -13185,29 +13246,32 @@ if(window.opener&&!window.opener.closed){
           const link  = url
             ? '<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+r.wi+'</a>'
             : (r.wi?'#'+r.wi:'—');
-          const seg   = segmentOf(r.acct||'');
-          const closedDt = (r.closed||'').slice(0,10) || '—';
+          const seg       = segmentOf(r.acct||'');
+          const createdDt = (r.created||'').slice(0,10) || '—';
+          const closedDt  = (r.closed||'').slice(0,10)  || '—';
           h += '<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
-            '<td style="padding:7px 10px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+'<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,60))+'</div></td>'+
+            '<td style="padding:7px 10px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+'<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,70))+'</div></td>'+
             '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
             '<td style="padding:7px 10px;">'+esc2(seg)+'</td>'+
             '<td style="padding:7px 10px;">'+esc2(r.c||'—')+'</td>'+
-            '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ttrCol+';">'+(ttr!=null?ttr:'—')+'</td>'+
-            '<td style="padding:7px 10px;text-align:center;color:var(--muted);">—</td>'+
+            '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+createdDt+'</td>'+
             '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+closedDt+'</td>'+
+            '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ttrCol+';">'+(ttr!=null?ttr:'—')+'</td>'+
             '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+esc2(r.mainCat||'—')+(r.subCat?' / '+esc2(r.subCat):'')+'</td>'+
             '</tr>';
         });
         ctEl.innerHTML = h + '</tbody></table>';
       }
     }
-    // ── Wire filter change events (once) ───────────────────────────────────
-    ['tsAcct','tsSeg','tsAnalyst'].forEach(id => {
+    // ── Wire filter events (once) ────────────────────────────────────────────
+    const tsAcctInp = $('tsAcct');
+    if (tsAcctInp && !tsAcctInp._tsBound) {
+      tsAcctInp._tsBound = true;
+      tsAcctInp.addEventListener('input', renderTicketStatus);
+    }
+    ['tsSeg','tsAnalyst'].forEach(id => {
       const el = $(id);
-      if (el && !el._tsBound) {
-        el._tsBound = true;
-        el.addEventListener('change', renderTicketStatus);
-      }
+      if (el && !el._tsBound) { el._tsBound = true; el.addEventListener('change', renderTicketStatus); }
     });
   }
   window.renderTicketStatus = renderTicketStatus;
