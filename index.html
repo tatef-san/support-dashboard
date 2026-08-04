@@ -12664,8 +12664,7 @@ if(window.opener&&!window.opener.closed){
   // ACCOUNT HEALTH TAB
   // ===========================================================================
   function renderAccountHealth() {
-    const SEG   = window._acctSegments || {};
-    const segOf = name => SEG[name] || 'Unknown';
+    const segOf = name => segmentOf(name); // uses global normalized lookup
     const SEG_COL= {'Dedicated':'#1d4ed8','Pooled':'#059669','Partner':'#7c3aed','Unknown':'#6b7280'};
     const SEG_BG = {'Dedicated':'#eff6ff','Pooled':'#f0fdf4','Partner':'#f5f3ff','Unknown':'#f9fafb'};
     const segBadge = s => '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+SEG_BG[s]+';color:'+SEG_COL[s]+';border:1px solid '+SEG_COL[s]+'44;">'+s+'</span>';
