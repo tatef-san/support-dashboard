@@ -12834,13 +12834,14 @@ if(window.opener&&!window.opener.closed){
       map[k].push(r);
     });
 
-    // Last 3 calendar months relative to most recent data point
+    // All 12 months of the year (Jan–Dec), based on most recent data point
     const latestDate = allRows.reduce((m,r) => r.d > m ? r.d : m, '2026-01-01');
     const lBase = new Date(latestDate + 'T00:00:00');
-    const months = [0,1,2].map(i => {
-      const d = new Date(lBase.getFullYear(), lBase.getMonth() - i, 1);
+    const year = lBase.getFullYear();
+    const months = [0,1,2,3,4,5,6,7,8,9,10,11].map(i => {
+      const d = new Date(year, i, 1);
       return d.toISOString().slice(0,7);
-    }); // [latest, -1, -2]
+    }); // ['YYYY-01', 'YYYY-02', ..., 'YYYY-12']
 
     const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const mLabel = m => MONTH_LABELS[parseInt(m.split('-')[1])-1] + ' ' + m.split('-')[0].slice(2);
@@ -12856,10 +12857,14 @@ if(window.opener&&!window.opener.closed){
         return ms.length ? ms.reduce((a,b)=>a+b,0)/ms.length : null;
       });
 
-      // Trend = latest month minus previous month (where both exist)
+      // Trend = compare the two most recent months that have data
       let trend = null;
-      if (mScores[0]!=null && mScores[1]!=null) trend = mScores[0]-mScores[1];
-      else if (mScores[0]!=null && mScores[2]!=null) trend = mScores[0]-mScores[2];
+      const populated = mScores.map((v,i)=>({v,i})).filter(x=>x.v!=null);
+      if (populated.length >= 2) {
+        const last = populated[populated.length-1];
+        const prev = populated[populated.length-2];
+        trend = last.v - prev.v;
+      }
 
       const rsnCount = {};
       rows.forEach(r=>{ const rs=(r.reason||'').trim(); if(rs) rsnCount[rs]=(rsnCount[rs]||0)+1; });
@@ -12893,13 +12898,13 @@ if(window.opener&&!window.opener.closed){
     // ── Table builder
     function mkTbl(data) {
       if (!data.length) return '<div style="padding:12px;font-size:12px;color:var(--muted);">No accounts in this category.</div>';
-      let h='<table style="width:100%;border-collapse:collapse;min-width:750px;">'+
+      let h='<table style="width:100%;border-collapse:collapse;min-width:1400px;">'+
         '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
         '<th style="padding:8px 10px;text-align:left;">Account</th>'+
         '<th style="padding:8px 10px;text-align:center;">Segment</th>'+
         '<th style="padding:8px 10px;text-align:center;"># Ratings</th>'+
         '<th style="padding:8px 10px;text-align:center;">Overall Avg</th>'+
-        months.slice().reverse().map(m=>'<th style="padding:8px 10px;text-align:center;">'+mLabel(m)+'</th>').join('')+
+        months.map(m=>'<th style="padding:8px 6px;text-align:center;">'+mLabel(m)+'</th>').join('')+
         '<th style="padding:8px 10px;text-align:center;">Trend</th>'+
         '<th style="padding:8px 10px;text-align:left;">Top Reason</th>'+
         '<th style="padding:8px 10px;text-align:left;">Recent Tickets</th>'+
@@ -12916,7 +12921,7 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:8px 10px;text-align:center;">'+segBadge(seg)+'</td>'+
           '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+a.count+'</td>'+
           '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+sCol(a.avg)+';background:'+sBg(a.avg)+';">'+sc+'</td>'+
-          [...a.mScores].reverse().map(ms=>'<td style="padding:8px 10px;text-align:center;color:'+sCol(ms)+';font-weight:600;">'+(ms!=null?ms.toFixed(1):'—')+'</td>').join('')+
+          a.mScores.map(ms=>'<td style="padding:8px 6px;text-align:center;color:'+sCol(ms)+';font-weight:600;">'+(ms!=null?ms.toFixed(1):'—')+'</td>').join('')+
           '<td style="padding:8px 10px;text-align:center;">'+arrow(a.trend)+'</td>'+
           '<td style="padding:8px 10px;font-size:11px;color:var(--muted);max-width:180px;">'+esc2(a.topReason||'—')+'</td>'+
           '<td style="padding:8px 10px;">'+( links||'<span style="color:var(--muted);font-size:11px;">—</span>' )+'</td>'+
