@@ -13205,11 +13205,16 @@ if(window.opener&&!window.opener.closed){
       if (!active.length) {
         atEl.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">No active tickets match the selected filters.</div>';
       } else {
+        // Store for export
+        window._tsActiveData = active;
         // Group by account, sorted by ticket count desc then alpha
         const grouped = {};
         active.forEach(r => { const k=r.acct||'—'; (grouped[k]=grouped[k]||[]).push(r); });
         const keys = Object.keys(grouped).sort((a,b)=>grouped[b].length-grouped[a].length||a.localeCompare(b));
-        let h = '<table style="width:100%;border-collapse:collapse;min-width:960px;font-size:12px;">'+
+        let h = '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">'+
+          '<button onclick="window._tsExportActive()" style="background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export to Excel</button>'+
+          '</div>'+
+          '<table style="width:100%;border-collapse:collapse;min-width:960px;font-size:12px;">'+
           '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
           '<th style="padding:7px 10px;text-align:left;">Ticket</th>'+
           '<th style="padding:7px 10px;text-align:left;">Account</th>'+
@@ -13220,19 +13225,26 @@ if(window.opener&&!window.opener.closed){
           '<th style="padding:7px 10px;text-align:center;">Comments</th>'+
           '<th style="padding:7px 10px;text-align:left;">Category</th>'+
           '</tr></thead><tbody>';
-        keys.forEach(acctKey => {
+        keys.forEach((acctKey, gi) => {
           const rows = grouped[acctKey].sort((a,b)=>(b.age||0)-(a.age||0));
           const seg  = segmentOf(acctKey);
           const over20 = rows.filter(r=>(r.age||0)>20).length;
-          // Account group header
-          h += '<tr style="background:#e8f0fe;border-top:2px solid #2563eb;">'+
-            '<td colspan="8" style="padding:7px 12px;font-weight:700;font-size:12px;color:#1e3a5f;">'+
+          const grpId = 'tsag_'+gi;
+          // Account group header — clickable to collapse/expand
+          h += '<tr style="background:#e8f0fe;border-top:2px solid #2563eb;cursor:pointer;" onclick="(function(hdr){'+
+            'var open=hdr.dataset.open!==\'0\';'+
+            'hdr.dataset.open=open?\'0\':\'1\';'+
+            'hdr.querySelector(\'.ts-arrow\').textContent=open?\'▶\':\'▼\';'+
+            'document.querySelectorAll(\'tr[data-grp="'+grpId+'"]\').forEach(function(r){r.style.display=open?\'none\':\'\';});'+
+            '})(this)" data-open="1">'+
+            '<td colspan="8" style="padding:7px 12px;font-weight:700;font-size:12px;color:#1e3a5f;user-select:none;">'+
+            '<span class="ts-arrow" style="font-size:10px;margin-right:6px;color:#2563eb;">▼</span>'+
             esc2(acctKey)+
             ' <span style="font-weight:500;font-size:11px;color:#2563eb;">('+rows.length+' open ticket'+(rows.length!==1?'s':'')+')</span>'+
             (over20?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;">⚠ '+over20+' &gt;20d</span>':'')+
             ' <span style="font-size:10px;color:#6b7280;margin-left:8px;">'+esc2(seg)+'</span>'+
             '</td></tr>';
-          // Ticket rows (indented)
+          // Ticket rows
           rows.forEach((r,i) => {
             const age=r.age||0, over=age>20;
             const bg=over?'#fef2f2':(i%2===0?'var(--panel)':'var(--bg)');
@@ -13242,7 +13254,7 @@ if(window.opener&&!window.opener.closed){
             const link=url?'<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+wiNum+'</a>':(wiNum?'#'+wiNum:'—');
             const createdStr=(r.created||'').slice(0,10)||'—';
             const analystCell=!r.c?'—':inRoster(r.c)?esc2(r.c):'<span style="color:var(--muted);font-style:italic;">'+esc2(r.c)+'</span>';
-            h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+            h+='<tr data-grp="'+grpId+'" style="border-bottom:1px solid var(--border);background:'+bg+';">'+
               '<td style="padding:7px 10px 7px 24px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+
               '<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,70))+'</div></td>'+
               '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
@@ -13258,6 +13270,22 @@ if(window.opener&&!window.opener.closed){
         atEl.innerHTML = h+'</tbody></table>';
       }
     }
+    // Export helper (defined once, reused across renders)
+    window._tsExportActive = window._tsExportActive || function() {
+      const rows = window._tsActiveData || [];
+      if (!rows.length) return;
+      const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+      const hdr = ['Ticket ID','Title','Account','Segment','Analyst','Created','Age (days)','Comments','Main Category','Sub Category'];
+      const lines = [hdr.map(esc).join(',')];
+      rows.forEach(r => {
+        const seg = (typeof segmentOf === 'function') ? segmentOf(r.acct||'') : '';
+        lines.push([r.wi||r.id||'', r.title||'', r.acct||'', seg, r.c||'', (r.created||'').slice(0,10), r.age||0, r.comments||0, r.mainCat||'', r.subCat||''].map(esc).join(','));
+      });
+      const blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'active_tickets_'+(new Date().toISOString().slice(0,10))+'.csv';
+      a.click();
+    };
 
     // ── Closed tickets table ─────────────────────────────────────────────────
     const ctEl = $('tsClosedTable');
