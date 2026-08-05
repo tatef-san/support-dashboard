@@ -1674,14 +1674,24 @@
     <!-- Detailed open/closed summary -->
     <div id="tsSummaryDetail" style="margin-bottom:14px;"></div>
     <!-- Active tickets -->
-    <div class="panel" style="margin-bottom:14px;">
-      <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--primary);">🔵 Active Tickets</h3>
-      <div id="tsActiveTable" style="overflow-x:auto;"></div>
+    <div class="panel" style="margin-bottom:14px;padding:0;overflow:hidden;">
+      <div id="tsActiveHdr" data-open="1" onclick="(function(hdr){var open=hdr.dataset.open!=='0';hdr.dataset.open=open?'0':'1';hdr.querySelector('.ts-sec-arrow').textContent=open?'▶':'▼';document.getElementById('tsActiveBody').style.display=open?'none':'';})(this)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);background:var(--panel);">
+        <span style="font-size:13px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">🔵 Active Tickets</span>
+        <span class="ts-sec-arrow" style="font-size:11px;color:var(--muted);">▼</span>
+      </div>
+      <div id="tsActiveBody" style="padding:12px;">
+        <div id="tsActiveTable" style="overflow-x:auto;"></div>
+      </div>
     </div>
     <!-- Closed tickets -->
-    <div class="panel">
-      <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--primary);">✅ Closed Tickets</h3>
-      <div id="tsClosedTable" style="overflow-x:auto;"></div>
+    <div class="panel" style="margin-bottom:14px;padding:0;overflow:hidden;">
+      <div id="tsClosedHdr" data-open="1" onclick="(function(hdr){var open=hdr.dataset.open!=='0';hdr.dataset.open=open?'0':'1';hdr.querySelector('.ts-sec-arrow').textContent=open?'▶':'▼';document.getElementById('tsClosedBody').style.display=open?'none':'';})(this)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);background:var(--panel);">
+        <span style="font-size:13px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;">✅ Closed Tickets</span>
+        <span class="ts-sec-arrow" style="font-size:11px;color:var(--muted);">▼</span>
+      </div>
+      <div id="tsClosedBody" style="padding:12px;">
+        <div id="tsClosedTable" style="overflow-x:auto;"></div>
+      </div>
     </div>
   </div>
 
@@ -13052,14 +13062,15 @@ if(window.opener&&!window.opener.closed){
         const bg=i%2===0?'var(--panel)':'var(--bg)';
         const sc=a.avg!=null?a.avg.toFixed(2):'—';
         const seg=segOf(a.name);
-        const wiRows=a.rows.slice(-8).reverse();
-        const links=wiRows.map(r=>{
-          const mayaBadge=r._maya?'&nbsp;<span style="font-size:9px;background:#7c3aed;color:#fff;border-radius:3px;padding:1px 5px;font-weight:700;vertical-align:middle;">Maya</span>':'';
-          if(r.wi) return '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:#1d4ed8;font-family:monospace;font-size:12px;font-weight:600;">#'+r.wi+'</a>'+mayaBadge;
-          // No WI — show email domain as label
+        // All rows sorted by date desc; Maya entries flagged
+        const allSortedRows = a.rows.slice().sort((x,y)=>(y.d||'').localeCompare(x.d||''));
+        const chips = allSortedRows.map(r=>{
+          const mayaBadge=r._maya?'<span style="font-size:9px;background:#7c3aed;color:#fff;border-radius:3px;padding:1px 4px;font-weight:700;margin-left:2px;vertical-align:middle;">Maya</span>':'';
+          const rating=r.rating?'<span style="font-size:9px;color:#6b7280;margin-left:2px;">('+esc2(r.rating.replace('very ','v.'))+')</span>':'';
+          if(r.wi) return '<span style="display:inline-flex;align-items:center;gap:2px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:2px 6px;margin:2px;white-space:nowrap;"><a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:#1d4ed8;font-family:monospace;font-size:11px;font-weight:600;">#'+r.wi+'</a>'+mayaBadge+rating+'</span>';
           const lbl=r._custEmail?r._custEmail.split('@')[1]||r._custEmail:'—';
-          return '<span style="font-family:monospace;font-size:11px;color:#6b7280;">'+esc2(lbl)+'</span>'+mayaBadge;
-        }).join('&nbsp;&nbsp;&nbsp;');
+          return '<span style="display:inline-flex;align-items:center;gap:2px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:4px;padding:2px 6px;margin:2px;white-space:nowrap;"><span style="font-family:monospace;font-size:11px;color:#6b7280;">'+esc2(lbl)+'</span>'+mayaBadge+rating+'</span>';
+        }).join('');
         const expandId='ahx_'+i;
         const badge=a.rows.length
           ? ' <button onclick="var r=document.getElementById(\''+expandId+'\');r.style.display=r.style.display===\'none\'?\'\':\'none\';" style="border:none;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 7px;font-size:10px;cursor:pointer;font-weight:700;margin-left:6px;">🔗 '+a.rows.length+'</button>'
@@ -13074,9 +13085,11 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:8px 10px;font-size:11px;color:var(--muted);max-width:180px;">'+esc2(a.topReason||'—')+'</td>'+
         '</tr>'+
         '<tr id="'+expandId+'" style="display:none;background:#eff6ff;">'+
-          '<td colspan="'+_ahCols+'" style="padding:8px 16px;font-size:12px;border-bottom:1px solid #bfdbfe;">'+
-          '<span style="font-size:11px;font-weight:700;color:#1e40af;margin-right:10px;">Recent Tickets:</span>'+
-          (links||'<span style="color:var(--muted);">—</span>')+
+          '<td colspan="'+_ahCols+'" style="padding:8px 16px;border-bottom:1px solid #bfdbfe;">'+
+          '<span style="font-size:11px;font-weight:700;color:#1e40af;display:block;margin-bottom:4px;">All Ratings ('+a.rows.length+'):</span>'+
+          '<div style="display:flex;flex-wrap:wrap;gap:2px;">'+
+          (chips||'<span style="color:var(--muted);font-size:12px;">—</span>')+
+          '</div>'+
           '</td>'+
         '</tr>';
       });
