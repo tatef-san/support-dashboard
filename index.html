@@ -7732,6 +7732,7 @@ if(window.opener&&!window.opener.closed){
         const consF   = window._cmsGetChecked('csatConsultantPanel');
         const cetF    = window._cmsGetChecked('csatCetPanel');
         let visible = rows.filter(r => {
+          if (!inRoster(r.c)) return false; // hide rows with no valid analyst
           const rlabel = RATING_LABEL[(r.rating||'').trim().toLowerCase()] || r.rating || '';
           if (ratingF.length && !ratingF.includes(rlabel)) return false;
           if (custF.length   && !custF.includes(r.acct||'')) return false;
