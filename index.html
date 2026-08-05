@@ -13045,7 +13045,8 @@ if(window.opener&&!window.opener.closed){
     }
 
     // ── Table builder
-    function mkTbl(data) {
+    function mkTbl(data, pfx) {
+      pfx = pfx || 'ahx';
       if (!data.length) return '<div style="padding:12px;font-size:12px;color:var(--muted);">No accounts in this category.</div>';
       let h='<table style="width:100%;border-collapse:collapse;min-width:1400px;">'+
         '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
@@ -13071,7 +13072,7 @@ if(window.opener&&!window.opener.closed){
           const lbl=r._custEmail?r._custEmail.split('@')[1]||r._custEmail:'—';
           return '<span style="display:inline-flex;align-items:center;gap:2px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:4px;padding:2px 6px;margin:2px;white-space:nowrap;"><span style="font-family:monospace;font-size:11px;color:#6b7280;">'+esc2(lbl)+'</span>'+mayaBadge+rating+'</span>';
         }).join('');
-        const expandId='ahx_'+i;
+        const expandId=pfx+'_'+i;
         const badge=a.rows.length
           ? ' <button onclick="var r=document.getElementById(\''+expandId+'\');r.style.display=r.style.display===\'none\'?\'\':\'none\';" style="border:none;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 7px;font-size:10px;cursor:pointer;font-weight:700;margin-left:6px;">🔗 '+a.rows.length+'</button>'
           : '';
@@ -13098,15 +13099,15 @@ if(window.opener&&!window.opener.closed){
 
     // ── Declining section
     const decEl=$('ahDeclining');
-    if(decEl) decEl.innerHTML=mkTbl(declining.sort((a,b)=>a.trend-b.trend));
+    if(decEl) decEl.innerHTML=mkTbl(declining.sort((a,b)=>a.trend-b.trend),'ahd');
 
     // ── Below neutral section
     const belEl=$('ahBelowTarget');
-    if(belEl) belEl.innerHTML=mkTbl(belowNeutral.sort((a,b)=>a.avg-b.avg));
+    if(belEl) belEl.innerHTML=mkTbl(belowNeutral.sort((a,b)=>a.avg-b.avg),'ahb');
 
     // ── Maya CSAT section
     const mayaEl=$('ahMayaScorecard');
-    if(mayaEl) mayaEl.innerHTML=mkTbl(mayaAcctData.sort((a,b)=>(a.avg||0)-(b.avg||0)));
+    if(mayaEl) mayaEl.innerHTML=mkTbl(mayaAcctData.sort((a,b)=>(a.avg||0)-(b.avg||0)),'ahm');
 
     // ── Populate account datalist (all accounts, respects segment filter)
     const s2=$('ahSearch');
@@ -13129,7 +13130,7 @@ if(window.opener&&!window.opener.closed){
       else if(by==='score_desc') data.sort((a,b)=>(b.avg||0)-(a.avg||0));
       else if(by==='count_desc') data.sort((a,b)=>b.count-a.count);
       else data.sort((a,b)=>a.name.localeCompare(b.name));
-      const el2=$('ahScorecard'); if(el2) el2.innerHTML=mkTbl(data);
+      const el2=$('ahScorecard'); if(el2) el2.innerHTML=mkTbl(data,'ahs');
     }
     renderScorecard();
     if(sSeg) sSeg.onchange=()=>{ populateAcctDropdown(); renderScorecard(); };
