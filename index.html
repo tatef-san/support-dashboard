@@ -14823,7 +14823,7 @@ if(window.opener&&!window.opener.closed){
             var atRaw = (r.AssignedTo && r.AssignedTo.UserName) ? r.AssignedTo.UserName.trim() : '';
             var fromOData = scRaw || atRaw;
             var fromODataName = fromOData ? normalizeAnalystName(_closedEmailMap[fromOData.toLowerCase()] || fromOData) : null;
-            var analystName = (fromODataName && fromODataName !== 'Unassigned' && !_isNonAnalyst(fromODataName))
+            var analystName = (fromODataName && fromODataName !== 'Unassigned' && !_isNonAnalyst(fromODataName) && inRoster(fromODataName))
               ? fromODataName
               : (_psResolveEmail(_psCommentMap[id]) || _psWrvActiveMap[id] || 'Undefined - Partner Support');
             return {
