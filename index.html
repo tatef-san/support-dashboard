@@ -12888,12 +12888,17 @@ if(window.opener&&!window.opener.closed){
     const esc2  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
 
-    // Build full WI→account map from ALL closed + active tickets (not period-limited)
+    // Build full WI→account map from ALL available sources (not period or scope limited)
     const _ahWiAcct = {};
-    (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _ahWiAcct[r.wi] = r.acct; });
-    (DATA.active || []).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; });
-    try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; }); } catch(e) {}
-    try { const _c = localStorage.getItem('closedPendUpload'); if (_c) JSON.parse(_c).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; }); } catch(e) {}
+    const _ahFill = arr => { (arr||[]).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; }); };
+    _ahFill(DATA.closed);
+    _ahFill(DATA.active);
+    try { const _a = localStorage.getItem('actPendUpload');    if (_a) _ahFill(JSON.parse(_a)); } catch(e) {}
+    try { const _c = localStorage.getItem('closedPendUpload'); if (_c) _ahFill(JSON.parse(_c)); } catch(e) {}
+    try { const _d = localStorage.getItem('adoClosedAutoData'); if (_d) _ahFill(JSON.parse(_d)); } catch(e) {}
+    _ahFill(window._adoClosedAutoData);
+    if (EMBEDDED.closed) _ahFill(EMBEDDED.closed);
+    if (EMBEDDED.active) _ahFill(EMBEDDED.active);
 
     // Enrich ALL CSAT rows with account names from the full WI→account map
     const _range = periodRange();
