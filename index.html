@@ -7713,10 +7713,10 @@ if(window.opener&&!window.opener.closed){
           custListEl.appendChild(lbl);
         });
       }
-      // Populate Consultant list
+      // Populate Consultant list — roster analysts only
       const consListEl = $('csatConsultantList');
       if (consListEl && !consListEl.children.length) {
-        const cons = [...new Set(rows.map(r=>r.c||'').filter(Boolean))].sort();
+        const cons = [...new Set(rows.map(r=>r.c||'').filter(c => c && inRoster(c)))].sort();
         cons.forEach(c => {
           const lbl = document.createElement('label'); lbl.className='cms-label';
           lbl.innerHTML='<input type="checkbox" value="'+c.replace(/"/g,'&quot;')+'" onchange="window._cmsChange(\'csatConsultantPanel\',\'csatConsultantBtn\',\'Consultant\')"> '+c;
@@ -7758,7 +7758,7 @@ if(window.opener&&!window.opener.closed){
             '<td style="padding:7px 10px;white-space:nowrap;color:var(--muted);">'+esc(r.d||'')+'</td>' +
             '<td style="padding:7px 10px;white-space:nowrap;">'+wiLink+'</td>' +
             '<td style="padding:7px 10px;font-weight:600;">'+esc(r.acct||'')+'</td>' +
-            '<td style="padding:7px 10px;">'+esc(r.c||'')+'</td>' +
+            '<td style="padding:7px 10px;">'+(inRoster(r.c) ? esc(r.c||'') : '<span style="color:var(--muted);font-style:italic;" title="Not in analyst roster">'+(r.c?esc(r.c):'—')+'</span>')+'</td>' +
             '<td style="padding:7px 10px;font-weight:700;color:'+rcol+';">'+esc(rlabel)+'</td>' +
             '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+rcol+';">'+score+'</td>' +
             '<td style="padding:7px 10px;color:'+cetcol+';font-weight:600;">'+esc(r.cet||'')+'</td>' +
@@ -13044,12 +13044,12 @@ if(window.opener&&!window.opener.closed){
     const allActive = (DATA.active  || []).filter(r => r.acct);
     const allClosed = (DATA.closed  || []).filter(r => r.acct);
 
-    // ── Populate analyst dropdown ────────────────────────────────────────────
+    // ── Populate analyst dropdown — roster members only ──────────────────────
     const tsAnalystEl = $('tsAnalyst');
     if (tsAnalystEl && tsAnalystEl.options.length <= 1) {
       const analysts = [...new Set([
         ...allActive.map(r => r.c), ...allClosed.map(r => r.c)
-      ].filter(Boolean))].sort();
+      ].filter(a => a && inRoster(a)))].sort();
       analysts.forEach(a => {
         const o = document.createElement('option'); o.value = a; o.textContent = a;
         tsAnalystEl.appendChild(o);
