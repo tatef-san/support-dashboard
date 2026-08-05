@@ -13041,8 +13041,8 @@ if(window.opener&&!window.opener.closed){
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const YEAR = 2026;
 
-    const allActive = (DATA.active || []).filter(r => r.acct && r.c && inRoster(r.c));
-    const allClosed = (DATA.closed || []).filter(r => r.acct && r.c && inRoster(r.c));
+    const allActive = (DATA.active || []).filter(r => r.acct);
+    const allClosed = (DATA.closed || []).filter(r => r.acct);
 
     // ── Populate analyst dropdown — roster members only ──────────────────────
     const tsAnalystEl = $('tsAnalyst');
