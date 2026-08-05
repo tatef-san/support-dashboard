@@ -13234,15 +13234,17 @@ if(window.opener&&!window.opener.closed){
             const age=r.age||0, over=age>20;
             const bg=over?'#fef2f2':(i%2===0?'var(--panel)':'var(--bg)');
             const ageCol=age>20?'#dc2626':age>15?'#ea580c':age>7?'#b45309':'#16a34a';
-            const url=r.wi?ADO_BASE+r.wi:null;
-            const link=url?'<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+r.wi+'</a>':(r.wi?'#'+r.wi:'—');
+            const wiNum=r.wi||r.id;
+            const url=wiNum?ADO_BASE+wiNum:null;
+            const link=url?'<a href="'+url+'" target="_blank" style="color:#4f46e5;font-weight:600;">#'+wiNum+'</a>':(wiNum?'#'+wiNum:'—');
             const createdStr=(r.created||'').slice(0,10)||'—';
+            const analystCell=!r.c?'—':inRoster(r.c)?esc2(r.c):'<span style="color:var(--muted);font-style:italic;">'+esc2(r.c)+'</span>';
             h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
               '<td style="padding:7px 10px 7px 24px;">'+link+(over?' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;">⚠ &gt;20d</span>':'')+
               '<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc2((r.title||'').slice(0,70))+'</div></td>'+
               '<td style="padding:7px 10px;font-weight:600;">'+esc2(r.acct||'—')+'</td>'+
               '<td style="padding:7px 10px;">'+esc2(seg)+'</td>'+
-              '<td style="padding:7px 10px;">'+esc2(r.c||'—')+'</td>'+
+              '<td style="padding:7px 10px;">'+analystCell+'</td>'+
               '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+createdStr+'</td>'+
               '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+ageCol+';">'+age+'</td>'+
               '<td style="padding:7px 10px;text-align:center;color:var(--muted);">'+(r.comments||0)+'</td>'+
