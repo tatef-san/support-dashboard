@@ -5137,13 +5137,14 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     try {
       const adoOrg = (adoCfg2.org || 'https://sanacommerce.visualstudio.com').replace(/\/+$/, '');
       const adoProj = adoCfg2.project || 'Sana Projects';
-      const adoClosedStates = (adoCfg2.closedStates && adoCfg2.closedStates.length ? adoCfg2.closedStates : ['Closed','Resolved','Done','Wishlist','Wish List']).map(function(s){ return "'"+s+"'"; }).join(',');
+      const adoProjQ = adoProj.replace(/'/g, "''"); // escape apostrophes for WIQL string literals
+      const adoClosedStates = (adoCfg2.closedStates && adoCfg2.closedStates.length ? adoCfg2.closedStates : ['Closed','Resolved','Done','Wishlist','Wish List']).map(function(s){ return "'" + s.replace(/'/g, "''") + "'"; }).join(',');
       const wiqlUrl = adoOrg + '/' + encodeURIComponent(adoProj) + '/_apis/wit/wiql?api-version=7.1';
       const authHdr = window._adoAccessToken ? ('Bearer ' + window._adoAccessToken) : ('Basic ' + btoa(':' + pat));
       const wiqlResp = await fetch(wiqlUrl, {
         method: 'POST',
         headers: { 'Authorization': authHdr, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProj + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate] >= '2026-01-01' AND [System.WorkItemType] = 'Ticket' ORDER BY [System.CreatedDate] ASC" })
+        body: JSON.stringify({ query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]='" + adoProjQ + "' AND [System.State] NOT IN (" + adoClosedStates + ") AND [System.CreatedDate] >= '2026-01-01' AND [System.WorkItemType] = 'Ticket' ORDER BY [System.CreatedDate] ASC" })
       });
       if (!wiqlResp.ok) { const t = await wiqlResp.text().catch(()=>''); throw new Error('ADO ' + wiqlResp.status + (t ? ': ' + t.slice(0,80) : '')); }
       const wiqlRes = await wiqlResp.json();
