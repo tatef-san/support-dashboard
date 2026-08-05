@@ -1072,7 +1072,8 @@
               <option value="Partner">Partner</option>
               <option value="Unknown">Unknown</option>
             </select>
-            <select id="ahSearch" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:220px;background:var(--panel);color:var(--text);"><option value="">All accounts</option></select>
+            <input type="text" id="ahSearch" list="ahAcctList" placeholder="Type to search accounts…" autocomplete="off" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:260px;background:var(--panel);color:var(--text);">
+            <datalist id="ahAcctList"></datalist>
             <select id="ahSort" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
               <option value="score_asc">Worst score first</option>
               <option value="score_desc">Best score first</option>
@@ -12887,8 +12888,20 @@ if(window.opener&&!window.opener.closed){
     const esc2  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
 
-    // Use the same enriched rows the CSAT tab uses (includes period/scope filter + account enrichment)
-    const allRows = (window._csatRows || []).filter(r => (r.acct||'').trim());
+    // Build full WI→account map from ALL closed + active tickets (not period-limited)
+    const _ahWiAcct = {};
+    (DATA.closed || []).forEach(r => { if (r.wi && r.acct) _ahWiAcct[r.wi] = r.acct; });
+    (DATA.active || []).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; });
+    try { const _a = localStorage.getItem('actPendUpload'); if (_a) JSON.parse(_a).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; }); } catch(e) {}
+    try { const _c = localStorage.getItem('closedPendUpload'); if (_c) JSON.parse(_c).forEach(r => { if (r.wi && r.acct && !_ahWiAcct[r.wi]) _ahWiAcct[r.wi] = r.acct; }); } catch(e) {}
+
+    // Enrich ALL CSAT rows with account names from the full WI→account map
+    const _range = periodRange();
+    const allRows = (DATA.csat || []).map(r => {
+      if (r.acct && r.acct.trim()) return r;
+      if (r.wi && _ahWiAcct[r.wi]) return Object.assign({}, r, { acct: _ahWiAcct[r.wi] });
+      return r;
+    }).filter(r => (r.acct||'').trim() && inRange(r.d, _range));
 
     // Build per-account map
     const map = {};
