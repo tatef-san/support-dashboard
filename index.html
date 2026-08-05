@@ -188,6 +188,12 @@
   .view-tabs.row2 .view-tab:hover { background:rgba(255,255,255,.12); }
   .view-tabs.row2 .view-tab.active { background:var(--bg); color:var(--primary); }
   .row2-label { font-size:10px; color:rgba(255,255,255,.55); padding:6px 10px 6px 0; text-transform:uppercase; letter-spacing:.06em; align-self:center; }
+  /* Insights row (third tab row) */
+  .view-tabs.row3 { margin-top:5px; padding-top:5px; border-top:1px solid rgba(255,200,50,.2); }
+  .view-tabs.row3 .view-tab { font-size:12px; padding:5px 14px; background:rgba(251,191,36,.12); color:rgba(255,235,150,.9); border-radius:4px 4px 0 0; }
+  .view-tabs.row3 .view-tab:hover { background:rgba(251,191,36,.25); }
+  .view-tabs.row3 .view-tab.active { background:var(--bg); color:#b45309; font-weight:700; }
+  .row3-label { font-size:10px; color:rgba(251,191,36,.7); padding:6px 10px 6px 0; text-transform:uppercase; letter-spacing:.06em; align-self:center; }
   .deep-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
   @media (max-width:1100px) { .deep-grid { grid-template-columns:1fr; } }
   .stat-card { background:#f8f9fc; border:1px solid var(--border); border-radius:4px; padding:12px 14px; }
@@ -644,7 +650,6 @@
     <span class="row2-label">KPI Deep-Dive</span>
     <button class="view-tab" data-view="kpi-csat">CSAT</button>
     <button class="view-tab" data-view="maya-csat">&#x1F916; Maya AI CSAT</button>
-    <button class="view-tab" data-view="acct-health">🏥 Account Health</button>
     <button class="view-tab" data-view="kpi-active">Active tickets</button>
     <button class="view-tab" data-view="kpi-closed">Closed tickets</button>
     <button class="view-tab" data-view="kpi-ttr">TTR</button>
@@ -652,9 +657,13 @@
     <button class="view-tab" data-view="kpi-esc">Escape rate</button>
     <button class="view-tab" data-view="kpi-util">Utilization</button>
     <button class="view-tab" data-view="kpi-dq">Data Quality</button>
+    <button class="view-tab" data-view="kpi-guide">📖 KPI Guide</button>
+  </div>
+  <div class="view-tabs row3">
+    <span class="row3-label">Insights</span>
+    <button class="view-tab" data-view="acct-health">🏥 Account Health</button>
     <button class="view-tab" data-view="ticket-status">🎫 Ticket Status</button>
     <button class="view-tab" data-view="nps-mrr">📊 NPS &amp; MRR</button>
-    <button class="view-tab" data-view="kpi-guide">📖 KPI Guide</button>
   </div>
 </header>
 <!-- ADO CONNECTION MODAL -->
