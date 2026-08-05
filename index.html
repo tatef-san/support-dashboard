@@ -12900,13 +12900,36 @@ if(window.opener&&!window.opener.closed){
     if (EMBEDDED.closed) _ahFill(EMBEDDED.closed);
     if (EMBEDDED.active) _ahFill(EMBEDDED.active);
 
+    // Helper: derive account name from customer email domain (same logic as Maya tab)
+    const _ahEmailAcct = email => {
+      if (!email) return null;
+      const at = email.indexOf('@'); if (at < 0) return null;
+      const name = email.slice(at+1).toLowerCase().replace(/^www\./,'').split('.')[0];
+      return name ? name.charAt(0).toUpperCase() + name.slice(1) : null;
+    };
+
     // Enrich ALL CSAT rows with account names from the full WI→account map
     const _range = periodRange();
-    const allRows = (DATA.csat || []).map(r => {
+    const regularRows = (DATA.csat || []).map(r => {
       if (r.acct && r.acct.trim()) return r;
       if (r.wi && _ahWiAcct[r.wi]) return Object.assign({}, r, { acct: _ahWiAcct[r.wi] });
       return r;
     }).filter(r => (r.acct||'').trim() && inRange(r.d, _range));
+
+    // Normalize Maya CSAT rows and merge — integer rating 1-5 maps directly
+    const _MAYA_RMAP = {5:'very satisfied',4:'satisfied',3:'neutral',2:'unsatisfied',1:'very unsatisfied'};
+    const mayaRows = (window._mayaCsatData || []).filter(r => inRange(r.d, _range)).map(r => {
+      const ratingText = _MAYA_RMAP[r.rating];
+      if (!ratingText) return null; // unrecognised rating
+      // Account: prefer WI→account map, fall back to email domain derivation
+      const wiAcct = r.wi ? _ahWiAcct[r.wi] || _ahWiAcct[+r.wi] : null;
+      const acct   = (wiAcct && wiAcct.trim()) ? wiAcct.trim()
+                   : _ahEmailAcct(r.cust);
+      if (!acct) return null; // no account info at all — only case we drop
+      return { d: r.d, acct, wi: r.wi||null, c: null, rating: ratingText, _maya: true, _custEmail: r.cust||'' };
+    }).filter(Boolean);
+
+    const allRows = [...regularRows, ...mayaRows];
 
     // Build per-account map
     const map = {};
@@ -12995,13 +13018,17 @@ if(window.opener&&!window.opener.closed){
         const bg=i%2===0?'var(--panel)':'var(--bg)';
         const sc=a.avg!=null?a.avg.toFixed(2):'—';
         const seg=segOf(a.name);
-        const wiRows=a.rows.filter(r=>r.wi).slice(-8).reverse();
-        const links=wiRows.map(r=>
-          '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:#1d4ed8;font-family:monospace;font-size:12px;font-weight:600;">#'+r.wi+'</a>'
-        ).join('&nbsp;&nbsp;');
+        const wiRows=a.rows.slice(-8).reverse();
+        const links=wiRows.map(r=>{
+          const mayaBadge=r._maya?'&nbsp;<span style="font-size:9px;background:#7c3aed;color:#fff;border-radius:3px;padding:1px 5px;font-weight:700;vertical-align:middle;">Maya</span>':'';
+          if(r.wi) return '<a href="'+ADO_BASE+r.wi+'" target="_blank" style="color:#1d4ed8;font-family:monospace;font-size:12px;font-weight:600;">#'+r.wi+'</a>'+mayaBadge;
+          // No WI — show email domain as label
+          const lbl=r._custEmail?r._custEmail.split('@')[1]||r._custEmail:'—';
+          return '<span style="font-family:monospace;font-size:11px;color:#6b7280;">'+esc2(lbl)+'</span>'+mayaBadge;
+        }).join('&nbsp;&nbsp;&nbsp;');
         const expandId='ahx_'+i;
-        const badge=wiRows.length
-          ? ' <button onclick="var r=document.getElementById(\''+expandId+'\');r.style.display=r.style.display===\'none\'?\'\':\'none\';" style="border:none;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 7px;font-size:10px;cursor:pointer;font-weight:700;margin-left:6px;">🔗 '+wiRows.length+'</button>'
+        const badge=a.rows.length
+          ? ' <button onclick="var r=document.getElementById(\''+expandId+'\');r.style.display=r.style.display===\'none\'?\'\':\'none\';" style="border:none;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 7px;font-size:10px;cursor:pointer;font-weight:700;margin-left:6px;">🔗 '+a.rows.length+'</button>'
           : '';
         h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
           '<td style="padding:8px 10px;font-weight:600;">'+esc2(a.name)+badge+'</td>'+
