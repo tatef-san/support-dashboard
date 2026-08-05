@@ -12986,10 +12986,10 @@ if(window.opener&&!window.opener.closed){
         '<th style="padding:8px 10px;text-align:center;">Segment</th>'+
         '<th style="padding:8px 10px;text-align:center;"># Ratings</th>'+
         '<th style="padding:8px 10px;text-align:center;">Overall Avg</th>'+
+        '<th style="padding:8px 10px;text-align:left;">Recent Tickets</th>'+
         months.map(m=>'<th style="padding:8px 6px;text-align:center;">'+mLabel(m)+'</th>').join('')+
         '<th style="padding:8px 10px;text-align:center;">Trend</th>'+
         '<th style="padding:8px 10px;text-align:left;">Top Reason</th>'+
-        '<th style="padding:8px 10px;text-align:left;">Recent Tickets</th>'+
         '</tr></thead><tbody>';
       data.forEach((a,i)=>{
         const bg=i%2===0?'var(--panel)':'var(--bg)';
@@ -13003,10 +13003,10 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:8px 10px;text-align:center;">'+segBadge(seg)+'</td>'+
           '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+a.count+'</td>'+
           '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+sCol(a.avg)+';background:'+sBg(a.avg)+';">'+sc+'</td>'+
+          '<td style="padding:8px 10px;">'+( links||'<span style="color:var(--muted);font-size:11px;">—</span>' )+'</td>'+
           a.mScores.map(ms=>'<td style="padding:8px 6px;text-align:center;color:'+sCol(ms)+';font-weight:600;">'+(ms!=null?ms.toFixed(1):'—')+'</td>').join('')+
           '<td style="padding:8px 10px;text-align:center;">'+arrow(a.trend)+'</td>'+
           '<td style="padding:8px 10px;font-size:11px;color:var(--muted);max-width:180px;">'+esc2(a.topReason||'—')+'</td>'+
-          '<td style="padding:8px 10px;">'+( links||'<span style="color:var(--muted);font-size:11px;">—</span>' )+'</td>'+
         '</tr>';
       });
       return h+'</tbody></table>';
