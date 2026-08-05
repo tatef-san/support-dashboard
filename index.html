@@ -12916,14 +12916,14 @@ if(window.opener&&!window.opener.closed){
       map[k].push(r);
     });
 
-    // All 12 months of the year (Jan–Dec), based on most recent data point
+    // Last 6 months of actual data, ending at the most recent data point
     const latestDate = allRows.reduce((m,r) => r.d > m ? r.d : m, '2026-01-01');
     const lBase = new Date(latestDate + 'T00:00:00');
     const year = lBase.getFullYear();
-    const months = [0,1,2,3,4,5,6,7,8,9,10,11].map(i => {
-      const d = new Date(year, i, 1);
+    const months = Array.from({length:6}, (_,i) => {
+      const d = new Date(lBase.getFullYear(), lBase.getMonth() - 5 + i, 1);
       return d.toISOString().slice(0,7);
-    }); // ['YYYY-01', 'YYYY-02', ..., 'YYYY-12']
+    });
 
     const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const mLabel = m => MONTH_LABELS[parseInt(m.split('-')[1])-1] + ' ' + m.split('-')[0].slice(2);
