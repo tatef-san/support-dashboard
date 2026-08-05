@@ -101,14 +101,18 @@ $content = [System.IO.File]::ReadAllText($IndexHtml, [System.Text.Encoding]::UTF
 
 $pattern     = '(/\* VF_CSAT_AUTO_START \*/)[\s\S]*?(/\* VF_CSAT_AUTO_END \*/)'
 $replacement = '${1}' + $inject + '${2}'
-$newContent  = [regex]::Replace($content, $pattern, $replacement)
 
-if ($newContent -eq $content) {
+if (-not [regex]::IsMatch($content, $pattern)) {
     Write-Host "  WARNING: Marker not found in index.html — file was not updated." -ForegroundColor Yellow
     Write-Host "  Make sure index.html contains the VF_CSAT_AUTO_START marker." -ForegroundColor Yellow
 } else {
-    [System.IO.File]::WriteAllText($IndexHtml, $newContent, [System.Text.Encoding]::UTF8)
-    Write-Host "  index.html updated successfully" -ForegroundColor Green
+    $newContent = [regex]::Replace($content, $pattern, $replacement)
+    if ($newContent -eq $content) {
+        Write-Host "  Data unchanged — index.html already has the latest CSAT data." -ForegroundColor Cyan
+    } else {
+        [System.IO.File]::WriteAllText($IndexHtml, $newContent, [System.Text.Encoding]::UTF8)
+        Write-Host "  index.html updated successfully" -ForegroundColor Green
+    }
 }
 
 # ── 6. Push to GitHub ────────────────────────────────────────────────────────
