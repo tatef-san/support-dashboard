@@ -2448,6 +2448,14 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       }
     });
     // Exclude tickets in terminal/non-active states from the active pool
+    // Normalize display names (e.g. long ADO names → canonical short names)
+    if (Object.keys(_ACCT_NAME_ALIASES).length) {
+      ['active','closed','csat'].forEach(key => {
+        if (DATA[key] && DATA[key].length) {
+          DATA[key].forEach(r => { if (r.acct) r.acct = canonicalAcctName(r.acct); });
+        }
+      });
+    }
     // Also exclude Internal support requests (not customer-facing)
     if (DATA.active && DATA.active.length) {
       const EXCL_STATES = new Set(['done','wishlist','wish list','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix']);
@@ -2786,6 +2794,14 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   }
   function segmentOf(acct) { return _getSegNormMap()[_segNormKey(acct)] || 'Unknown'; }
   function inSegment(acct) { const s = getSegment(); return !s || segmentOf(acct) === s; }
+  // Display-name aliases: maps normalized ADO name → canonical short name shown in all tabs
+  const _ACCT_NAME_ALIASES = {
+    'frenchtopnaturalcareproductsbv': 'Frenchtop',
+  };
+  function canonicalAcctName(name) {
+    const k = _segNormKey(name || '');
+    return _ACCT_NAME_ALIASES[k] || name;
+  }
   function populateScope() {
     const sel = $('scope');
     if (!sel) return;
