@@ -653,6 +653,7 @@
     <button class="view-tab" data-view="kpi-util">Utilization</button>
     <button class="view-tab" data-view="kpi-dq">Data Quality</button>
     <button class="view-tab" data-view="ticket-status">🎫 Ticket Status</button>
+    <button class="view-tab" data-view="nps-mrr">📊 NPS &amp; MRR</button>
     <button class="view-tab" data-view="kpi-guide">📖 KPI Guide</button>
   </div>
 </header>
@@ -1692,6 +1693,77 @@
       <div id="tsClosedBody" style="padding:12px;">
         <div id="tsClosedTable" style="overflow-x:auto;"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- NPS & MRR TAB -->
+  <div id="view-nps-mrr" class="view">
+    <div style="max-width:1300px;margin:0 auto;padding:0 4px;">
+
+      <!-- Upload panels -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <!-- MRR upload -->
+        <div class="panel" style="padding:14px;">
+          <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;">📂 MRR Data (PowerBI export)</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Columns: Account Name · Customer Segment · MRR · Last NPS Rating · Last NPS Response · Cancellation Deadline · Account Owner</div>
+          <div id="nrMrrDrop" style="border:2px dashed #a5b4fc;border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:#f5f7ff;transition:all .2s;">
+            <div style="font-size:12px;color:#4f46e5;font-weight:600;">Drop MRR .xlsx here or click to browse</div>
+            <div id="nrMrrStatus" style="margin-top:6px;font-size:11px;"></div>
+          </div>
+          <input type="file" id="nrMrrFile" accept=".xlsx,.xls,.csv" style="display:none;">
+          <button onclick="localStorage.removeItem('nrMrrData');window._nrMrrData=null;document.getElementById('nrMrrStatus').innerHTML='<span style=color:#dc2626>Cleared</span>';renderNpsMrr();" style="margin-top:8px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">Clear uploaded data</button>
+        </div>
+        <!-- NPS upload -->
+        <div class="panel" style="padding:14px;">
+          <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;">📂 NPS Responses (PowerBI export)</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Columns: Date · Account Name · Customer Segment · NPS · NPS Comment · Communication · CSM · Flexibility of Product · Implementation ROI · Quality Assistance · Ecosystem Integration</div>
+          <div id="nrNpsDrop" style="border:2px dashed #6ee7b7;border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:#f0fdf4;transition:all .2s;">
+            <div style="font-size:12px;color:#047857;font-weight:600;">Drop NPS .xlsx here or click to browse</div>
+            <div id="nrNpsStatus" style="margin-top:6px;font-size:11px;"></div>
+          </div>
+          <input type="file" id="nrNpsFile" accept=".xlsx,.xls,.csv" style="display:none;">
+          <button onclick="localStorage.removeItem('nrNpsData');window._nrNpsData=null;document.getElementById('nrNpsStatus').innerHTML='<span style=color:#dc2626>Cleared</span>';renderNpsMrr();" style="margin-top:8px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">Clear uploaded data</button>
+        </div>
+      </div>
+
+      <!-- KPI strip -->
+      <div id="nrKpis" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
+
+      <!-- NPS distribution bar -->
+      <div id="nrDistPanel" style="margin-bottom:14px;"></div>
+
+      <!-- Account table -->
+      <details class="csat-panel" open style="margin-bottom:14px;">
+        <summary class="dd-section-title">📋 Account NPS &amp; MRR Scorecard</summary>
+        <div style="padding-top:10px;">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+            <input type="text" id="nrAcctSearch" placeholder="Search account…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:220px;background:var(--panel);color:var(--text);">
+            <select id="nrSegFilter" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="">All segments</option>
+              <option value="Strategic">Strategic</option>
+              <option value="Mid-market">Mid-market</option>
+              <option value="Scale">Scale</option>
+            </select>
+            <select id="nrNpsFilter" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="">All NPS categories</option>
+              <option value="Promoter">Promoters (≥9)</option>
+              <option value="Passive">Passives (7–8)</option>
+              <option value="Detractor">Detractors (≤6)</option>
+              <option value="No NPS">No NPS</option>
+            </select>
+          </div>
+          <div id="nrAcctTable" style="overflow-x:auto;"></div>
+        </div>
+      </details>
+
+      <!-- NPS response history -->
+      <details class="csat-panel" style="margin-bottom:14px;">
+        <summary class="dd-section-title">💬 NPS Response History</summary>
+        <div style="padding-top:10px;">
+          <div id="nrHistTable" style="overflow-x:auto;"></div>
+        </div>
+      </details>
+
     </div>
   </div>
 
@@ -13483,6 +13555,287 @@ if(window.opener&&!window.opener.closed){
     $('view-' + name).classList.add('active');
     $('view-' + name).scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // ===========================================================================
+  // NPS & MRR TAB
+  // ===========================================================================
+  (function() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const fmt = n => n==null?'—':typeof n==='number'?n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}):n;
+    const fmtMrr = n => n==null||isNaN(n)?'—':'€'+Number(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+
+    // Parse Excel using SheetJS
+    function parseXlsx(file, cb) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
+          cb(null, rows);
+        } catch(err) { cb(err); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Normalize column names (trim, lowercase key lookup)
+    function col(row, ...names) {
+      for (const n of names) {
+        for (const k of Object.keys(row)) {
+          if (k.trim().toLowerCase() === n.toLowerCase()) return row[k];
+        }
+      }
+      return null;
+    }
+
+    // NPS category
+    function npsCategory(score) {
+      if (score == null || score === '') return null;
+      const n = Number(score);
+      if (isNaN(n)) return null;
+      if (n >= 9) return 'Promoter';
+      if (n >= 7) return 'Passive';
+      return 'Detractor';
+    }
+
+    const CAT_COL = {Promoter:'#16a34a', Passive:'#b45309', Detractor:'#dc2626', 'No NPS':'#9ca3af'};
+    const CAT_BG  = {Promoter:'#f0fdf4', Passive:'#fffbeb', Detractor:'#fef2f2', 'No NPS':'#f9fafb'};
+
+    function catBadge(cat) {
+      const c = CAT_COL[cat]||'#6b7280', bg = CAT_BG[cat]||'#f9fafb';
+      return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+bg+';color:'+c+';border:1px solid '+c+'44;">'+esc(cat||'No NPS')+'</span>';
+    }
+
+    // Setup drop zone
+    function setupDrop(zoneId, inputId, statusId, storageKey, windowKey, parseRows, onDone) {
+      const zone = $(zoneId), inp = $(inputId), status = $(statusId);
+      if (!zone) return;
+      function handle(file) {
+        if (!file) return;
+        status.innerHTML = '<span style="color:#4f46e5;">Reading…</span>';
+        parseXlsx(file, (err, rows) => {
+          if (err) { status.innerHTML = '<span style="color:#dc2626;">Error: '+esc(err.message)+'</span>'; return; }
+          const parsed = parseRows(rows);
+          try { localStorage.setItem(storageKey, JSON.stringify(parsed)); } catch(e) {}
+          window[windowKey] = parsed;
+          status.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ '+parsed.length+' rows loaded</span>';
+          onDone();
+        });
+      }
+      zone.addEventListener('click', () => inp.click());
+      inp.addEventListener('change', e => handle(e.target.files[0]));
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background='#e0e7ff'; });
+      zone.addEventListener('dragleave', () => { zone.style.background=''; });
+      zone.addEventListener('drop', e => { e.preventDefault(); zone.style.background=''; handle(e.dataTransfer.files[0]); });
+    }
+
+    function parseMrrRows(rows) {
+      return rows.map(r => ({
+        acct: String(col(r,'Account Name')||'').trim(),
+        seg: String(col(r,'Customer Segment')||'').trim(),
+        mrr: parseFloat(col(r,'MRR')) || null,
+        lastNpsDate: col(r,'Last NPS Response') ? String(col(r,'Last NPS Response')).slice(0,10) : null,
+        lastNps: col(r,'Last NPS Rating') != null ? Number(col(r,'Last NPS Rating')) : null,
+        owner: String(col(r,'Account Owner')||'').trim(),
+        cancelDeadline: col(r,'Cancellation Deadline') ? String(col(r,'Cancellation Deadline')).slice(0,10) : null,
+      })).filter(r => r.acct);
+    }
+
+    function parseNpsRows(rows) {
+      return rows.map(r => ({
+        date: col(r,'Date') ? String(col(r,'Date')).slice(0,10) : null,
+        acct: String(col(r,'Account Name')||'').trim(),
+        seg: String(col(r,'Customer Segment')||'').trim(),
+        nps: col(r,'NPS') != null ? Number(col(r,'NPS')) : null,
+        comment: String(col(r,'NPS Comment')||'').trim(),
+        communication: String(col(r,'Communication')||'').trim(),
+        csm: String(col(r,'CSM')||'').trim(),
+        flexibility: String(col(r,'Flexibility of Product')||'').trim(),
+        roi: String(col(r,'Implmentation ROI')||col(r,'Implementation ROI')||'').trim(),
+        quality: String(col(r,'Quality Assistance')||'').trim(),
+        ecosystem: String(col(r,'Ecosystem Integration')||'').trim(),
+      })).filter(r => r.acct);
+    }
+
+    // Load from localStorage on init
+    try { const d=localStorage.getItem('nrMrrData'); if(d) window._nrMrrData=JSON.parse(d); } catch(e){}
+    try { const d=localStorage.getItem('nrNpsData'); if(d) window._nrNpsData=JSON.parse(d); } catch(e){}
+
+    function renderNpsMrr() {
+      const mrrRows = window._nrMrrData || [];
+      const npsRows = window._nrNpsData || [];
+
+      // Update status badges
+      if ($('nrMrrStatus') && !$('nrMrrStatus').innerHTML)
+        $('nrMrrStatus').innerHTML = mrrRows.length ? '<span style="color:#16a34a;font-weight:600;">✓ '+mrrRows.length+' accounts loaded</span>' : '<span style="color:var(--muted);">No data uploaded</span>';
+      if ($('nrNpsStatus') && !$('nrNpsStatus').innerHTML)
+        $('nrNpsStatus').innerHTML = npsRows.length ? '<span style="color:#16a34a;font-weight:600;">✓ '+npsRows.length+' responses loaded</span>' : '<span style="color:var(--muted);">No data uploaded</span>';
+
+      // ── KPIs
+      const kpiEl = $('nrKpis');
+      if (kpiEl) {
+        const promoters = npsRows.filter(r=>npsCategory(r.nps)==='Promoter').length;
+        const detractors = npsRows.filter(r=>npsCategory(r.nps)==='Detractor').length;
+        const passives = npsRows.filter(r=>npsCategory(r.nps)==='Passive').length;
+        const total = npsRows.length;
+        const npsScore = total ? Math.round((promoters-detractors)/total*100) : null;
+        const totalMrr = mrrRows.reduce((s,r)=>s+(r.mrr||0),0);
+        const acctWithNps = new Set(npsRows.map(r=>r.acct)).size;
+
+        const kpi = (v,lab,col,bg) => '<div style="background:'+bg+';border:1px solid '+col+'55;border-radius:8px;padding:10px 22px;text-align:center;min-width:140px;">'+
+          '<div style="font-size:28px;font-weight:800;color:'+col+';">'+v+'</div>'+
+          '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+lab+'</div></div>';
+        kpiEl.innerHTML =
+          (npsScore!=null ? kpi(npsScore,'Overall NPS Score', npsScore>=20?'#16a34a':npsScore>=0?'#b45309':'#dc2626', npsScore>=20?'#f0fdf4':npsScore>=0?'#fffbeb':'#fef2f2') : kpi('—','Overall NPS Score','#6b7280','#f9fafb'))+
+          kpi('€'+Math.round(totalMrr/1000)+'k','Total MRR','#2e4470','#eef3ff')+
+          kpi(acctWithNps,'Accounts with NPS','#7c3aed','#f5f3ff')+
+          kpi(promoters,'Promoters','#16a34a','#f0fdf4')+
+          kpi(passives,'Passives','#b45309','#fffbeb')+
+          kpi(detractors,'Detractors','#dc2626','#fef2f2');
+      }
+
+      // ── Distribution bar
+      const distEl = $('nrDistPanel');
+      if (distEl && npsRows.length) {
+        const total = npsRows.length;
+        const promoters = npsRows.filter(r=>npsCategory(r.nps)==='Promoter').length;
+        const passives = npsRows.filter(r=>npsCategory(r.nps)==='Passive').length;
+        const detractors = npsRows.filter(r=>npsCategory(r.nps)==='Detractor').length;
+        const pP = (promoters/total*100).toFixed(1), pN = (passives/total*100).toFixed(1), pD = (detractors/total*100).toFixed(1);
+        distEl.innerHTML = '<div class="panel" style="padding:14px;">'+
+          '<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">NPS Distribution — '+total+' responses</div>'+
+          '<div style="display:flex;border-radius:6px;overflow:hidden;height:28px;margin-bottom:8px;">'+
+            '<div style="width:'+pP+'%;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;min-width:30px;">'+pP+'%</div>'+
+            '<div style="width:'+pN+'%;background:#b45309;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;min-width:30px;">'+pN+'%</div>'+
+            '<div style="width:'+pD+'%;background:#dc2626;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;min-width:30px;">'+pD+'%</div>'+
+          '</div>'+
+          '<div style="display:flex;gap:16px;font-size:11px;">'+
+            '<span style="color:#16a34a;font-weight:600;">● Promoters (≥9): '+promoters+'</span>'+
+            '<span style="color:#b45309;font-weight:600;">● Passives (7–8): '+passives+'</span>'+
+            '<span style="color:#dc2626;font-weight:600;">● Detractors (≤6): '+detractors+'</span>'+
+          '</div>'+
+        '</div>';
+      } else if (distEl) { distEl.innerHTML=''; }
+
+      // ── Account scorecard table (MRR joined with latest NPS response)
+      const tblEl = $('nrAcctTable');
+      if (tblEl) {
+        // Build latest NPS per account from npsRows
+        const latestNps = {};
+        npsRows.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(r => {
+          latestNps[r.acct] = r;
+        });
+
+        // Merge with MRR rows; also add accounts from npsRows not in MRR
+        const acctMap = {};
+        mrrRows.forEach(r => { acctMap[r.acct] = Object.assign({}, r); });
+        npsRows.forEach(r => { if (!acctMap[r.acct]) acctMap[r.acct] = {acct:r.acct, seg:r.seg, mrr:null, owner:'', cancelDeadline:null}; });
+
+        const q = ($('nrAcctSearch')||{}).value||'';
+        const segF = ($('nrSegFilter')||{}).value||'';
+        const npsF = ($('nrNpsFilter')||{}).value||'';
+
+        let rows = Object.values(acctMap).map(r => {
+          const n = latestNps[r.acct];
+          const cat = n ? npsCategory(n.nps) : 'No NPS';
+          return Object.assign({}, r, { latestNps: n||null, npsScore: n?n.nps:null, npsCat: cat });
+        });
+
+        if (q) rows = rows.filter(r=>r.acct.toLowerCase().includes(q.toLowerCase()));
+        if (segF) rows = rows.filter(r=>r.seg===segF);
+        if (npsF) rows = rows.filter(r=>r.npsCat===npsF);
+        rows.sort((a,b)=>(b.mrr||0)-(a.mrr||0));
+
+        if (!rows.length) { tblEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">No data — upload both files above.</div>'; }
+        else {
+          let h='<table style="width:100%;border-collapse:collapse;font-size:12px;">'+
+            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
+            '<th style="padding:8px 10px;text-align:left;">Account</th>'+
+            '<th style="padding:8px 10px;text-align:left;">Segment</th>'+
+            '<th style="padding:8px 10px;text-align:right;">MRR (€)</th>'+
+            '<th style="padding:8px 10px;text-align:center;">NPS Score</th>'+
+            '<th style="padding:8px 10px;text-align:center;">Category</th>'+
+            '<th style="padding:8px 10px;text-align:center;">Last Response</th>'+
+            '<th style="padding:8px 10px;text-align:left;">Account Owner</th>'+
+            '<th style="padding:8px 10px;text-align:center;">Cancellation</th>'+
+            '</tr></thead><tbody>';
+          rows.forEach((r,i) => {
+            const bg = i%2===0?'var(--panel)':'var(--bg)';
+            const nCol = r.npsScore!=null?(r.npsScore>=9?'#16a34a':r.npsScore>=7?'#b45309':'#dc2626'):'#9ca3af';
+            h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+              '<td style="padding:8px 10px;font-weight:600;">'+esc(r.acct)+'</td>'+
+              '<td style="padding:8px 10px;">'+esc(r.seg||'—')+'</td>'+
+              '<td style="padding:8px 10px;text-align:right;font-weight:600;">'+fmtMrr(r.mrr)+'</td>'+
+              '<td style="padding:8px 10px;text-align:center;font-weight:800;font-size:15px;color:'+nCol+';">'+(r.npsScore!=null?r.npsScore:'—')+'</td>'+
+              '<td style="padding:8px 10px;text-align:center;">'+catBadge(r.npsCat)+'</td>'+
+              '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+(r.latestNps?esc(r.latestNps.date||'—'):'—')+'</td>'+
+              '<td style="padding:8px 10px;color:var(--muted);">'+esc(r.owner||'—')+'</td>'+
+              '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+esc(r.cancelDeadline||'—')+'</td>'+
+            '</tr>';
+          });
+          tblEl.innerHTML = h+'</tbody></table>';
+        }
+      }
+
+      // ── NPS response history
+      const histEl = $('nrHistTable');
+      if (histEl) {
+        if (!npsRows.length) { histEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">No NPS responses uploaded.</div>'; }
+        else {
+          const sorted = npsRows.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+          let h='<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1100px;">'+
+            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;">'+
+            '<th style="padding:7px 10px;">Date</th><th style="padding:7px 10px;">Account</th><th style="padding:7px 10px;">Segment</th>'+
+            '<th style="padding:7px 10px;text-align:center;">NPS</th><th style="padding:7px 10px;text-align:center;">Category</th>'+
+            '<th style="padding:7px 10px;">Communication</th><th style="padding:7px 10px;">CSM</th>'+
+            '<th style="padding:7px 10px;">Flexibility</th><th style="padding:7px 10px;">ROI</th>'+
+            '<th style="padding:7px 10px;">Quality</th><th style="padding:7px 10px;">Ecosystem</th>'+
+            '<th style="padding:7px 10px;max-width:220px;">Comment</th>'+
+            '</tr></thead><tbody>';
+          sorted.forEach((r,i) => {
+            const bg = i%2===0?'var(--panel)':'var(--bg)';
+            const cat = npsCategory(r.nps)||'—';
+            const nCol = r.nps!=null?(r.nps>=9?'#16a34a':r.nps>=7?'#b45309':'#dc2626'):'#9ca3af';
+            h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.date||'—')+'</td>'+
+              '<td style="padding:6px 10px;font-weight:600;">'+esc(r.acct)+'</td>'+
+              '<td style="padding:6px 10px;">'+esc(r.seg||'—')+'</td>'+
+              '<td style="padding:6px 10px;text-align:center;font-weight:800;color:'+nCol+';">'+(r.nps!=null?r.nps:'—')+'</td>'+
+              '<td style="padding:6px 10px;text-align:center;">'+catBadge(cat)+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.communication||'—')+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.csm||'—')+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.flexibility||'—')+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.roi||'—')+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.quality||'—')+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.ecosystem||'—')+'</td>'+
+              '<td style="padding:6px 10px;color:var(--muted);max-width:220px;white-space:normal;">'+esc((r.comment||'').slice(0,200))+'</td>'+
+            '</tr>';
+          });
+          histEl.innerHTML = h+'</tbody></table>';
+        }
+      }
+
+      // Wire search/filter inputs (once)
+      ['nrAcctSearch','nrSegFilter','nrNpsFilter'].forEach(id => {
+        const el = $(id);
+        if (el && !el._nrBound) { el._nrBound=true; el.addEventListener('input', renderNpsMrr); el.addEventListener('change', renderNpsMrr); }
+      });
+    }
+
+    window.renderNpsMrr = renderNpsMrr;
+
+    // Wire uploads after DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr);
+      setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
+    });
+    // Also wire immediately in case DOMContentLoaded already fired
+    if (document.readyState !== 'loading') {
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr);
+      setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
+    }
+  })();
+
   window.switchView = switchView;
   window._dashRender = render;
   window._dashResolve = resolveDataForPeriod;
@@ -13503,6 +13856,8 @@ if(window.opener&&!window.opener.closed){
         render(); renderAccountHealth();
       } else if (btn.dataset.view === 'ticket-status') {
         renderTicketStatus();
+      } else if (btn.dataset.view === 'nps-mrr') {
+        renderNpsMrr();
       }
     });
   });
