@@ -27,7 +27,7 @@ try {
 
 # ── 2. Query Feedback table ───────────────────────────────────────────────────
 Write-Host "  Querying Feedback table..." -ForegroundColor Cyan
-$sql = "SELECT f.Rating, f.SupportExperience, e.DisplayName AS ServiceConsultant, f.WorkItemId, f.Comment, f.NegativeReason, f.Timestamp FROM [dbo].[Feedback] f INNER JOIN [Prisma_sana_live].[dbo].[OrganizationEmployee] e ON LOWER(e.CompanyEmailAddress) = LOWER(f.[ ServiceConsultant]) WHERE f.Timestamp >= '2026-01-01' AND f.[ ServiceConsultant] IS NOT NULL AND f.[ ServiceConsultant] <> '' ORDER BY f.Timestamp DESC"
+$sql = "SELECT f.Rating, f.SupportExperience, e.DisplayName AS ServiceConsultant, f.WorkItemId, f.Comment, f.NegativeReason, f.Timestamp FROM [dbo].[Feedback] f INNER JOIN [Prisma_sana_live].[dbo].[OrganizationEmployee] e ON LOWER(e.CompanyEmailAddress) = LOWER(f.[ ServiceConsultant]) WHERE f.Timestamp >= '2026-01-01' AND f.[ ServiceConsultant] IS NOT NULL AND f.[ ServiceConsultant] <> '' AND LOWER(f.[ ServiceConsultant]) LIKE '%@sana-commerce.com' ORDER BY f.Timestamp DESC"
 $cmd             = $conn.CreateCommand()
 $cmd.CommandText = $sql
 $cmd.CommandTimeout = 60
