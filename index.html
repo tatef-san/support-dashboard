@@ -13015,23 +13015,23 @@ if(window.opener&&!window.opener.closed){
     const belEl=$('ahBelowTarget');
     if(belEl) belEl.innerHTML=mkTbl(belowNeutral.sort((a,b)=>a.avg-b.avg));
 
-    // ── Populate account dropdown (respects segment filter)
+    // ── Populate account datalist (all accounts, respects segment filter)
     const s2=$('ahSearch');
     const sSeg=$('ahSegFilter');
+    const dl=$('ahAcctList');
     function populateAcctDropdown(){
-      if(!s2) return;
       const seg=sSeg?sSeg.value:'';
       const sorted=acctData.filter(a=>!seg||segOf(a.name)===seg).sort((a,b)=>a.name.localeCompare(b.name));
-      s2.innerHTML='<option value="">All accounts</option>'+sorted.map(a=>'<option value="'+esc2(a.name)+'">'+esc2(a.name)+'</option>').join('');
+      if(dl) dl.innerHTML=sorted.map(a=>'<option value="'+esc2(a.name)+'">').join('');
     }
     populateAcctDropdown();
 
-    // ── Scorecard (all accounts, sortable/filterable)
+    // ── Scorecard (all accounts, sortable/filterable by partial text match)
     function renderScorecard(){
       const seg=sSeg?sSeg.value:'';
-      const q=s2?s2.value:'';
+      const q=(s2?s2.value:'').trim().toLowerCase();
       const by=($('ahSort')||{}).value||'score_asc';
-      let data=acctData.filter(a=>(!seg||segOf(a.name)===seg)&&(!q||a.name===q));
+      let data=acctData.filter(a=>(!seg||segOf(a.name)===seg)&&(!q||a.name.toLowerCase().includes(q)));
       if(by==='score_asc')  data.sort((a,b)=>(a.avg||0)-(b.avg||0));
       else if(by==='score_desc') data.sort((a,b)=>(b.avg||0)-(a.avg||0));
       else if(by==='count_desc') data.sort((a,b)=>b.count-a.count);
@@ -13040,7 +13040,7 @@ if(window.opener&&!window.opener.closed){
     }
     renderScorecard();
     if(sSeg) sSeg.onchange=()=>{ populateAcctDropdown(); renderScorecard(); };
-    if(s2) s2.onchange=renderScorecard;
+    if(s2) { s2.addEventListener('input', renderScorecard); s2.addEventListener('change', renderScorecard); }
     const s3=$('ahSort'); if(s3) s3.onchange=renderScorecard;
   }
   window.renderAccountHealth = renderAccountHealth;
