@@ -13106,9 +13106,12 @@ if(window.opener&&!window.opener.closed){
     const bk3 = ages.filter(a=>a>15&&a<=20).length;
     const bk4 = ages.filter(a=>a>20).length;
     const closedWithAge = closed.filter(r => r.age!=null && r.age > 0);
-    const avgTTR = closedWithAge.length
-      ? (closedWithAge.reduce((s,r)=>s+(r.age||0),0)/closedWithAge.length).toFixed(1)
-      : '—';
+    const medTTR = (() => {
+      if (!closedWithAge.length) return '—';
+      const s = closedWithAge.map(r=>r.age||0).sort((a,b)=>a-b);
+      const m = Math.floor(s.length/2);
+      return (s.length%2 ? s[m] : ((s[m-1]+s[m])/2)).toFixed(1);
+    })();
 
     const kpi = (v, lab, col, bg) =>
       '<div style="background:'+bg+';border:1px solid '+col+'33;border-radius:8px;padding:10px 18px;text-align:center;min-width:110px;">'+
@@ -13123,7 +13126,7 @@ if(window.opener&&!window.opener.closed){
       kpi(bk2,            'Open 7–15d',          '#b45309','#fffbeb') +
       kpi(bk3,            'Open 16–20d',         '#ea580c','#fff7ed') +
       kpi(bk4,            'Open &gt;20d ⚠',      '#dc2626','#fef2f2') +
-      kpi(avgTTR,         'Avg TTR (days)',       '#7c3aed','#f5f3ff');
+      kpi(medTTR,         'Median TTR (days)',    '#7c3aed','#f5f3ff');
 
     // ── Monthly trend (closed tickets per month 2026) ─────────────────────
     const mCount = Array(12).fill(0);
