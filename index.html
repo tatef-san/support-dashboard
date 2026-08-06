@@ -5328,8 +5328,10 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     // PRV diagnostic — accumulate across all chunks
     const _prvStats = { included: 0, excluded: 0, emptyPrv: 0, values: {} };
     const _scStats = { empty: 0, values: {} }; // SC diagnostic
-    for (let i = 0; i < allIds.length; i += 200) {
-      const chunk = allIds.slice(i, i + 200);
+    // Fetch all state-verification chunks in parallel (was sequential)
+    const _stateChunks = [];
+    for (let i = 0; i < allIds.length; i += 200) _stateChunks.push(allIds.slice(i, i + 200));
+    await Promise.allSettled(_stateChunks.map(async chunk => {
       try {
         const stateData = await adoFetch('/_apis/wit/workItems?ids=' + chunk.join(',') + '&fields=System.State,System.AssignedTo,Custom.ServiceConsultant,System.AreaPath,System.Title,System.CreatedDate,System.WorkItemType,Custom.ProjectReleaseVersion&api-version=7.0');
         const stateMap = {}, stateRawMap = {}, analystMap = {}, scMap = {}, acctMap = {}, titleMap = {}, dateMap = {}, typeMap = {}, prvMap = {};
@@ -5393,7 +5395,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
         // If batch state check fails, skip this chunk — better to miss a ticket temporarily
         // than to let Done/Wishlist tickets through. They appear on the next successful Sync.
       }
-    }
+    }));
     const skipped = tickets.length - openTickets.length;
 
     const rosterNames = new Set((DATA.roster || []).map(r => r[0].toLowerCase()));
@@ -5430,7 +5432,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
         else _slFresh.push(t);
       });
       if (_slFresh.length) {
-        const SL_CONC = 20;
+        const SL_CONC = 50;
         for (let _si = 0; _si < _slFresh.length; _si += SL_CONC) {
           await Promise.allSettled(_slFresh.slice(_si, _si + SL_CONC).map(async _st => {
             try {
@@ -5566,7 +5568,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     });
     if (_slFullFresh.length) {
       el.innerHTML = '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:12px;color:#0c4a6e;">⏳ SecondLayer: attributing ' + _slFullFresh.length + ' tickets via revision history…</div>';
-      const _SL2_CONC = 20;
+      const _SL2_CONC = 50;
       for (var _si2 = 0; _si2 < _slFullFresh.length; _si2 += _SL2_CONC) {
         await Promise.allSettled(_slFullFresh.slice(_si2, _si2 + _SL2_CONC).map(async function(_st2) {
           try {
@@ -14936,10 +14938,10 @@ if(window.opener&&!window.opener.closed){
         }
 
         var _byWI = {};
-        var _CONC = 10;
+        var _CONC = 50;
         for (var _bi = 0; _bi < _bdUniq.length; _bi += _CONC) {
           var _chunk = _bdUniq.slice(_bi, _bi + _CONC);
-          await Promise.all(_chunk.map(function(wi) {
+          await Promise.allSettled(_chunk.map(function(wi) {
             return _fetch('/_apis/wit/workItems/' + wi + '/comments?$top=200&api-version=7.0-preview.3')
               .then(function(resp) {
                 var key = String(wi);
