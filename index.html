@@ -13791,7 +13791,7 @@ if(window.opener&&!window.opener.closed){
           '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+lab+'</div></div>';
         kpiEl.innerHTML =
           (npsScore!=null ? kpi(npsScore,'Overall NPS Score', npsScore>=20?'#16a34a':npsScore>=0?'#b45309':'#dc2626', npsScore>=20?'#f0fdf4':npsScore>=0?'#fffbeb':'#fef2f2') : kpi('—','Overall NPS Score','#6b7280','#f9fafb'))+
-          kpi('€'+Math.round(totalMrr/1000)+'k','Total MRR','#2e4470','#eef3ff')+
+          kpi(fmtMrr(totalMrr),'Total MRR','#2e4470','#eef3ff')+
           kpi(acctWithNps,'Accounts with NPS','#7c3aed','#f5f3ff')+
           kpi(promoters,'Promoters','#16a34a','#f0fdf4')+
           kpi(passives,'Passives','#b45309','#fffbeb')+
