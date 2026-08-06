@@ -1796,7 +1796,7 @@
             </div>
             <!-- Hide blanks -->
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text);user-select:none;">
-              <input type="checkbox" id="nrHideBlanks" onchange="renderNpsMrr()" style="width:14px;height:14px;cursor:pointer;"> Hide no-NPS accounts
+              <input type="checkbox" id="nrHideBlanks" onchange="renderNpsMrr()" style="width:14px;height:14px;cursor:pointer;"> Hide accounts with no data
             </label>
           </div>
           <div id="nrAcctTable" style="overflow-x:auto;"></div>
@@ -13811,7 +13811,7 @@ if(window.opener&&!window.opener.closed){
           if (selAccts.size && !selAccts.has(a)) return false;
           const m = mrrMap[a.toLowerCase()];
           const surveys = npsMap[a]||[];
-          if (hideBlanks && !surveys.length) return false;
+          if (hideBlanks && !surveys.length && !(m && m.mrr)) return false;
           if (selSegs.size) {
             const seg = (m&&m.seg)||surveys[0]?.seg||'';
             if (!selSegs.has(seg)) return false;
