@@ -13714,16 +13714,26 @@ if(window.opener&&!window.opener.closed){
     }
 
     function parseMrrRows(rows) {
-      return rows.map(r => ({
-        acct:         String(col(r,'Account Name')||'').trim(),
-        seg:          String(col(r,'Customer Segment')||'').trim(),
-        mrr:          parseMoney(col(r,'MRR') ?? colFuzzy(r,'mrr')),
-        liveDate:     xlDate(col(r,'Live Date','Go Live Date','GoLiveDate') ?? colFuzzy(r,'live date','go live','golive')),
-        version:      String(col(r,'Sana Version','Version','Sana version') || colFuzzy(r,'version') || '').trim(),
-        owner:        String(col(r,'Account Owner','Owner') || colFuzzy(r,'account owner','owner') || '').trim(),
-        acctPlan:     String(col(r,'Account Plan')||'').trim(),
-        cancelDeadline: xlDate(col(r,'Cancellation Deadline','Cancel Deadline')),
-      })).filter(r => r.acct);
+      return rows.map(function(r) {
+        var mrrRaw = col(r,'MRR');
+        if (mrrRaw === null) mrrRaw = colFuzzy(r,'mrr');
+        var ldRaw  = col(r,'Live Date','Go Live Date','GoLiveDate');
+        if (ldRaw === null) ldRaw = colFuzzy(r,'live date','go live','golive');
+        var verRaw = col(r,'Sana Version','Version','Sana version');
+        if (!verRaw) verRaw = colFuzzy(r,'version');
+        var ownRaw = col(r,'Account Owner','Owner');
+        if (!ownRaw) ownRaw = colFuzzy(r,'account owner','owner');
+        return {
+          acct:           String(col(r,'Account Name')||'').trim(),
+          seg:            String(col(r,'Customer Segment')||'').trim(),
+          mrr:            parseMoney(mrrRaw),
+          liveDate:       xlDate(ldRaw),
+          version:        String(verRaw||'').trim(),
+          owner:          String(ownRaw||'').trim(),
+          acctPlan:       String(col(r,'Account Plan')||'').trim(),
+          cancelDeadline: xlDate(col(r,'Cancellation Deadline','Cancel Deadline')),
+        };
+      }).filter(function(r){ return r.acct; });
     }
 
     function parseNpsRows(rows) {
