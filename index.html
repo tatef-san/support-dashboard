@@ -13679,7 +13679,12 @@ if(window.opener&&!window.opener.closed){
           const parsed = parseRows(rows);
           try { localStorage.setItem(storageKey, JSON.stringify(parsed)); } catch(e) {}
           window[windowKey] = parsed;
-          status.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ '+parsed.length+' rows loaded</span>';
+          const cols = rows[0] ? Object.keys(rows[0]).join(' | ') : '(no rows)';
+          const sample = parsed[0] ? JSON.stringify(parsed[0]).slice(0,200) : '';
+          status.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ '+parsed.length+' rows loaded</span>'+
+            '<details style="font-size:10px;margin-top:4px;color:#6b7280;"><summary style="cursor:pointer;">Debug: column names</summary>'+
+            '<div style="background:#f3f4f6;padding:4px 6px;border-radius:4px;word-break:break-all;margin-top:2px;">'+esc(cols)+'</div>'+
+            '<div style="background:#f3f4f6;padding:4px 6px;border-radius:4px;word-break:break-all;margin-top:2px;">First row: '+esc(sample)+'</div></details>';
           onDone();
         });
       }
