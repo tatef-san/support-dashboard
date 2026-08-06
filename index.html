@@ -13642,7 +13642,7 @@ if(window.opener&&!window.opener.closed){
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
           const ws = wb.Sheets[wb.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
           if (fmtCols && fmtCols.length) {
