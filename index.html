@@ -13622,13 +13622,27 @@ if(window.opener&&!window.opener.closed){
     };
 
     // Parse Excel using SheetJS
-    function parseXlsx(file, cb) {
+    // fmtCols: optional array of column names to override with formatted display value
+    function parseXlsx(file, cb, fmtCols) {
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
           const ws = wb.Sheets[wb.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
+          if (fmtCols && fmtCols.length) {
+            // Second pass with raw:false to get the formatted display strings
+            const fmtRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:false});
+            rows.forEach(function(r, i) {
+              const fr = fmtRows[i] || {};
+              fmtCols.forEach(function(colName) {
+                const key = Object.keys(r).find(function(k) {
+                  return k.trim().toLowerCase() === colName.toLowerCase();
+                });
+                if (key && fr[key] != null) r[key] = fr[key];
+              });
+            });
+          }
           cb(null, rows);
         } catch(err) { cb(err); }
       };
@@ -13678,7 +13692,7 @@ if(window.opener&&!window.opener.closed){
     }
 
     // Setup drop zone
-    function setupDrop(zoneId, inputId, statusId, storageKey, windowKey, parseRows, onDone) {
+    function setupDrop(zoneId, inputId, statusId, storageKey, windowKey, parseRows, onDone, fmtCols) {
       const zone = $(zoneId), inp = $(inputId), status = $(statusId);
       if (!zone) return;
       function handle(file) {
@@ -13696,7 +13710,7 @@ if(window.opener&&!window.opener.closed){
             '<div style="background:#f3f4f6;padding:4px 6px;border-radius:4px;word-break:break-all;margin-top:2px;">'+esc(cols)+'</div>'+
             '<div style="background:#f3f4f6;padding:4px 6px;border-radius:4px;word-break:break-all;margin-top:2px;">First row: '+esc(sample)+'</div></details>';
           onDone();
-        });
+        }, fmtCols);
       }
       zone.addEventListener('click', () => inp.click());
       inp.addEventListener('change', e => handle(e.target.files[0]));
@@ -14082,12 +14096,12 @@ if(window.opener&&!window.opener.closed){
 
     // Wire uploads after DOM ready
     document.addEventListener('DOMContentLoaded', function() {
-      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr);
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr, ['MRR']);
       setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
     });
     // Also wire immediately in case DOMContentLoaded already fired
     if (document.readyState !== 'loading') {
-      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr);
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr, ['MRR']);
       setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
     }
   })();
