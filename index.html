@@ -13609,7 +13609,14 @@ if(window.opener&&!window.opener.closed){
     const $ = id => document.getElementById(id);
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const fmt = n => n==null?'—':typeof n==='number'?n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}):n;
-    const fmtMrr = n => n==null||isNaN(n)?'—':'€'+Number(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtMrr = function(n) {
+      if (n==null||isNaN(n)) return '—';
+      var v = Number(n);
+      if (Math.abs(v)>=1e9) return '€'+(v/1e9).toFixed(1)+'B';
+      if (Math.abs(v)>=1e6) return '€'+(v/1e6).toFixed(1)+'M';
+      if (Math.abs(v)>=1e3) return '€'+(v/1e3).toFixed(1)+'k';
+      return '€'+v.toFixed(0);
+    };
 
     // Parse Excel using SheetJS
     function parseXlsx(file, cb) {
