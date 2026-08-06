@@ -13659,12 +13659,24 @@ if(window.opener&&!window.opener.closed){
               var colIdx = colIdxMap[cl];
               if (colIdx === undefined) return;
               rows.forEach(function(r, ri) {
-                // Use __rowNum__ (actual sheet row) if SheetJS provides it, else sequential
                 var excelRow = (r.__rowNum__ != null) ? r.__rowNum__ : (R0 + 1 + ri);
                 var cell = ws[XLSX.utils.encode_cell({r: excelRow, c: colIdx})];
-                if (!cell || !cell.w) return;
+                if (!cell) return;
                 var key = Object.keys(r).find(function(k){ return k.trim().toLowerCase() === cl; });
-                if (key) r[key] = cell.w;
+                if (!key) return;
+                // Count trailing commas in the positive-number section of the format code.
+                // Each trailing comma = ÷1000 (PowerBI/Excel scaling convention).
+                var fmtSection = (cell.z || '').split(';')[0];
+                var scaleMatch = fmtSection.match(/[0#?](,+)\s*$/);
+                var trailingCommas = scaleMatch ? scaleMatch[1].length : 0;
+                if (trailingCommas > 0 && typeof cell.v === 'number') {
+                  // Apply scaling: divide raw value by 1000^n
+                  r[key] = cell.v / Math.pow(1000, trailingCommas);
+                } else if (cell.w) {
+                  // Use formatted string (cell.w) — parseMoney will extract the number
+                  r[key] = cell.w;
+                }
+                // else: leave the raw value from sheet_to_json as-is
               });
             });
           }
