@@ -13695,14 +13695,32 @@ if(window.opener&&!window.opener.closed){
       zone.addEventListener('drop', e => { e.preventDefault(); zone.style.background=''; handle(e.dataTransfer.files[0]); });
     }
 
+    // Find a column whose name CONTAINS one of the given keywords (case-insensitive)
+    function colFuzzy(row, ...keywords) {
+      const keys = Object.keys(row);
+      for (const kw of keywords) {
+        const kl = kw.toLowerCase();
+        const found = keys.find(k => k.trim().toLowerCase().includes(kl));
+        if (found !== undefined && row[found] !== null && row[found] !== '') return row[found];
+      }
+      return null;
+    }
+    // Parse a value that may be a number, currency string ("€1,234"), or percentage
+    function parseMoney(v) {
+      if (v === null || v === undefined || v === '') return null;
+      if (typeof v === 'number') return v;
+      const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+      return isNaN(n) ? null : n;
+    }
+
     function parseMrrRows(rows) {
       return rows.map(r => ({
         acct:         String(col(r,'Account Name')||'').trim(),
         seg:          String(col(r,'Customer Segment')||'').trim(),
-        mrr:          parseFloat(col(r,'MRR')) || null,
-        liveDate:     xlDate(col(r,'Live Date','Go Live Date','GoLiveDate')),
-        version:      String(col(r,'Sana Version','Version','Sana version')||'').trim(),
-        owner:        String(col(r,'Account Owner','CSM Main Focus','Owner')||'').trim(),
+        mrr:          parseMoney(col(r,'MRR') ?? colFuzzy(r,'mrr')),
+        liveDate:     xlDate(col(r,'Live Date','Go Live Date','GoLiveDate') ?? colFuzzy(r,'live date','go live','golive')),
+        version:      String(col(r,'Sana Version','Version','Sana version') || colFuzzy(r,'version') || '').trim(),
+        owner:        String(col(r,'Account Owner','Owner') || colFuzzy(r,'account owner','owner') || '').trim(),
         acctPlan:     String(col(r,'Account Plan')||'').trim(),
         cancelDeadline: xlDate(col(r,'Cancellation Deadline','Cancel Deadline')),
       })).filter(r => r.acct);
