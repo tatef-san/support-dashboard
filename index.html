@@ -13726,103 +13726,144 @@ if(window.opener&&!window.opener.closed){
         '</div>';
       } else if (distEl) { distEl.innerHTML=''; }
 
-      // ── Account scorecard table (MRR joined with latest NPS response)
+      // ── Unified account table: grouped by account, child rows per survey
       const tblEl = $('nrAcctTable');
       if (tblEl) {
-        // Build latest NPS per account from npsRows
-        const latestNps = {};
-        npsRows.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(r => {
-          latestNps[r.acct] = r;
-        });
+        // MRR lookup by account name
+        const mrrMap = {};
+        mrrRows.forEach(r => { mrrMap[(r.acct||'').trim().toLowerCase()] = r; });
 
-        // Merge with MRR rows; also add accounts from npsRows not in MRR
-        const acctMap = {};
-        mrrRows.forEach(r => { acctMap[r.acct] = Object.assign({}, r); });
-        npsRows.forEach(r => { if (!acctMap[r.acct]) acctMap[r.acct] = {acct:r.acct, seg:r.seg, mrr:null, owner:'', cancelDeadline:null}; });
+        // Group NPS responses by account, sorted newest first
+        const npsMap = {};
+        npsRows.forEach(r => {
+          const k = (r.acct||'').trim();
+          if (!npsMap[k]) npsMap[k] = [];
+          npsMap[k].push(r);
+        });
+        Object.values(npsMap).forEach(arr => arr.sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
+
+        // Build unified account list: all MRR accounts + NPS-only accounts
+        const allAccts = new Set([
+          ...mrrRows.map(r=>(r.acct||'').trim()),
+          ...Object.keys(npsMap)
+        ]);
 
         const q = ($('nrAcctSearch')||{}).value||'';
         const segF = ($('nrSegFilter')||{}).value||'';
         const npsF = ($('nrNpsFilter')||{}).value||'';
 
-        let rows = Object.values(acctMap).map(r => {
-          const n = latestNps[r.acct];
-          const cat = n ? npsCategory(n.nps) : 'No NPS';
-          return Object.assign({}, r, { latestNps: n||null, npsScore: n?n.nps:null, npsCat: cat });
+        const nCol = s => s!=null?(s>=9?'#16a34a':s>=7?'#b45309':'#dc2626'):'#9ca3af';
+        const fCol = v => {
+          const lo = (v||'').toLowerCase();
+          if (lo==='strongly agree'||lo==='agree') return '#16a34a';
+          if (lo==='disagree'||lo==='strongly disagree') return '#dc2626';
+          return '#6b7280';
+        };
+        const factorCell = v => '<td style="padding:6px 8px;text-align:center;font-size:10px;color:'+fCol(v)+';">'+esc(v||'—')+'</td>';
+
+        let accts = [...allAccts].filter(a => {
+          if (q && !a.toLowerCase().includes(q.toLowerCase())) return false;
+          const m = mrrMap[a.toLowerCase()];
+          const surveys = npsMap[a]||[];
+          if (segF) {
+            const seg = (m&&m.seg)||surveys[0]?.seg||'';
+            if (seg!==segF) return false;
+          }
+          if (npsF) {
+            if (!surveys.length && npsF!=='No NPS') return false;
+            if (surveys.length && !surveys.some(r=>npsCategory(r.nps)===npsF)) return false;
+          }
+          return true;
+        });
+        // Sort by MRR desc, then name
+        accts.sort((a,b) => {
+          const ma = mrrMap[a.toLowerCase()]; const mb = mrrMap[b.toLowerCase()];
+          return ((mb&&mb.mrr)||0) - ((ma&&ma.mrr)||0) || a.localeCompare(b);
         });
 
-        if (q) rows = rows.filter(r=>r.acct.toLowerCase().includes(q.toLowerCase()));
-        if (segF) rows = rows.filter(r=>r.seg===segF);
-        if (npsF) rows = rows.filter(r=>r.npsCat===npsF);
-        rows.sort((a,b)=>(b.mrr||0)-(a.mrr||0));
-
-        if (!rows.length) { tblEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">No data — upload both files above.</div>'; }
-        else {
-          let h='<table style="width:100%;border-collapse:collapse;font-size:12px;">'+
-            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">'+
-            '<th style="padding:8px 10px;text-align:left;">Account</th>'+
-            '<th style="padding:8px 10px;text-align:left;">Segment</th>'+
-            '<th style="padding:8px 10px;text-align:right;">MRR (€)</th>'+
-            '<th style="padding:8px 10px;text-align:center;">NPS Score</th>'+
-            '<th style="padding:8px 10px;text-align:center;">Category</th>'+
-            '<th style="padding:8px 10px;text-align:center;">Last Response</th>'+
-            '<th style="padding:8px 10px;text-align:left;">Account Owner</th>'+
-            '<th style="padding:8px 10px;text-align:center;">Cancellation</th>'+
+        if (!accts.length) {
+          tblEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">No data — upload both files above.</div>';
+        } else {
+          const TH = (t,extra) => '<th style="padding:7px 8px;text-align:left;white-space:nowrap;'+(extra||'')+'">'+t+'</th>';
+          let h='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1400px;">'+
+            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">'+
+            TH('Account')+TH('Survey Date','text-align:center;')+TH('NPS Score','text-align:center;')+TH('Category','text-align:center;')+
+            TH('Segment')+TH('NPS Comment','max-width:200px;')+
+            TH('Communication','text-align:center;')+TH('CSM','text-align:center;')+TH('Flexibility','text-align:center;')+
+            TH('Impl. ROI','text-align:center;')+TH('Quality','text-align:center;')+TH('Ecosystem','text-align:center;')+
+            TH('MRR (€)','text-align:right;')+TH('Live Date','text-align:center;')+TH('Version')+TH('Account Owner')+
             '</tr></thead><tbody>';
-          rows.forEach((r,i) => {
-            const bg = i%2===0?'var(--panel)':'var(--bg)';
-            const nCol = r.npsScore!=null?(r.npsScore>=9?'#16a34a':r.npsScore>=7?'#b45309':'#dc2626'):'#9ca3af';
-            h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
-              '<td style="padding:8px 10px;font-weight:600;">'+esc(r.acct)+'</td>'+
-              '<td style="padding:8px 10px;">'+esc(r.seg||'—')+'</td>'+
-              '<td style="padding:8px 10px;text-align:right;font-weight:600;">'+fmtMrr(r.mrr)+'</td>'+
-              '<td style="padding:8px 10px;text-align:center;font-weight:800;font-size:15px;color:'+nCol+';">'+(r.npsScore!=null?r.npsScore:'—')+'</td>'+
-              '<td style="padding:8px 10px;text-align:center;">'+catBadge(r.npsCat)+'</td>'+
-              '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+(r.latestNps?esc(r.latestNps.date||'—'):'—')+'</td>'+
-              '<td style="padding:8px 10px;color:var(--muted);">'+esc(r.owner||'—')+'</td>'+
-              '<td style="padding:8px 10px;text-align:center;color:var(--muted);">'+esc(r.cancelDeadline||'—')+'</td>'+
-            '</tr>';
+
+          accts.forEach((acct, ai) => {
+            const m = mrrMap[acct.toLowerCase()];
+            const surveys = npsMap[acct] || [];
+            const seg = (m&&m.seg) || (surveys[0]&&surveys[0].seg) || '—';
+            const mrr = m ? fmtMrr(m.mrr) : '—';
+            const liveDate = m ? esc(m.liveDate||'—') : '—';
+            const version  = m ? esc(m.version||'—')  : '—';
+            const owner    = m ? esc(m.owner||'—')    : '—';
+            const rowBg = ai%2===0?'var(--panel)':'var(--bg)';
+
+            if (surveys.length <= 1) {
+              // Single row
+              const r = surveys[0]||null;
+              const score = r ? r.nps : null;
+              const cat   = r ? npsCategory(score) : 'No NPS';
+              h+='<tr style="border-bottom:1px solid var(--border);background:'+rowBg+';">'+
+                '<td style="padding:7px 10px;font-weight:600;">'+esc(acct)+'</td>'+
+                '<td style="padding:7px 8px;text-align:center;color:var(--muted);">'+(r?esc(r.date||'—'):'—')+'</td>'+
+                '<td style="padding:7px 8px;text-align:center;font-weight:800;font-size:15px;color:'+nCol(score)+';">'+(score!=null?score:'—')+'</td>'+
+                '<td style="padding:7px 8px;text-align:center;">'+(r?catBadge(cat):'—')+'</td>'+
+                '<td style="padding:7px 8px;">'+esc(seg)+'</td>'+
+                '<td style="padding:7px 8px;max-width:200px;white-space:normal;color:var(--muted);font-size:11px;">'+(r?esc((r.comment||'').slice(0,180)):'—')+'</td>'+
+                factorCell(r&&r.communication)+factorCell(r&&r.csm)+factorCell(r&&r.flexibility)+
+                factorCell(r&&r.roi)+factorCell(r&&r.quality)+factorCell(r&&r.ecosystem)+
+                '<td style="padding:7px 8px;text-align:right;font-weight:600;">'+mrr+'</td>'+
+                '<td style="padding:7px 8px;text-align:center;color:var(--muted);">'+liveDate+'</td>'+
+                '<td style="padding:7px 8px;color:var(--muted);">'+version+'</td>'+
+                '<td style="padding:7px 8px;color:var(--muted);">'+owner+'</td>'+
+              '</tr>';
+            } else {
+              // Parent row + child rows per survey
+              const grpId = 'nrg'+ai;
+              h+='<tr data-open="1" onclick="(function(hdr){'+
+                'var open=hdr.dataset.open!==\'0\';hdr.dataset.open=open?\'0\':\'1\';'+
+                'hdr.querySelector(\'.nr-arrow\').textContent=open?\'▶\':\'▼\';'+
+                'document.querySelectorAll(\'tr[data-nrg="'+grpId+'"]\').forEach(function(r){r.style.display=open?\'none\':\'\';});'+
+                '})(this)" style="background:#e8f0fe;border-top:2px solid #2563eb;cursor:pointer;">'+
+                '<td style="padding:7px 10px;font-weight:700;" colspan="2">'+
+                  '<span class="nr-arrow" style="font-size:10px;color:#2563eb;margin-right:6px;">▼</span>'+
+                  esc(acct)+' <span style="font-size:10px;color:#2563eb;font-weight:500;">('+surveys.length+' surveys)</span>'+
+                '</td>'+
+                '<td colspan="10" style="padding:7px 8px;"></td>'+
+                '<td style="padding:7px 8px;text-align:right;font-weight:600;">'+mrr+'</td>'+
+                '<td style="padding:7px 8px;text-align:center;color:var(--muted);">'+liveDate+'</td>'+
+                '<td style="padding:7px 8px;color:var(--muted);">'+version+'</td>'+
+                '<td style="padding:7px 8px;color:var(--muted);">'+owner+'</td>'+
+              '</tr>';
+              surveys.forEach((r, si) => {
+                const score = r.nps; const cat = npsCategory(score);
+                h+='<tr data-nrg="'+grpId+'" style="border-bottom:1px solid var(--border);background:'+(si%2===0?'#f8faff':'var(--bg)')+';">'+
+                  '<td style="padding:6px 10px 6px 28px;color:var(--muted);font-size:11px;">└ survey '+(si+1)+'</td>'+
+                  '<td style="padding:6px 8px;text-align:center;color:var(--muted);">'+esc(r.date||'—')+'</td>'+
+                  '<td style="padding:6px 8px;text-align:center;font-weight:800;font-size:14px;color:'+nCol(score)+';">'+(score!=null?score:'—')+'</td>'+
+                  '<td style="padding:6px 8px;text-align:center;">'+catBadge(cat)+'</td>'+
+                  '<td style="padding:6px 8px;">'+esc(r.seg||seg)+'</td>'+
+                  '<td style="padding:6px 8px;max-width:200px;white-space:normal;color:var(--muted);font-size:11px;">'+esc((r.comment||'').slice(0,180))+'</td>'+
+                  factorCell(r.communication)+factorCell(r.csm)+factorCell(r.flexibility)+
+                  factorCell(r.roi)+factorCell(r.quality)+factorCell(r.ecosystem)+
+                  '<td colspan="4" style="padding:6px 8px;"></td>'+
+                '</tr>';
+              });
+            }
           });
           tblEl.innerHTML = h+'</tbody></table>';
         }
       }
 
-      // ── NPS response history
+      // ── History panel hidden (data is in main table above)
       const histEl = $('nrHistTable');
-      if (histEl) {
-        if (!npsRows.length) { histEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">No NPS responses uploaded.</div>'; }
-        else {
-          const sorted = npsRows.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-          let h='<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1100px;">'+
-            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;">'+
-            '<th style="padding:7px 10px;">Date</th><th style="padding:7px 10px;">Account</th><th style="padding:7px 10px;">Segment</th>'+
-            '<th style="padding:7px 10px;text-align:center;">NPS</th><th style="padding:7px 10px;text-align:center;">Category</th>'+
-            '<th style="padding:7px 10px;">Communication</th><th style="padding:7px 10px;">CSM</th>'+
-            '<th style="padding:7px 10px;">Flexibility</th><th style="padding:7px 10px;">ROI</th>'+
-            '<th style="padding:7px 10px;">Quality</th><th style="padding:7px 10px;">Ecosystem</th>'+
-            '<th style="padding:7px 10px;max-width:220px;">Comment</th>'+
-            '</tr></thead><tbody>';
-          sorted.forEach((r,i) => {
-            const bg = i%2===0?'var(--panel)':'var(--bg)';
-            const cat = npsCategory(r.nps)||'—';
-            const nCol = r.nps!=null?(r.nps>=9?'#16a34a':r.nps>=7?'#b45309':'#dc2626'):'#9ca3af';
-            h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.date||'—')+'</td>'+
-              '<td style="padding:6px 10px;font-weight:600;">'+esc(r.acct)+'</td>'+
-              '<td style="padding:6px 10px;">'+esc(r.seg||'—')+'</td>'+
-              '<td style="padding:6px 10px;text-align:center;font-weight:800;color:'+nCol+';">'+(r.nps!=null?r.nps:'—')+'</td>'+
-              '<td style="padding:6px 10px;text-align:center;">'+catBadge(cat)+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.communication||'—')+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.csm||'—')+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.flexibility||'—')+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.roi||'—')+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.quality||'—')+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);">'+esc(r.ecosystem||'—')+'</td>'+
-              '<td style="padding:6px 10px;color:var(--muted);max-width:220px;white-space:normal;">'+esc((r.comment||'').slice(0,200))+'</td>'+
-            '</tr>';
-          });
-          histEl.innerHTML = h+'</tbody></table>';
-        }
-      }
+      if (histEl) histEl.innerHTML = '';
 
       // Wire search/filter inputs (once)
       ['nrAcctSearch','nrSegFilter','nrNpsFilter'].forEach(id => {
