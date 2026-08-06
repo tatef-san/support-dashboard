@@ -1735,7 +1735,7 @@
             <div id="nrMrrStatus" style="margin-top:6px;font-size:11px;"></div>
           </div>
           <input type="file" id="nrMrrFile" accept=".xlsx,.xls,.csv" style="display:none;">
-          <button onclick="localStorage.removeItem('nrMrrData');window._nrMrrData=null;document.getElementById('nrMrrStatus').innerHTML='<span style=color:#dc2626>Cleared</span>';renderNpsMrr();" style="margin-top:8px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">Clear uploaded data</button>
+          <button onclick="localStorage.removeItem('nrMrrData_v3');window._nrMrrData_v3=null;document.getElementById('nrMrrStatus').innerHTML='<span style=color:#dc2626>Cleared</span>';renderNpsMrr();" style="margin-top:8px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">Clear uploaded data</button>
         </div>
         <!-- NPS upload -->
         <div class="panel" style="padding:14px;">
@@ -13824,11 +13824,11 @@ if(window.opener&&!window.opener.closed){
     }
 
     // Load from localStorage on init
-    try { const d=localStorage.getItem('nrMrrData'); if(d) window._nrMrrData=JSON.parse(d); } catch(e){}
+    try { const d=localStorage.getItem('nrMrrData_v3'); if(d) window._nrMrrData_v3=JSON.parse(d); } catch(e){}
     try { const d=localStorage.getItem('nrNpsData'); if(d) window._nrNpsData=JSON.parse(d); } catch(e){}
 
     function renderNpsMrr() {
-      const mrrRows = window._nrMrrData || [];
+      const mrrRows = window._nrMrrData_v3 || [];
       const npsRows = window._nrNpsData || [];
 
       // Update status badges
@@ -14143,12 +14143,12 @@ if(window.opener&&!window.opener.closed){
 
     // Wire uploads after DOM ready
     document.addEventListener('DOMContentLoaded', function() {
-      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr, ['MRR']);
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData_v3','_nrMrrData_v3', parseMrrRows, renderNpsMrr, ['MRR']);
       setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
     });
     // Also wire immediately in case DOMContentLoaded already fired
     if (document.readyState !== 'loading') {
-      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData','_nrMrrData', parseMrrRows, renderNpsMrr, ['MRR']);
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData_v3','_nrMrrData_v3', parseMrrRows, renderNpsMrr, ['MRR']);
       setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
     }
   })();
