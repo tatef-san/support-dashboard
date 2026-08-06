@@ -13751,11 +13751,9 @@ if(window.opener&&!window.opener.closed){
           const parsed = parseRows(rows);
           try { localStorage.setItem(storageKey, JSON.stringify(parsed)); } catch(e) {}
           window[windowKey] = parsed;
-          var _dbgCells = (window._xlsxCellDebug && window._xlsxCellDebug['MRR'] || []).slice(0,5).map(function(d){
-            return esc(d.acct)+': v='+d.v+' z='+esc(d.z||'')+(d.tc?' tc='+d.tc:'')+(d.w!=null?' w='+esc(d.w):'')+'→'+d.out;
-          }).join('<br>');
+          var _dbgMrr = parsed.slice(0,3).map(function(p){ return esc((p.acct||'?').slice(0,20))+': €'+p.mrr; }).join(' | ');
           status.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ '+parsed.length+' rows loaded</span>'+
-            '<br><span style="font-size:10px;color:#6b7280;font-family:monospace;">'+_dbgCells+'</span>';
+            ' <span style="font-size:10px;color:#6b7280;">'+_dbgMrr+'</span>';
           onDone();
         }, fmtCols);
       }
@@ -14143,12 +14141,12 @@ if(window.opener&&!window.opener.closed){
 
     // Wire uploads after DOM ready
     document.addEventListener('DOMContentLoaded', function() {
-      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData_v3','_nrMrrData_v3', parseMrrRows, renderNpsMrr, ['MRR']);
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData_v3','_nrMrrData_v3', parseMrrRows, renderNpsMrr);
       setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
     });
     // Also wire immediately in case DOMContentLoaded already fired
     if (document.readyState !== 'loading') {
-      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData_v3','_nrMrrData_v3', parseMrrRows, renderNpsMrr, ['MRR']);
+      setupDrop('nrMrrDrop','nrMrrFile','nrMrrStatus','nrMrrData_v3','_nrMrrData_v3', parseMrrRows, renderNpsMrr);
       setupDrop('nrNpsDrop','nrNpsFile','nrNpsStatus','nrNpsData','_nrNpsData', parseNpsRows, renderNpsMrr);
     }
   })();
