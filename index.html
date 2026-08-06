@@ -13644,34 +13644,27 @@ if(window.opener&&!window.opener.closed){
         try {
           const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
           const ws = wb.Sheets[wb.SheetNames[0]];
-          // Use {raw:true} to preserve numbers; SheetJS adds __rowNum__ so we can look up exact cells
-          const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
+          const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
           if (fmtCols && fmtCols.length) {
-            // Build column-index map from header row
             const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-            const headerRow = range.s.r;
+            const R0 = range.s.r; // header row
+            // Find column index for each fmtCol
             const colIdxMap = {};
-            for (let c = range.s.c; c <= range.e.c; c++) {
-              const hCell = ws[XLSX.utils.encode_cell({r: headerRow, c})];
-              if (hCell && hCell.v != null) {
-                colIdxMap[String(hCell.v).trim().toLowerCase()] = c;
-              }
+            for (var c = range.s.c; c <= range.e.c; c++) {
+              var hc = ws[XLSX.utils.encode_cell({r: R0, c: c})];
+              if (hc && hc.v != null) colIdxMap[String(hc.v).trim().toLowerCase()] = c;
             }
             fmtCols.forEach(function(colName) {
-              const colIdx = colIdxMap[colName.toLowerCase()];
+              var cl = colName.toLowerCase();
+              var colIdx = colIdxMap[cl];
               if (colIdx === undefined) return;
-              rows.forEach(function(r) {
-                // __rowNum__ is the actual 0-based row index in the worksheet (set by sheet_to_json)
-                const actualRow = r.__rowNum__;
-                if (actualRow == null) return;
-                const cell = ws[XLSX.utils.encode_cell({r: actualRow, c: colIdx})];
-                // .w is the exact text Excel displays; use it over the raw value
-                if (cell && cell.w != null && cell.w !== '') {
-                  const key = Object.keys(r).find(function(k) {
-                    return k.trim().toLowerCase() === colName.toLowerCase();
-                  });
-                  if (key) r[key] = cell.w;
-                }
+              rows.forEach(function(r, ri) {
+                // Use __rowNum__ (actual sheet row) if SheetJS provides it, else sequential
+                var excelRow = (r.__rowNum__ != null) ? r.__rowNum__ : (R0 + 1 + ri);
+                var cell = ws[XLSX.utils.encode_cell({r: excelRow, c: colIdx})];
+                if (!cell || !cell.w) return;
+                var key = Object.keys(r).find(function(k){ return k.trim().toLowerCase() === cl; });
+                if (key) r[key] = cell.w;
               });
             });
           }
