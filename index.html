@@ -13644,7 +13644,7 @@ if(window.opener&&!window.opener.closed){
         try {
           const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
+          const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
           if (fmtCols && fmtCols.length) {
             const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
             const R0 = range.s.r; // header row
