@@ -1786,6 +1786,14 @@
                 <div class="nr-ms-foot"><button onclick="nrClearGroup('nrNpsCatList');renderNpsMrr()">Clear</button><button onclick="document.getElementById('nrNpsCatPanel').classList.remove('open')">Done</button></div>
               </div>
             </div>
+            <!-- MRR range filter -->
+            <div class="nr-ms-wrap" id="nrMrrWrap">
+              <button class="nr-ms-btn" id="nrMrrBtn" onclick="nrToggleDrop('nrMrrPanel',event)">All MRR ▾</button>
+              <div class="nr-ms-panel" id="nrMrrPanel">
+                <div class="nr-ms-list" id="nrMrrList"></div>
+                <div class="nr-ms-foot"><button onclick="nrClearGroup('nrMrrList');renderNpsMrr()">Clear</button><button onclick="document.getElementById('nrMrrPanel').classList.remove('open')">Done</button></div>
+              </div>
+            </div>
             <!-- Hide blanks -->
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text);user-select:none;">
               <input type="checkbox" id="nrHideBlanks" onchange="renderNpsMrr()" style="width:14px;height:14px;cursor:pointer;"> Hide no-NPS accounts
@@ -13670,12 +13678,13 @@ if(window.opener&&!window.opener.closed){
 
     function parseMrrRows(rows) {
       return rows.map(r => ({
-        acct: String(col(r,'Account Name')||'').trim(),
-        seg: String(col(r,'Customer Segment')||'').trim(),
-        mrr: parseFloat(col(r,'MRR')) || null,
-        lastNpsDate: col(r,'Last NPS Response') ? String(col(r,'Last NPS Response')).slice(0,10) : null,
-        lastNps: col(r,'Last NPS Rating') != null ? Number(col(r,'Last NPS Rating')) : null,
-        owner: String(col(r,'Account Owner')||'').trim(),
+        acct:         String(col(r,'Account Name')||'').trim(),
+        seg:          String(col(r,'Customer Segment')||'').trim(),
+        mrr:          parseFloat(col(r,'MRR')) || null,
+        liveDate:     col(r,'Live Date') ? String(col(r,'Live Date')).slice(0,10) : null,
+        version:      String(col(r,'Sana Version')||col(r,'Version')||'').trim(),
+        owner:        String(col(r,'Account Owner')||'').trim(),
+        acctPlan:     String(col(r,'Account Plan')||'').trim(),
         cancelDeadline: col(r,'Cancellation Deadline') ? String(col(r,'Cancellation Deadline')).slice(0,10) : null,
       })).filter(r => r.acct);
     }
@@ -13785,7 +13794,9 @@ if(window.opener&&!window.opener.closed){
         const selAccts   = nrGetSelected('nrAcctList');
         const selSegs    = nrGetSelected('nrSegList');
         const selCats    = nrGetSelected('nrNpsCatList');
+        const selMrr     = nrGetSelected('nrMrrList');
         const hideBlanks = ($('nrHideBlanks')||{}).checked;
+        const MRR_BUCKETS = {'<5k':[0,5000],'5k–20k':[5000,20000],'20k–50k':[20000,50000],'>50k':[50000,Infinity]};
 
         const nCol = s => s!=null?(s>=9?'#16a34a':s>=7?'#b45309':'#dc2626'):'#9ca3af';
         const fCol = v => {
@@ -13809,6 +13820,11 @@ if(window.opener&&!window.opener.closed){
             if (!surveys.length && !selCats.has('No NPS')) return false;
             if (surveys.length && !surveys.some(r=>selCats.has(npsCategory(r.nps)))) return false;
           }
+          if (selMrr.size) {
+            const mv = (m&&m.mrr)||0;
+            const ok = [...selMrr].some(bk => { const [lo,hi]=MRR_BUCKETS[bk]||[0,Infinity]; return mv>=lo && mv<hi; });
+            if (!ok) return false;
+          }
           return true;
         });
         // Sort by MRR desc, then name
@@ -13820,75 +13836,85 @@ if(window.opener&&!window.opener.closed){
         if (!accts.length) {
           tblEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">No data — upload both files above.</div>';
         } else {
-          const TH = (t,extra) => '<th style="padding:7px 8px;text-align:left;white-space:nowrap;'+(extra||'')+'">'+t+'</th>';
-          let h='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1400px;">'+
-            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">'+
-            TH('Account')+TH('Survey Date','text-align:center;')+TH('NPS Score','text-align:center;')+TH('Category','text-align:center;')+
-            TH('Segment')+TH('NPS Comment','max-width:200px;')+
-            TH('Communication','text-align:center;')+TH('CSM','text-align:center;')+TH('Flexibility','text-align:center;')+
-            TH('Impl. ROI','text-align:center;')+TH('Quality','text-align:center;')+TH('Ecosystem','text-align:center;')+
-            TH('MRR (€)','text-align:right;')+TH('Live Date','text-align:center;')+TH('Version')+TH('Account Owner')+
+          const TH = (t,w,extra) => '<th style="padding:5px 6px;text-align:left;white-space:nowrap;overflow:hidden;'+(w?'width:'+w+';min-width:'+w+';max-width:'+w+';':'')+(extra||'')+'">'+t+'</th>';
+          let h='<table style="table-layout:fixed;width:100%;border-collapse:collapse;font-size:11px;min-width:1500px;">'+
+            '<colgroup>'+
+            '<col style="width:160px"><col style="width:72px"><col style="width:52px"><col style="width:78px">'+
+            '<col style="width:72px"><col style="width:160px">'+
+            '<col style="width:82px"><col style="width:64px"><col style="width:72px">'+
+            '<col style="width:64px"><col style="width:64px"><col style="width:78px">'+
+            '<col style="width:72px"><col style="width:68px"><col style="width:64px"><col style="width:120px">'+
+            '</colgroup>'+
+            '<thead><tr style="background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">'+
+            TH('Account','160px')+TH('Date','72px','text-align:center;')+TH('NPS','52px','text-align:center;')+TH('Category','78px','text-align:center;')+
+            TH('Segment','72px')+TH('Comment','160px')+
+            TH('Communication','82px','text-align:center;')+TH('CSM','64px','text-align:center;')+TH('Flexibility','72px','text-align:center;')+
+            TH('Impl. ROI','64px','text-align:center;')+TH('Quality','64px','text-align:center;')+TH('Ecosystem','78px','text-align:center;')+
+            TH('MRR (€)','72px','text-align:right;')+TH('Live Date','68px','text-align:center;')+TH('Version','64px')+TH('Account Owner','120px')+
             '</tr></thead><tbody>';
+
+          const P='padding:5px 6px;'; const trunc='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;';
+          const TD  = (v,extra) => '<td style="'+P+(extra||'')+'">'+v+'</td>';
+          const TDt = (v,extra) => '<td style="'+P+trunc+(extra||'')+'" title="'+esc(String(v||''))+'">'+esc(String(v||'—'))+'</td>';
+          const TDm = (v,extra) => '<td style="'+P+trunc+'color:var(--muted);'+(extra||'')+'" title="'+esc(String(v||''))+'">'+esc(String(v||'—'))+'</td>';
 
           accts.forEach((acct, ai) => {
             const m = mrrMap[acct.toLowerCase()];
             const surveys = npsMap[acct] || [];
             const seg = (m&&m.seg) || (surveys[0]&&surveys[0].seg) || '—';
             const mrr = m ? fmtMrr(m.mrr) : '—';
-            const liveDate = m ? esc(m.liveDate||'—') : '—';
-            const version  = m ? esc(m.version||'—')  : '—';
-            const owner    = m ? esc(m.owner||'—')    : '—';
+            const liveDate = m ? (m.liveDate||'—') : '—';
+            const version  = m ? (m.version||'—')  : '—';
+            const owner    = m ? (m.owner||'—')    : '—';
             const rowBg = ai%2===0?'var(--panel)':'var(--bg)';
 
             if (surveys.length <= 1) {
-              // Single row
               const r = surveys[0]||null;
               const score = r ? r.nps : null;
               const cat   = r ? npsCategory(score) : 'No NPS';
               h+='<tr style="border-bottom:1px solid var(--border);background:'+rowBg+';">'+
-                '<td style="padding:7px 10px;font-weight:600;">'+esc(acct)+'</td>'+
-                '<td style="padding:7px 8px;text-align:center;color:var(--muted);">'+(r?esc(r.date||'—'):'—')+'</td>'+
-                '<td style="padding:7px 8px;text-align:center;font-weight:800;font-size:15px;color:'+nCol(score)+';">'+(score!=null?score:'—')+'</td>'+
-                '<td style="padding:7px 8px;text-align:center;">'+(r?catBadge(cat):'—')+'</td>'+
-                '<td style="padding:7px 8px;">'+esc(seg)+'</td>'+
-                '<td style="padding:7px 8px;max-width:200px;white-space:normal;color:var(--muted);font-size:11px;">'+(r?esc((r.comment||'').slice(0,180)):'—')+'</td>'+
+                TDt(acct,'font-weight:600;')+
+                TDm(r?r.date:'','text-align:center;')+
+                TD('<span style="font-weight:800;font-size:13px;color:'+nCol(score)+'">'+(score!=null?score:'—')+'</span>',P+'text-align:center;')+
+                TD(r?catBadge(cat):'—',P+'text-align:center;')+
+                TDt(seg)+
+                TD('<span title="'+esc(r?r.comment:'')+'">'+esc(r?(r.comment||'').slice(0,60):'—')+'</span>',P+'color:var(--muted);'+trunc)+
                 factorCell(r&&r.communication)+factorCell(r&&r.csm)+factorCell(r&&r.flexibility)+
                 factorCell(r&&r.roi)+factorCell(r&&r.quality)+factorCell(r&&r.ecosystem)+
-                '<td style="padding:7px 8px;text-align:right;font-weight:600;">'+mrr+'</td>'+
-                '<td style="padding:7px 8px;text-align:center;color:var(--muted);">'+liveDate+'</td>'+
-                '<td style="padding:7px 8px;color:var(--muted);">'+version+'</td>'+
-                '<td style="padding:7px 8px;color:var(--muted);">'+owner+'</td>'+
+                TD('<span style="font-weight:600;">'+mrr+'</span>',P+'text-align:right;')+
+                TDm(liveDate,'text-align:center;')+
+                TDm(version)+
+                TDm(owner)+
               '</tr>';
             } else {
-              // Parent row + child rows per survey
               const grpId = 'nrg'+ai;
               h+='<tr data-open="1" onclick="(function(hdr){'+
                 'var open=hdr.dataset.open!==\'0\';hdr.dataset.open=open?\'0\':\'1\';'+
                 'hdr.querySelector(\'.nr-arrow\').textContent=open?\'▶\':\'▼\';'+
                 'document.querySelectorAll(\'tr[data-nrg="'+grpId+'"]\').forEach(function(r){r.style.display=open?\'none\':\'\';});'+
                 '})(this)" style="background:#e8f0fe;border-top:2px solid #2563eb;cursor:pointer;">'+
-                '<td style="padding:7px 10px;font-weight:700;" colspan="2">'+
-                  '<span class="nr-arrow" style="font-size:10px;color:#2563eb;margin-right:6px;">▼</span>'+
-                  esc(acct)+' <span style="font-size:10px;color:#2563eb;font-weight:500;">('+surveys.length+' surveys)</span>'+
+                '<td style="'+P+'font-weight:700;'+trunc+'" colspan="2" title="'+esc(acct)+'">'+
+                  '<span class="nr-arrow" style="font-size:9px;color:#2563eb;margin-right:5px;">▼</span>'+
+                  esc(acct)+' <span style="font-size:10px;color:#2563eb;font-weight:400;">('+surveys.length+')</span>'+
                 '</td>'+
-                '<td colspan="10" style="padding:7px 8px;"></td>'+
-                '<td style="padding:7px 8px;text-align:right;font-weight:600;">'+mrr+'</td>'+
-                '<td style="padding:7px 8px;text-align:center;color:var(--muted);">'+liveDate+'</td>'+
-                '<td style="padding:7px 8px;color:var(--muted);">'+version+'</td>'+
-                '<td style="padding:7px 8px;color:var(--muted);">'+owner+'</td>'+
+                '<td colspan="10" style="'+P+'"></td>'+
+                TD('<span style="font-weight:600;">'+mrr+'</span>',P+'text-align:right;')+
+                TDm(liveDate,'text-align:center;')+
+                TDm(version)+
+                TDm(owner)+
               '</tr>';
               surveys.forEach((r, si) => {
                 const score = r.nps; const cat = npsCategory(score);
                 h+='<tr data-nrg="'+grpId+'" style="border-bottom:1px solid var(--border);background:'+(si%2===0?'#f8faff':'var(--bg)')+';">'+
-                  '<td style="padding:6px 10px 6px 28px;color:var(--muted);font-size:11px;">└ survey '+(si+1)+'</td>'+
-                  '<td style="padding:6px 8px;text-align:center;color:var(--muted);">'+esc(r.date||'—')+'</td>'+
-                  '<td style="padding:6px 8px;text-align:center;font-weight:800;font-size:14px;color:'+nCol(score)+';">'+(score!=null?score:'—')+'</td>'+
-                  '<td style="padding:6px 8px;text-align:center;">'+catBadge(cat)+'</td>'+
-                  '<td style="padding:6px 8px;">'+esc(r.seg||seg)+'</td>'+
-                  '<td style="padding:6px 8px;max-width:200px;white-space:normal;color:var(--muted);font-size:11px;">'+esc((r.comment||'').slice(0,180))+'</td>'+
+                  '<td style="'+P+'color:var(--muted);padding-left:18px;'+trunc+'">└ #'+(si+1)+'</td>'+
+                  TDm(r.date||'','text-align:center;')+
+                  TD('<span style="font-weight:800;font-size:13px;color:'+nCol(score)+'">'+(score!=null?score:'—')+'</span>',P+'text-align:center;')+
+                  TD(catBadge(cat),P+'text-align:center;')+
+                  TDt(r.seg||seg)+
+                  TD('<span title="'+esc(r.comment||'')+'">'+esc((r.comment||'').slice(0,60))+'</span>',P+'color:var(--muted);'+trunc)+
                   factorCell(r.communication)+factorCell(r.csm)+factorCell(r.flexibility)+
                   factorCell(r.roi)+factorCell(r.quality)+factorCell(r.ecosystem)+
-                  '<td colspan="4" style="padding:6px 8px;"></td>'+
+                  '<td colspan="4" style="'+P+'"></td>'+
                 '</tr>';
               });
             }
@@ -13931,8 +13957,8 @@ if(window.opener&&!window.opener.closed){
       nrUpdateBtn(listId);
     }
     function nrUpdateBtn(listId) {
-      const map = {nrAcctList:'nrAcctBtn', nrSegList:'nrSegBtn', nrNpsCatList:'nrNpsBtn'};
-      const labels = {nrAcctList:'accounts', nrSegList:'segments', nrNpsCatList:'NPS categories'};
+      const map = {nrAcctList:'nrAcctBtn', nrSegList:'nrSegBtn', nrNpsCatList:'nrNpsBtn', nrMrrList:'nrMrrBtn'};
+      const labels = {nrAcctList:'accounts', nrSegList:'segments', nrNpsCatList:'NPS categories', nrMrrList:'MRR ranges'};
       const btn = document.getElementById(map[listId]);
       if (!btn) return;
       const sel = nrGetSelected(listId);
@@ -13970,6 +13996,12 @@ if(window.opener&&!window.opener.closed){
       if (catList && !catList._inited) {
         catList._inited = true;
         [['Promoter','Promoter (≥9)'],['Passive','Passive (7–8)'],['Detractor','Detractor (≤6)'],['No NPS','No NPS data']].forEach(([v,l])=>catList.appendChild(nrMakeItem(v,l,'nrNpsCatList')));
+      }
+      // MRR buckets — fixed
+      const mrrList = document.getElementById('nrMrrList');
+      if (mrrList && !mrrList._inited) {
+        mrrList._inited = true;
+        [['<5k','< €5,000'],['5k–20k','€5,000 – €20,000'],['20k–50k','€20,000 – €50,000'],['>50k','> €50,000']].forEach(([v,l])=>mrrList.appendChild(nrMakeItem(v,l,'nrMrrList')));
       }
       // Accounts — rebuild when data changes
       const acctList = document.getElementById('nrAcctList');
