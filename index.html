@@ -13654,29 +13654,40 @@ if(window.opener&&!window.opener.closed){
               var hc = ws[XLSX.utils.encode_cell({r: R0, c: c})];
               if (hc && hc.v != null) colIdxMap[String(hc.v).trim().toLowerCase()] = c;
             }
+            window._xlsxCellDebug = {};
             fmtCols.forEach(function(colName) {
               var cl = colName.toLowerCase();
               var colIdx = colIdxMap[cl];
               if (colIdx === undefined) return;
+              window._xlsxCellDebug[colName] = [];
               rows.forEach(function(r, ri) {
                 var excelRow = (r.__rowNum__ != null) ? r.__rowNum__ : (R0 + 1 + ri);
                 var cell = ws[XLSX.utils.encode_cell({r: excelRow, c: colIdx})];
                 if (!cell) return;
                 var key = Object.keys(r).find(function(k){ return k.trim().toLowerCase() === cl; });
                 if (!key) return;
-                // Count trailing commas in the positive-number section of the format code.
-                // Each trailing comma = ÷1000 (PowerBI/Excel scaling convention).
-                var fmtSection = (cell.z || '').split(';')[0];
-                var scaleMatch = fmtSection.match(/[0#?](,+)\s*$/);
-                var trailingCommas = scaleMatch ? scaleMatch[1].length : 0;
-                if (trailingCommas > 0 && typeof cell.v === 'number') {
-                  // Apply scaling: divide raw value by 1000^n
-                  r[key] = cell.v / Math.pow(1000, trailingCommas);
-                } else if (cell.w) {
-                  // Use formatted string (cell.w) — parseMoney will extract the number
+                var newVal;
+                if (cell.w) {
+                  // cell.w is Excel's own formatted display value — most reliable source
+                  newVal = cell.w;
                   r[key] = cell.w;
+                } else if (typeof cell.v === 'number' && cell.z) {
+                  // cell.w is missing — fall back to format-code trailing-comma scaling
+                  var fmtSection = cell.z.split(';')[0];
+                  var scaleMatch = fmtSection.match(/[0#?](,+)\s*$/);
+                  var trailingCommas = scaleMatch ? scaleMatch[1].length : 0;
+                  if (trailingCommas > 0) {
+                    newVal = cell.v / Math.pow(1000, trailingCommas);
+                    r[key] = newVal;
+                  } else {
+                    newVal = cell.v;
+                  }
+                } else {
+                  newVal = cell.v;
                 }
-                // else: leave the raw value from sheet_to_json as-is
+                if (window._xlsxCellDebug[colName].length < 8) {
+                  window._xlsxCellDebug[colName].push({acct: String(r['Account Name']||r[Object.keys(r)[0]]||'').slice(0,18), v:cell.v, z:cell.z, w:cell.w, tc:trailingCommas, out:newVal});
+                }
               });
             });
           }
@@ -13740,10 +13751,11 @@ if(window.opener&&!window.opener.closed){
           const parsed = parseRows(rows);
           try { localStorage.setItem(storageKey, JSON.stringify(parsed)); } catch(e) {}
           window[windowKey] = parsed;
-          // Show first 3 parsed MRR values so we can verify what's being read from the file
-          var _dbgMrr = parsed.slice(0,3).map(function(p){ return (p.acct||'?').slice(0,20)+': '+p.mrr; }).join(' | ');
+          var _dbgCells = (window._xlsxCellDebug && window._xlsxCellDebug['MRR'] || []).slice(0,5).map(function(d){
+            return esc(d.acct)+': v='+d.v+' z='+esc(d.z||'')+(d.tc?' tc='+d.tc:'')+(d.w!=null?' w='+esc(d.w):'')+'→'+d.out;
+          }).join('<br>');
           status.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ '+parsed.length+' rows loaded</span>'+
-            ' <span style="font-size:10px;color:#6b7280;">MRR check: '+esc(_dbgMrr)+'</span>';
+            '<br><span style="font-size:10px;color:#6b7280;font-family:monospace;">'+_dbgCells+'</span>';
           onDone();
         }, fmtCols);
       }
