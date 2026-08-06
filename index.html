@@ -14055,7 +14055,10 @@ if(window.opener&&!window.opener.closed){
       }
     }
 
-    window.renderNpsMrr = renderNpsMrr;
+    window.renderNpsMrr    = renderNpsMrr;
+    window.nrToggleDrop    = nrToggleDrop;
+    window.nrFilterList    = nrFilterList;
+    window.nrClearGroup    = nrClearGroup;
 
     // Wire uploads after DOM ready
     document.addEventListener('DOMContentLoaded', function() {
