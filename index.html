@@ -196,6 +196,21 @@
   .row3-label { font-size:10px; color:rgba(251,191,36,.7); padding:6px 10px 6px 0; text-transform:uppercase; letter-spacing:.06em; align-self:center; }
   .deep-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
   @media (max-width:1100px) { .deep-grid { grid-template-columns:1fr; } }
+  /* NPS multi-select dropdowns */
+  .nr-ms-wrap { position:relative; }
+  .nr-ms-btn { padding:5px 12px 5px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px; background:var(--panel); color:var(--text); cursor:pointer; white-space:nowrap; min-width:140px; text-align:left; }
+  .nr-ms-btn:hover { border-color:var(--primary); }
+  .nr-ms-btn.has-sel { border-color:#2563eb; color:#2563eb; font-weight:600; }
+  .nr-ms-panel { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:999; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,.18); min-width:240px; max-width:320px; }
+  .nr-ms-panel.open { display:flex; flex-direction:column; }
+  .nr-ms-search { padding:7px 10px; border:none; border-bottom:1px solid var(--border); font-size:12px; background:transparent; color:var(--text); outline:none; width:100%; box-sizing:border-box; }
+  .nr-ms-list { max-height:220px; overflow-y:auto; padding:4px 0; }
+  .nr-ms-item { display:flex; align-items:center; gap:8px; padding:5px 10px; font-size:12px; cursor:pointer; color:var(--text); }
+  .nr-ms-item:hover { background:rgba(37,99,235,.08); }
+  .nr-ms-item input[type=checkbox] { width:14px; height:14px; cursor:pointer; flex-shrink:0; accent-color:#2563eb; }
+  .nr-ms-foot { display:flex; justify-content:flex-end; gap:6px; padding:6px 8px; border-top:1px solid var(--border); }
+  .nr-ms-foot button { padding:3px 10px; border:1px solid var(--border); border-radius:4px; font-size:11px; cursor:pointer; background:var(--panel); color:var(--text); }
+  .nr-ms-foot button:last-child { background:#2563eb; color:#fff; border-color:#2563eb; }
   .stat-card { background:#f8f9fc; border:1px solid var(--border); border-radius:4px; padding:12px 14px; }
   .stat-card .l { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
   .stat-card .v { font-size:22px; font-weight:600; color:var(--primary); margin-top:4px; }
@@ -1746,20 +1761,35 @@
         <summary class="dd-section-title">📋 Account NPS &amp; MRR Scorecard</summary>
         <div style="padding-top:10px;">
           <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
-            <input type="text" id="nrAcctSearch" placeholder="Search account…" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:220px;background:var(--panel);color:var(--text);">
-            <select id="nrSegFilter" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
-              <option value="">All segments</option>
-              <option value="Strategic">Strategic</option>
-              <option value="Mid-market">Mid-market</option>
-              <option value="Scale">Scale</option>
-            </select>
-            <select id="nrNpsFilter" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
-              <option value="">All NPS categories</option>
-              <option value="Promoter">Promoters (≥9)</option>
-              <option value="Passive">Passives (7–8)</option>
-              <option value="Detractor">Detractors (≤6)</option>
-              <option value="No NPS">No NPS</option>
-            </select>
+            <!-- Account multi-select -->
+            <div class="nr-ms-wrap" id="nrAcctWrap">
+              <button class="nr-ms-btn" id="nrAcctBtn" onclick="nrToggleDrop('nrAcctPanel',event)">All accounts ▾</button>
+              <div class="nr-ms-panel" id="nrAcctPanel">
+                <input class="nr-ms-search" id="nrAcctSearch" placeholder="Search account…" oninput="nrFilterList('nrAcctList',this.value)">
+                <div class="nr-ms-list" id="nrAcctList"></div>
+                <div class="nr-ms-foot"><button onclick="nrClearGroup('nrAcctList');renderNpsMrr()">Clear</button><button onclick="document.getElementById('nrAcctPanel').classList.remove('open')">Done</button></div>
+              </div>
+            </div>
+            <!-- Segment multi-select -->
+            <div class="nr-ms-wrap" id="nrSegWrap">
+              <button class="nr-ms-btn" id="nrSegBtn" onclick="nrToggleDrop('nrSegPanel',event)">All segments ▾</button>
+              <div class="nr-ms-panel" id="nrSegPanel">
+                <div class="nr-ms-list" id="nrSegList"></div>
+                <div class="nr-ms-foot"><button onclick="nrClearGroup('nrSegList');renderNpsMrr()">Clear</button><button onclick="document.getElementById('nrSegPanel').classList.remove('open')">Done</button></div>
+              </div>
+            </div>
+            <!-- NPS category multi-select -->
+            <div class="nr-ms-wrap" id="nrNpsWrap">
+              <button class="nr-ms-btn" id="nrNpsBtn" onclick="nrToggleDrop('nrNpsCatPanel',event)">All NPS categories ▾</button>
+              <div class="nr-ms-panel" id="nrNpsCatPanel">
+                <div class="nr-ms-list" id="nrNpsCatList"></div>
+                <div class="nr-ms-foot"><button onclick="nrClearGroup('nrNpsCatList');renderNpsMrr()">Clear</button><button onclick="document.getElementById('nrNpsCatPanel').classList.remove('open')">Done</button></div>
+              </div>
+            </div>
+            <!-- Hide blanks -->
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text);user-select:none;">
+              <input type="checkbox" id="nrHideBlanks" onchange="renderNpsMrr()" style="width:14px;height:14px;cursor:pointer;"> Hide no-NPS accounts
+            </label>
           </div>
           <div id="nrAcctTable" style="overflow-x:auto;"></div>
         </div>
@@ -13748,9 +13778,14 @@ if(window.opener&&!window.opener.closed){
           ...Object.keys(npsMap)
         ]);
 
-        const q = ($('nrAcctSearch')||{}).value||'';
-        const segF = ($('nrSegFilter')||{}).value||'';
-        const npsF = ($('nrNpsFilter')||{}).value||'';
+        // Populate dropdowns with live data (idempotent)
+        nrInitDropdowns([...allAccts].sort(), mrrRows, npsMap);
+
+        // Read multi-select filters
+        const selAccts   = nrGetSelected('nrAcctList');
+        const selSegs    = nrGetSelected('nrSegList');
+        const selCats    = nrGetSelected('nrNpsCatList');
+        const hideBlanks = ($('nrHideBlanks')||{}).checked;
 
         const nCol = s => s!=null?(s>=9?'#16a34a':s>=7?'#b45309':'#dc2626'):'#9ca3af';
         const fCol = v => {
@@ -13762,16 +13797,17 @@ if(window.opener&&!window.opener.closed){
         const factorCell = v => '<td style="padding:6px 8px;text-align:center;font-size:10px;color:'+fCol(v)+';">'+esc(v||'—')+'</td>';
 
         let accts = [...allAccts].filter(a => {
-          if (q && !a.toLowerCase().includes(q.toLowerCase())) return false;
+          if (selAccts.size && !selAccts.has(a)) return false;
           const m = mrrMap[a.toLowerCase()];
           const surveys = npsMap[a]||[];
-          if (segF) {
+          if (hideBlanks && !surveys.length) return false;
+          if (selSegs.size) {
             const seg = (m&&m.seg)||surveys[0]?.seg||'';
-            if (seg!==segF) return false;
+            if (!selSegs.has(seg)) return false;
           }
-          if (npsF) {
-            if (!surveys.length && npsF!=='No NPS') return false;
-            if (surveys.length && !surveys.some(r=>npsCategory(r.nps)===npsF)) return false;
+          if (selCats.size) {
+            if (!surveys.length && !selCats.has('No NPS')) return false;
+            if (surveys.length && !surveys.some(r=>selCats.has(npsCategory(r.nps)))) return false;
           }
           return true;
         });
@@ -13865,11 +13901,89 @@ if(window.opener&&!window.opener.closed){
       const histEl = $('nrHistTable');
       if (histEl) histEl.innerHTML = '';
 
-      // Wire search/filter inputs (once)
-      ['nrAcctSearch','nrSegFilter','nrNpsFilter'].forEach(id => {
-        const el = $(id);
-        if (el && !el._nrBound) { el._nrBound=true; el.addEventListener('input', renderNpsMrr); el.addEventListener('change', renderNpsMrr); }
+    }
+
+    // ── Multi-select dropdown helpers ──────────────────────────────────────
+    function nrToggleDrop(panelId, e) {
+      e.stopPropagation();
+      const panel = document.getElementById(panelId);
+      const wasOpen = panel.classList.contains('open');
+      // close all panels
+      document.querySelectorAll('.nr-ms-panel.open').forEach(p => p.classList.remove('open'));
+      if (!wasOpen) panel.classList.add('open');
+    }
+    document.addEventListener('click', function() {
+      document.querySelectorAll('.nr-ms-panel.open').forEach(p => p.classList.remove('open'));
+    });
+    function nrFilterList(listId, q) {
+      const lq = q.toLowerCase();
+      document.querySelectorAll('#'+listId+' .nr-ms-item').forEach(item => {
+        item.style.display = item.dataset.val.toLowerCase().includes(lq) ? '' : 'none';
       });
+    }
+    function nrGetSelected(listId) {
+      const sel = new Set();
+      document.querySelectorAll('#'+listId+' input[type=checkbox]:checked').forEach(cb => sel.add(cb.value));
+      return sel;
+    }
+    function nrClearGroup(listId) {
+      document.querySelectorAll('#'+listId+' input[type=checkbox]').forEach(cb => cb.checked = false);
+      nrUpdateBtn(listId);
+    }
+    function nrUpdateBtn(listId) {
+      const map = {nrAcctList:'nrAcctBtn', nrSegList:'nrSegBtn', nrNpsCatList:'nrNpsBtn'};
+      const labels = {nrAcctList:'accounts', nrSegList:'segments', nrNpsCatList:'NPS categories'};
+      const btn = document.getElementById(map[listId]);
+      if (!btn) return;
+      const sel = nrGetSelected(listId);
+      if (!sel.size) {
+        btn.textContent = 'All '+labels[listId]+' ▾';
+        btn.classList.remove('has-sel');
+      } else {
+        btn.textContent = sel.size+' '+labels[listId]+' ▾';
+        btn.classList.add('has-sel');
+      }
+    }
+    function nrMakeItem(val, label, listId) {
+      const d = document.createElement('div');
+      d.className = 'nr-ms-item'; d.dataset.val = val;
+      const cb = document.createElement('input'); cb.type='checkbox'; cb.value=val;
+      cb.onchange = function() { nrUpdateBtn(listId); renderNpsMrr(); };
+      const sp = document.createElement('span'); sp.textContent = label||val;
+      d.appendChild(cb); d.appendChild(sp);
+      d.onclick = function(e) { if (e.target!==cb) { cb.checked=!cb.checked; cb.onchange(); } };
+      return d;
+    }
+    var _nrDropsInited = false;
+    function nrInitDropdowns(allAccts, mrrRows, npsMap) {
+      // Segments — from data
+      const segList = document.getElementById('nrSegList');
+      const segSet = new Set();
+      mrrRows.forEach(r=>{if(r.seg)segSet.add(r.seg);});
+      Object.values(npsMap).forEach(arr=>arr.forEach(r=>{if(r.seg)segSet.add(r.seg);}));
+      if (segList && !segList._inited) {
+        segList._inited = true;
+        [...segSet].sort().forEach(s => segList.appendChild(nrMakeItem(s, s, 'nrSegList')));
+      }
+      // NPS categories — fixed
+      const catList = document.getElementById('nrNpsCatList');
+      if (catList && !catList._inited) {
+        catList._inited = true;
+        [['Promoter','Promoter (≥9)'],['Passive','Passive (7–8)'],['Detractor','Detractor (≤6)'],['No NPS','No NPS data']].forEach(([v,l])=>catList.appendChild(nrMakeItem(v,l,'nrNpsCatList')));
+      }
+      // Accounts — rebuild when data changes
+      const acctList = document.getElementById('nrAcctList');
+      if (acctList) {
+        const prevChecked = nrGetSelected('nrAcctList');
+        acctList.innerHTML = '';
+        acctList._inited = false;
+        allAccts.forEach(a => {
+          const item = nrMakeItem(a, a, 'nrAcctList');
+          if (prevChecked.has(a)) item.querySelector('input').checked = true;
+          acctList.appendChild(item);
+        });
+        nrUpdateBtn('nrAcctList');
+      }
     }
 
     window.renderNpsMrr = renderNpsMrr;
