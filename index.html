@@ -13635,6 +13635,20 @@ if(window.opener&&!window.opener.closed){
       return null;
     }
 
+    // Convert Excel date (serial number, JS Date, or string) → "YYYY-MM-DD"
+    function xlDate(v) {
+      if (!v) return null;
+      if (v instanceof Date) return isNaN(v)?null:v.toISOString().slice(0,10);
+      if (typeof v === 'number' && v > 1000) {
+        try {
+          const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+          return d.toISOString().slice(0,10);
+        } catch(e) { return null; }
+      }
+      const s = String(v).trim();
+      return s ? s.slice(0,10) : null;
+    }
+
     // NPS category
     function npsCategory(score) {
       if (score == null || score === '') return null;
@@ -13681,27 +13695,27 @@ if(window.opener&&!window.opener.closed){
         acct:         String(col(r,'Account Name')||'').trim(),
         seg:          String(col(r,'Customer Segment')||'').trim(),
         mrr:          parseFloat(col(r,'MRR')) || null,
-        liveDate:     col(r,'Live Date') ? String(col(r,'Live Date')).slice(0,10) : null,
-        version:      String(col(r,'Sana Version')||col(r,'Version')||'').trim(),
-        owner:        String(col(r,'Account Owner')||'').trim(),
+        liveDate:     xlDate(col(r,'Live Date','Go Live Date','GoLiveDate')),
+        version:      String(col(r,'Sana Version','Version','Sana version')||'').trim(),
+        owner:        String(col(r,'Account Owner','CSM Main Focus','Owner')||'').trim(),
         acctPlan:     String(col(r,'Account Plan')||'').trim(),
-        cancelDeadline: col(r,'Cancellation Deadline') ? String(col(r,'Cancellation Deadline')).slice(0,10) : null,
+        cancelDeadline: xlDate(col(r,'Cancellation Deadline','Cancel Deadline')),
       })).filter(r => r.acct);
     }
 
     function parseNpsRows(rows) {
       return rows.map(r => ({
-        date: col(r,'Date') ? String(col(r,'Date')).slice(0,10) : null,
-        acct: String(col(r,'Account Name')||'').trim(),
-        seg: String(col(r,'Customer Segment')||'').trim(),
-        nps: col(r,'NPS') != null ? Number(col(r,'NPS')) : null,
-        comment: String(col(r,'NPS Comment')||'').trim(),
+        date:          xlDate(col(r,'Date','Survey Date','Response Date')),
+        acct:          String(col(r,'Account Name')||'').trim(),
+        seg:           String(col(r,'Customer Segment')||'').trim(),
+        nps:           col(r,'NPS','NPS Score') != null ? Number(col(r,'NPS','NPS Score')) : null,
+        comment:       String(col(r,'NPS Comment','Comment')||'').trim(),
         communication: String(col(r,'Communication')||'').trim(),
-        csm: String(col(r,'CSM')||'').trim(),
-        flexibility: String(col(r,'Flexibility of Product')||'').trim(),
-        roi: String(col(r,'Implmentation ROI')||col(r,'Implementation ROI')||'').trim(),
-        quality: String(col(r,'Quality Assistance')||'').trim(),
-        ecosystem: String(col(r,'Ecosystem Integration')||'').trim(),
+        csm:           String(col(r,'CSM')||'').trim(),
+        flexibility:   String(col(r,'Flexibility of Product','Flexibility')||'').trim(),
+        roi:           String(col(r,'Implmentation ROI','Implementation ROI','ROI')||'').trim(),
+        quality:       String(col(r,'Quality Assistance','Quality')||'').trim(),
+        ecosystem:     String(col(r,'Ecosystem Integration','Ecosystem')||'').trim(),
       })).filter(r => r.acct);
     }
 
