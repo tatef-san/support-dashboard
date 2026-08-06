@@ -13646,15 +13646,30 @@ if(window.opener&&!window.opener.closed){
           const ws = wb.Sheets[wb.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
           if (fmtCols && fmtCols.length) {
-            // Second pass with raw:false to get the formatted display strings
-            const fmtRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:false});
-            rows.forEach(function(r, i) {
-              const fr = fmtRows[i] || {};
-              fmtCols.forEach(function(colName) {
-                const key = Object.keys(r).find(function(k) {
-                  return k.trim().toLowerCase() === colName.toLowerCase();
-                });
-                if (key && fr[key] != null) r[key] = fr[key];
+            // Read .w (formatted display text) directly from cells — the only reliable way
+            // to get PowerBI-exported display values (raw:false doesn't handle custom format codes)
+            const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+            const headerRow = range.s.r;
+            const colIdxMap = {};
+            for (let c = range.s.c; c <= range.e.c; c++) {
+              const hCell = ws[XLSX.utils.encode_cell({r: headerRow, c})];
+              if (hCell && hCell.v != null) {
+                colIdxMap[String(hCell.v).trim().toLowerCase()] = c;
+              }
+            }
+            fmtCols.forEach(function(colName) {
+              const colIdx = colIdxMap[colName.toLowerCase()];
+              if (colIdx === undefined) return;
+              rows.forEach(function(r, ri) {
+                const cellAddr = XLSX.utils.encode_cell({r: headerRow + 1 + ri, c: colIdx});
+                const cell = ws[cellAddr];
+                // Use .w (what Excel displayed) if available and non-empty
+                if (cell && cell.w != null && cell.w !== '') {
+                  const key = Object.keys(r).find(function(k) {
+                    return k.trim().toLowerCase() === colName.toLowerCase();
+                  });
+                  if (key) r[key] = cell.w;
+                }
               });
             });
           }
@@ -13936,7 +13951,7 @@ if(window.opener&&!window.opener.closed){
             TH('Segment','72px')+TH('Comment','160px')+
             TH('Communication','82px','text-align:center;')+TH('CSM','64px','text-align:center;')+TH('Flexibility','72px','text-align:center;')+
             TH('Impl. ROI','64px','text-align:center;')+TH('Quality','64px','text-align:center;')+TH('Ecosystem','78px','text-align:center;')+
-            TH('MRR (€)','72px','text-align:right;')+TH('Live Date','68px','text-align:center;')+TH('Version','64px')+TH('Account Owner','120px')+
+            TH('MRR (€)','72px','text-align:right;')+TH('Live Date','90px','text-align:center;')+TH('Version','72px')+TH('Account Owner','130px')+
             '</tr></thead><tbody>';
 
           const P='padding:5px 6px;'; const trunc='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;';
