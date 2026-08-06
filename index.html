@@ -5242,6 +5242,21 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   window._adoODataFetch = adoODataFetch;
   window._fetchODataAll = fetchODataAll;
 
+  // In-memory OData cache — avoids refetching large datasets on repeat syncs.
+  // Keyed by URL; TTL in ms. Cleared on page reload (intentional — always fresh on first sync).
+  var _odataMemCache = {};
+  async function fetchODataAllCached(url, ttlMs, lfn) {
+    var cached = _odataMemCache[url];
+    if (cached && (Date.now() - cached.ts) < ttlMs) {
+      if (lfn) lfn('  (cache hit: ' + cached.data.length + ' rows, ' + Math.round((Date.now()-cached.ts)/1000) + 's old)');
+      return cached.data;
+    }
+    var data = await fetchODataAll(url, lfn);
+    _odataMemCache[url] = { ts: Date.now(), data: data };
+    return data;
+  }
+  window._fetchODataAllCached = fetchODataAllCached;
+
   // Extract @mentioned display names from an ADO comment HTML string
   function extractAtMentions(html) {
     if (!html) return [];
@@ -15217,7 +15232,17 @@ if(window.opener&&!window.opener.closed){
             + '?$select=' + encodeURIComponent(_odataSel)
             + '&$expand=' + encodeURIComponent(_odataExp)
             + '&$filter=' + encodeURIComponent(_odataFlt);
-          var _odataRows = await window._fetchODataAll(_odataUrl, lf);
+          // Pre-start WRV SC and Partner Support WRV fetches in parallel with main tickets
+          var _wrvBaseEarly = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
+          var _wrvUrlSCEarly = _wrvBaseEarly + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,Custom_ServiceConsultant') + '&$filter=' + encodeURIComponent("WorkItemType eq 'Ticket' and Custom_ServiceConsultant ne null and Custom_ProjectReleaseVersion ne null and startswith(tolower(Custom_ProjectReleaseVersion),'support') and Custom_ProjectReleaseVersion ne 'support - wishlist' and RevisedDate ge 2026-01-01T00:00:00Z");
+          var _psWrvBaseEarly = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
+          var _psWrvUrlEarly = _psWrvBaseEarly + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,State') + '&$expand=' + encodeURIComponent('ChangedBy($select=UserName)') + '&$filter=' + encodeURIComponent("Custom_ProjectReleaseVersion eq 'Partner Support' and RevisedDate ge 2026-01-01T00:00:00Z");
+          var _psUrlEarly = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems' + '?$select=' + encodeURIComponent('WorkItemId,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount,Custom_ServiceConsultant') + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName),Area($select=AreaPath)') + '&$filter=' + encodeURIComponent("Custom_ProjectReleaseVersion eq 'Partner Support' and CreatedDate ge 2026-01-01T00:00:00Z");
+          lf('Prefetching WRV and Partner Support in parallel with main tickets…');
+          window._fetchODataAllCached(_wrvUrlSCEarly, 8*60*1000, lf);
+          window._fetchODataAllCached(_psWrvUrlEarly, 8*60*1000, lf);
+          window._fetchODataAllCached(_psUrlEarly, 5*60*1000, lf);
+          var _odataRows = await window._fetchODataAllCached(_odataUrl, 5*60*1000, lf);
           lf('OData: ' + _odataRows.length + ' Customer Support tickets found.');
           _odataRows = _odataRows.filter(function(r) {
             return !((r.Area && r.Area.AreaPath) || '').toLowerCase().includes('test');
@@ -15388,7 +15413,7 @@ if(window.opener&&!window.opener.closed){
                 " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
                 " and RevisedDate ge 2026-01-01T00:00:00Z"
               );
-          var _wrvRowsSC = await window._fetchODataAll(_wrvUrlSC, lf);
+          var _wrvRowsSC = await window._fetchODataAllCached(_wrvUrlSC, 8*60*1000, lf);
           lf('WorkItemRevisions: ' + _wrvRowsSC.length + ' rows with Custom_ServiceConsultant set.');
 
           var _wrvMap = {};
@@ -15417,7 +15442,7 @@ if(window.opener&&!window.opener.closed){
                   " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
                   " and RevisedDate ge 2026-01-01T00:00:00Z"
                 );
-            var _wrvRowsAT = await window._fetchODataAll(_wrvUrlAT, lf);
+            var _wrvRowsAT = await window._fetchODataAllCached(_wrvUrlAT, 8*60*1000, lf);
             lf('WorkItemRevisions: ' + _wrvRowsAT.length + ' rows (AssignedTo fallback).');
             _wrvRowsAT.forEach(function(rv) {
               var id   = rv.WorkItemId;
@@ -15511,7 +15536,7 @@ if(window.opener&&!window.opener.closed){
                 "Custom_ProjectReleaseVersion eq 'Partner Support'"
                 + " and CreatedDate ge 2026-01-01T00:00:00Z"
               );
-          var _psRows = await window._fetchODataAll(_psUrl, lf);
+          var _psRows = await window._fetchODataAllCached(_psUrl, 5*60*1000, lf);
           lf('Partner Support: ' + _psRows.length + ' total tickets.');
 
           var _PS_TERMINAL = ['Done','Cancelled','Closed'];
@@ -15566,7 +15591,7 @@ if(window.opener&&!window.opener.closed){
                   "Custom_ProjectReleaseVersion eq 'Partner Support'"
                   + " and RevisedDate ge 2026-01-01T00:00:00Z"
                 );
-            var _psWrvRows = await window._fetchODataAll(_psWrvUrl, lf);
+            var _psWrvRows = await window._fetchODataAllCached(_psWrvUrl, 8*60*1000, lf);
             lf('Partner Support WRV: ' + _psWrvRows.length + ' revision rows.');
 
             // Sort ascending for active (first Backlog Analyze wins)
