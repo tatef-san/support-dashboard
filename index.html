@@ -13644,10 +13644,10 @@ if(window.opener&&!window.opener.closed){
         try {
           const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
+          // Use {raw:true} to preserve numbers; SheetJS adds __rowNum__ so we can look up exact cells
+          const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
           if (fmtCols && fmtCols.length) {
-            // Read .w (formatted display text) directly from cells — the only reliable way
-            // to get PowerBI-exported display values (raw:false doesn't handle custom format codes)
+            // Build column-index map from header row
             const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
             const headerRow = range.s.r;
             const colIdxMap = {};
@@ -13660,10 +13660,12 @@ if(window.opener&&!window.opener.closed){
             fmtCols.forEach(function(colName) {
               const colIdx = colIdxMap[colName.toLowerCase()];
               if (colIdx === undefined) return;
-              rows.forEach(function(r, ri) {
-                const cellAddr = XLSX.utils.encode_cell({r: headerRow + 1 + ri, c: colIdx});
-                const cell = ws[cellAddr];
-                // Use .w (what Excel displayed) if available and non-empty
+              rows.forEach(function(r) {
+                // __rowNum__ is the actual 0-based row index in the worksheet (set by sheet_to_json)
+                const actualRow = r.__rowNum__;
+                if (actualRow == null) return;
+                const cell = ws[XLSX.utils.encode_cell({r: actualRow, c: colIdx})];
+                // .w is the exact text Excel displays; use it over the raw value
                 if (cell && cell.w != null && cell.w !== '') {
                   const key = Object.keys(r).find(function(k) {
                     return k.trim().toLowerCase() === colName.toLowerCase();
