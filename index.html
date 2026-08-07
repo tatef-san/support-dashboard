@@ -15889,7 +15889,7 @@ if(window.opener&&!window.opener.closed){
 // == LEADING INDICATORS ==============================================
 (function() {
   var _liAcct = null;
-  function liNorm(s){return(s||'').toLowerCase().trim();}
+  function liNorm(s){return(s||'').toLowerCase().trim().replace(/[\s\-_.,'&]/g,'');}
 
   function liGetAccounts(){
     var seen={},out=[];
