@@ -15894,7 +15894,7 @@ if(window.opener&&!window.opener.closed){
   function liGetAccounts(){
     var seen={},out=[];
     function add(rows){if(!rows)return;rows.forEach(function(r){var a=(r.acct||'').trim();if(a&&!seen[a.toLowerCase()]){seen[a.toLowerCase()]=1;out.push(a);}});}
-    add(window.DATA&&DATA.active);add(window.DATA&&DATA.closed);
+    add(window._adoClosedAutoData);add(window._agingFlagRows);
     out.sort(function(a,b){return a.localeCompare(b);});return out;
   }
 
@@ -15938,7 +15938,7 @@ if(window.opener&&!window.opener.closed){
 
   function liRenderCsat(acct){
     var box=document.getElementById('liBoxCsat');if(!box)return null;
-    var rows=(window.DATA&&DATA.csat||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
+    var rows=(window._csatRows||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
     if(!rows.length){box.innerHTML=bh('CSAT','#2563eb')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No CSAT data for this account</div>';return null;}
     function rv(r){var s=liNorm(r.rating||'');if(s==='very satisfied'||s==='5')return 5;if(s==='satisfied'||s==='4')return 4;if(s==='neutral'||s==='3')return 3;if(s==='unsatisfied'||s==='2')return 2;if(s==='very unsatisfied'||s==='1')return 1;var n=parseFloat(r.rating);return isNaN(n)?null:n;}
     var rated=rows.map(rv).filter(function(v){return v!==null;});
@@ -15960,7 +15960,8 @@ if(window.opener&&!window.opener.closed){
 
   function liRenderNps(acct){
     var box=document.getElementById('liBoxNps');if(!box)return null;
-    var rows=(window._nrNpsData||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
+    var npsData=window._nrNpsData||window._npsRows||[];
+    var rows=npsData.filter(function(r){return liNorm(r.acct)===liNorm(acct);});
     if(!rows.length){box.innerHTML=bh('NPS','#7c3aed')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No NPS data &#8212; upload in NPS &amp; MRR tab</div>';return null;}
     var sc2=rows.map(function(r){return Number(r.nps);}).filter(function(v){return !isNaN(v);});
     if(!sc2.length){box.innerHTML=bh('NPS','#7c3aed')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No NPS scores found</div>';return null;}
@@ -15981,28 +15982,29 @@ if(window.opener&&!window.opener.closed){
 
   function liRenderClosed(acct){
     var box=document.getElementById('liBoxClosed');if(!box)return null;
-    var rows=(window.DATA&&DATA.closed||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
+    var rows=(window._adoClosedAutoData||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
     if(!rows.length){box.innerHTML=bh('Closed Tickets','#059669')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No closed tickets for this account</div>';return null;}
-    var BH=8,ages=rows.map(function(r){return Number(r.age)||0;}).sort(function(a,b){return a-b;});
+    var ages=rows.map(function(r){return Number(r.age)||0;}).sort(function(a,b){return a-b;});
     var mid=Math.floor(ages.length/2),med=ages.length%2===0?(ages[mid-1]+ages[mid])/2:ages[mid];
-    var avgBh=ages.reduce(function(a,b){return a+b;},0)/ages.length;
-    var medD=med/BH,avgD=avgBh/BH;
-    var grn=rows.filter(function(r){return(Number(r.age)||0)<=7*BH;}).length;
+    var avgD=ages.reduce(function(a,b){return a+b;},0)/ages.length;
+    var medD=med;
+    var grn=rows.filter(function(r){return(Number(r.age)||0)<=7;}).length;
     var pct=grn/rows.length*100,ok=pct>=55;
     var mc=medD<=7?'#16a34a':medD<=20?'#d97706':'#dc2626';
     var html=bh('Closed Tickets','#059669')+'<div style="display:flex;gap:20px;margin-top:10px;flex-wrap:wrap;">';
     html+='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Median TTR</div><div style="font-size:28px;font-weight:700;color:'+mc+';">'+medD.toFixed(1)+'d</div></div>';
     html+='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Within 7 days</div><div style="font-size:28px;font-weight:700;color:'+(ok?'#16a34a':'#dc2626')+';">'+pct.toFixed(0)+'%</div><div style="font-size:10px;color:var(--muted);">target 55% | '+grn+'/'+rows.length+'</div></div></div>';
     html+='<div style="margin-top:10px;height:8px;border-radius:4px;background:#f3f4f6;overflow:hidden;"><div style="height:100%;width:'+Math.min(100,pct).toFixed(0)+'%;background:'+(ok?'#16a34a':'#dc2626')+';border-radius:4px;"></div></div>';
-    html+='<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+rows.length+' tickets | Avg TTR '+avgD.toFixed(1)+' days</div>';
+    html+='<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+rows.length+' ticket(s) | Avg TTR '+avgD.toFixed(1)+' days</div>';
     box.innerHTML=html;return{avgDays:avgD};
   }
 
   function liRenderActive(acct){
     var box=document.getElementById('liBoxActive');if(!box)return null;
-    var rows=(window.DATA&&DATA.active||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
+    var today=new Date();
+    var rows=(window._agingFlagRows||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
     if(!rows.length){box.innerHTML=bh('Active Tickets','#ea580c')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No active tickets for this account</div>';return null;}
-    var BH=8,o20=rows.filter(function(r){return(Number(r.age)||0)>20*BH;});
+    var o20=rows.filter(function(r){var d=r.created?Math.round((today-new Date(r.created))/86400000):0;return d>20;});
     var cnt=o20.length,crit=cnt>=2;
     var html=bh('Active Tickets','#ea580c')+'<div style="display:flex;gap:20px;margin-top:10px;flex-wrap:wrap;">';
     html+='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Total Open</div><div style="font-size:32px;font-weight:700;color:var(--text);">'+rows.length+'</div></div>';
