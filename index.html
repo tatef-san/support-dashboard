@@ -15889,7 +15889,27 @@ if(window.opener&&!window.opener.closed){
 // == LEADING INDICATORS ==============================================
 (function() {
   var _liAcct = null;
-  function liNorm(s){return(s||'').toLowerCase().trim().replace(/[\s\-_.,'&]/g,'');}
+  var _summaryData = [];
+
+  function liNorm(s){return(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+
+  function liCsatRv(r){
+    var s=liNorm(r.rating||'');
+    if(s==='verysatisfied'||s==='5')return 5;
+    if(s==='satisfied'||s==='4')return 4;
+    if(s==='neutral'||s==='3')return 3;
+    if(s==='unsatisfied'||s==='2')return 2;
+    if(s==='veryunsatisfied'||s==='1')return 1;
+    var n=parseFloat(r.rating);return isNaN(n)?null:n;
+  }
+
+  function liScoreColor(sc){
+    if(sc===null||sc===undefined)return '#9ca3af';
+    if(sc>=90)return '#16a34a';
+    if(sc>=75)return '#2563eb';
+    if(sc>=50)return '#d97706';
+    return '#dc2626';
+  }
 
   function liGetAccounts(){
     var seen={},out=[];
@@ -15940,8 +15960,7 @@ if(window.opener&&!window.opener.closed){
     var box=document.getElementById('liBoxCsat');if(!box)return null;
     var rows=(window._csatRows||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
     if(!rows.length){box.innerHTML=bh('CSAT','#2563eb')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No CSAT data for this account</div>';return null;}
-    function rv(r){var s=liNorm(r.rating||'');if(s==='very satisfied'||s==='5')return 5;if(s==='satisfied'||s==='4')return 4;if(s==='neutral'||s==='3')return 3;if(s==='unsatisfied'||s==='2')return 2;if(s==='very unsatisfied'||s==='1')return 1;var n=parseFloat(r.rating);return isNaN(n)?null:n;}
-    var rated=rows.map(rv).filter(function(v){return v!==null;});
+    var rated=rows.map(liCsatRv).filter(function(v){return v!==null;});
     if(!rated.length){box.innerHTML=bh('CSAT','#2563eb')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No numeric ratings found</div>';return null;}
     var avg=rated.reduce(function(a,b){return a+b;},0)/rated.length;
     var pos=rated.filter(function(v){return v>=4;}).length/rated.length*100;
@@ -15989,12 +16008,11 @@ if(window.opener&&!window.opener.closed){
     var ages=rows.map(function(r){return Number(r.age)||0;}).sort(function(a,b){return a-b;});
     var mid=Math.floor(ages.length/2),med=ages.length%2===0?(ages[mid-1]+ages[mid])/2:ages[mid];
     var avgD=ages.reduce(function(a,b){return a+b;},0)/ages.length;
-    var medD=med;
     var grn=rows.filter(function(r){return(Number(r.age)||0)<=7;}).length;
     var pct=grn/rows.length*100,ok=pct>=55;
-    var mc=medD<=7?'#16a34a':medD<=20?'#d97706':'#dc2626';
+    var mc=med<=7?'#16a34a':med<=20?'#d97706':'#dc2626';
     var html=bh('Closed Tickets','#059669')+'<div style="display:flex;gap:20px;margin-top:10px;flex-wrap:wrap;">';
-    html+='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Median TTR</div><div style="font-size:28px;font-weight:700;color:'+mc+';">'+medD.toFixed(1)+'d</div></div>';
+    html+='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Median TTR</div><div style="font-size:28px;font-weight:700;color:'+mc+';">'+med.toFixed(1)+'d</div></div>';
     html+='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Within 7 days</div><div style="font-size:28px;font-weight:700;color:'+(ok?'#16a34a':'#dc2626')+';">'+pct.toFixed(0)+'%</div><div style="font-size:10px;color:var(--muted);">target 55% | '+grn+'/'+rows.length+'</div></div></div>';
     html+='<div style="margin-top:10px;height:8px;border-radius:4px;background:#f3f4f6;overflow:hidden;"><div style="height:100%;width:'+Math.min(100,pct).toFixed(0)+'%;background:'+(ok?'#16a34a':'#dc2626')+';border-radius:4px;"></div></div>';
     html+='<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+rows.length+' ticket(s) | Avg TTR '+avgD.toFixed(1)+' days</div>';
@@ -16042,32 +16060,99 @@ if(window.opener&&!window.opener.closed){
     cont.innerHTML=html;panel.style.display='block';
   }
 
+  window.liExportSummary=function(){
+    if(!_summaryData.length){alert('No summary data. Open the Leading Indicators tab first.');return;}
+    var rows=_summaryData.map(function(d){
+      return {
+        'Account':d.acct,
+        'Data Points':d.dataCount+'/4',
+        'Health Score':d.health!==null?d.health:'N/A',
+        'CSAT Avg':d.csatAvg!==null?+(d.csatAvg.toFixed(2)):'',
+        'NPS Avg':d.npsAvg!==null?+(d.npsAvg.toFixed(1)):'',
+        'Avg TTR (days)':d.ttrAvg!==null?+(d.ttrAvg.toFixed(1)):'',
+        'Total Active':d.totalActive||0,
+        'Active >20d':d.over20||0
+      };
+    });
+    if(window.XLSX){
+      var wb=XLSX.utils.book_new();
+      var ws=XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb,ws,'LI Summary');
+      XLSX.writeFile(wb,'LeadingIndicators_Summary.xlsx');
+    } else {
+      var keys2=Object.keys(rows[0]);
+      var csv=keys2.join(',')+'
+'+rows.map(function(row){
+        return keys2.map(function(k){
+          var v=row[k];
+          return (typeof v==='string'&&v.indexOf(',')>=0)?'"'+v+'"':v;
+        }).join(',');
+      }).join('
+');
+      var blob=new Blob([csv],{type:'text/csv'});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');a.href=url;a.download='LeadingIndicators_Summary.csv';a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
   function liRenderSummary(){
     var panel=document.getElementById('liSummaryPanel');
     if(!panel)return;
-    var csatIdx={},npsIdx={},closedIdx={},activeIdx={},allAccts={};
-    function idxArr(rows,set){
+
+    var allAccts={};
+    function addAccts(rows){
       if(!Array.isArray(rows))return;
-      for(var i=0;i<rows.length;i++){
-        var a=(rows[i].acct||'').trim();if(!a)continue;
-        var n=liNorm(a);
-        if(!set[n])set[n]=a;
-        if(!allAccts[n])allAccts[n]=a;
-      }
+      rows.forEach(function(r){var a=(r.acct||'').trim();if(a&&!allAccts[liNorm(a)])allAccts[liNorm(a)]=a;});
     }
-    idxArr(window._csatRows,csatIdx);
-    var _npsArr=window._nrNpsData||window._npsRows||null;
-    if(!_npsArr||!_npsArr.length){try{var _npsLs=localStorage.getItem('nrNpsData');if(_npsLs)_npsArr=JSON.parse(_npsLs);}catch(e){}}
-    idxArr(Array.isArray(_npsArr)?_npsArr:[],npsIdx);
-    idxArr(window._adoClosedAutoData,closedIdx);
-    idxArr(window._agingFlagRows,activeIdx);
+    addAccts(window._csatRows);
+    addAccts(window._adoClosedAutoData);
+    addAccts(window._agingFlagRows);
+    var npsData=window._nrNpsData||window._npsRows||null;
+    if(!npsData||!npsData.length){try{var _npsLs=localStorage.getItem('nrNpsData');if(_npsLs)npsData=JSON.parse(_npsLs);}catch(e){}}
+    if(!Array.isArray(npsData))npsData=[];
+    addAccts(npsData);
+
+    var today=new Date();
     var keys=Object.keys(allAccts).sort(function(a,b){return allAccts[a].localeCompare(allAccts[b]);});
     var groups={4:[],3:[],2:[],1:[],0:[]};
+    _summaryData=[];
+
     for(var k=0;k<keys.length;k++){
-      var n=keys[k];
-      var cnt=(csatIdx[n]?1:0)+(npsIdx[n]?1:0)+(closedIdx[n]?1:0)+(activeIdx[n]?1:0);
-      groups[cnt].push(allAccts[n]);
+      var norm=keys[k];
+      var dispName=allAccts[norm];
+
+      var csatRows=(window._csatRows||[]).filter(function(r){return liNorm(r.acct)===norm;});
+      var csatRated=csatRows.map(liCsatRv).filter(function(v){return v!==null;});
+      var csatAvg=csatRated.length?csatRated.reduce(function(a,b){return a+b;},0)/csatRated.length:null;
+
+      var npsRows=npsData.filter(function(r){return liNorm(r.acct)===norm;});
+      var npsScores=npsRows.map(function(r){return Number(r.nps);}).filter(function(v){return !isNaN(v);});
+      var npsAvg=npsScores.length?npsScores.reduce(function(a,b){return a+b;},0)/npsScores.length:null;
+
+      var clRows=(window._adoClosedAutoData||[]).filter(function(r){return liNorm(r.acct)===norm;});
+      var ttrVals=clRows.map(function(r){return Number(r.age)||0;});
+      var ttrAvg=ttrVals.length?ttrVals.reduce(function(a,b){return a+b;},0)/ttrVals.length:null;
+
+      var acRows=(window._agingFlagRows||[]).filter(function(r){return liNorm(r.acct)===norm;});
+      var over20=acRows.filter(function(r){var d=r.created?Math.round((today-new Date(r.created))/86400000):0;return d>20;}).length;
+
+      var dc=(csatAvg!==null?1:0)+(npsAvg!==null?1:0)+(ttrAvg!==null?1:0)+(acRows.length?1:0);
+
+      var health=null;
+      if(dc>0){
+        var ns2=npsAvg!==null?(npsAvg>=9?30:npsAvg>=7?15:0):0;
+        var cs2=csatAvg!==null?(csatAvg>=4?30:csatAvg>=3?15:0):0;
+        var cl2=ttrAvg!==null?(ttrAvg<20?30:ttrAvg<=30?10:0):0;
+        var ac2=acRows.length?(over20>=2?0:10):0;
+        health=ns2+cs2+cl2+ac2;
+      }
+
+      var rec={acct:dispName,dataCount:dc,health:health,csatAvg:csatAvg,npsAvg:npsAvg,ttrAvg:ttrAvg,over20:over20,totalActive:acRows.length};
+      _summaryData.push(rec);
+      groups[dc].push(rec);
     }
+
     var cfgMap={
       4:{label:'Full Data (all 4 metrics)',color:'#16a34a',bg:'#f0fdf4'},
       3:{label:'3 of 4 metrics',color:'#2563eb',bg:'#eff6ff'},
@@ -16075,34 +16160,86 @@ if(window.opener&&!window.opener.closed){
       1:{label:'1 of 4 metrics',color:'#ea580c',bg:'#fff7ed'},
       0:{label:'No data - not scored',color:'#9ca3af',bg:'#f9fafb'}
     };
-    var html='<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:16px;">Account Data Coverage</div>';
+
+    var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">';
+    html+='<div style="font-size:13px;font-weight:700;color:var(--primary);">Account Data Coverage &mdash; '+keys.length+' accounts</div>';
+    html+='<button onclick="liExportSummary()" style="font-size:12px;font-weight:600;padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;">&#8659; Export to Excel</button>';
+    html+='</div>';
+
     var levels=[4,3,2,1,0];
-    for(var li=0;li<levels.length;li++){
-      var cnt=levels[li];var accts=groups[cnt];if(!accts.length)continue;
+    for(var li2=0;li2<levels.length;li2++){
+      var cnt=levels[li2];
+      var recs=groups[cnt];
+      if(!recs.length)continue;
       var cf=cfgMap[cnt];
-      html+='<div style="margin-bottom:16px;">';
-      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
-      html+='<span style="font-size:12px;font-weight:700;padding:2px 8px;background:'+cf.bg+';color:'+cf.color+';border-radius:10px;">'+cnt+'/4</span>';
-      html+='<span style="font-size:13px;font-weight:600;color:var(--text);">'+cf.label+'</span>';
-      html+='<span style="font-size:11px;color:var(--muted);">('+accts.length+' account'+(accts.length!==1?'s':'')+')</span>';
-      html+='</div><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-      for(var ai=0;ai<accts.length;ai++){
-        var acctName=accts[ai];
-        var safe=acctName.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-        html+='<span data-li-acct="'+safe+'" style="padding:3px 9px;background:'+cf.bg+';border:1px solid '+cf.color+'30;border-radius:10px;font-size:11px;color:'+cf.color+';cursor:pointer;transition:opacity .15s;" onmouseenter="this.style.opacity=.7" onmouseleave="this.style.opacity=1">'+safe+'</span>';
+      var expanded=(cnt>=3);
+      var showCols=(cnt>0);
+
+      html+='<div style="margin-bottom:12px;border:1px solid '+cf.color+'44;border-radius:8px;overflow:hidden;">';
+
+      html+='<div data-li-group-hdr="'+cnt+'" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:'+cf.bg+';cursor:pointer;user-select:none;">';
+      html+='<span style="font-size:12px;font-weight:700;padding:2px 8px;background:'+cf.color+'22;color:'+cf.color+';border-radius:10px;">'+cnt+'/4</span>';
+      html+='<span style="flex:1;font-size:13px;font-weight:600;color:var(--text);">'+cf.label+'</span>';
+      html+='<span style="font-size:11px;color:var(--muted);">'+recs.length+' account'+(recs.length!==1?'s':'')+'</span>';
+      html+='<span data-li-arrow="'+cnt+'" style="font-size:11px;color:var(--muted);margin-left:6px;">'+(expanded?'&#9650;':'&#9660;')+'</span>';
+      html+='</div>';
+
+      html+='<div data-li-group-body="'+cnt+'" style="display:'+(expanded?'block':'none')+';">';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      html+='<thead><tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">';
+      html+='<th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;">ACCOUNT</th>';
+      if(showCols){
+        html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">HEALTH</th>';
+        html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">CSAT</th>';
+        html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">NPS</th>';
+        html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">AVG TTR</th>';
+        html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">ACTIVE &gt;20d</th>';
       }
-      html+='</div></div>';
+      html+='</tr></thead><tbody>';
+
+      for(var ri=0;ri<recs.length;ri++){
+        var rec=recs[ri];
+        var safe=rec.acct.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        html+='<tr data-li-acct="'+safe+'" style="border-bottom:1px solid #f3f4f6;cursor:pointer;">';
+        html+='<td style="padding:9px 12px;font-weight:500;color:var(--text);">'+safe+'</td>';
+        if(showCols){
+          var sc=rec.health;
+          var scCol=liScoreColor(sc);
+          html+='<td style="padding:9px 12px;text-align:center;">';
+          if(sc!==null){
+            html+='<span style="font-size:13px;font-weight:700;color:'+scCol+';">'+sc+'</span><span style="font-size:10px;color:var(--muted);">/100</span>';
+          } else {
+            html+='<span style="color:var(--muted);font-size:11px;">&#8212;</span>';
+          }
+          html+='</td>';
+          html+='<td style="padding:9px 12px;text-align:center;color:var(--text);">'+(rec.csatAvg!==null?rec.csatAvg.toFixed(1)+'<span style="font-size:10px;color:var(--muted);">/5</span>':'<span style="color:var(--muted);">&#8212;</span>')+'</td>';
+          html+='<td style="padding:9px 12px;text-align:center;color:var(--text);">'+(rec.npsAvg!==null?rec.npsAvg.toFixed(1)+'<span style="font-size:10px;color:var(--muted);">/10</span>':'<span style="color:var(--muted);">&#8212;</span>')+'</td>';
+          html+='<td style="padding:9px 12px;text-align:center;color:var(--text);">'+(rec.ttrAvg!==null?rec.ttrAvg.toFixed(1)+'<span style="font-size:10px;color:var(--muted);">d</span>':'<span style="color:var(--muted);">&#8212;</span>')+'</td>';
+          var o20col=rec.over20>=2?'#dc2626':rec.over20===1?'#d97706':'#16a34a';
+          html+='<td style="padding:9px 12px;text-align:center;"><span style="color:'+o20col+';font-weight:600;">'+rec.over20+'</span></td>';
+        }
+        html+='</tr>';
+      }
+      html+='</tbody></table></div></div>';
     }
-    panel.innerHTML=html;panel.style.display='block';
-    var chips=panel.querySelectorAll('[data-li-acct]');
-    for(var ci=0;ci<chips.length;ci++){
-      chips[ci].addEventListener('click',function(){
-        var acct=this.getAttribute('data-li-acct');
-        liSelectAccount(acct);
-        var inp=document.getElementById('liAcctInput');if(inp)inp.value=acct;
-        window.scrollTo(0,0);
-      });
-    }
+
+    panel.innerHTML=html;
+    panel.style.display='block';
+
+    panel.onclick=function(e){
+      var hdr=e.target.closest('[data-li-group-hdr]');
+      if(hdr){
+        var g=hdr.getAttribute('data-li-group-hdr');
+        var body=panel.querySelector('[data-li-group-body="'+g+'"]');
+        var arrow=panel.querySelector('[data-li-arrow="'+g+'"]');
+        if(body){var open=body.style.display!=='none';body.style.display=open?'none':'block';if(arrow)arrow.innerHTML=open?'&#9660;':'&#9650;';}
+        return;
+      }
+      var tr=e.target.closest('tr[data-li-acct]');
+      if(tr){liSelectAccount(tr.getAttribute('data-li-acct'));window.scrollTo(0,0);}
+    };
+    panel.onmouseover=function(e){var tr=e.target.closest('tr[data-li-acct]');if(tr)tr.style.background='#f0f4ff';};
+    panel.onmouseout=function(e){var tr=e.target.closest('tr[data-li-acct]');if(tr)tr.style.background='';};
   }
 
   window.renderLeadingInd=function(){
