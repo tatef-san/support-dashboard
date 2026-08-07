@@ -15911,6 +15911,23 @@ if(window.opener&&!window.opener.closed){
     return '#dc2626';
   }
 
+  function liGetOwner(norm){
+    var counts={};
+    function addRows(rows){
+      if(!Array.isArray(rows))return;
+      rows.forEach(function(r){
+        if(liNorm(r.acct)!==norm)return;
+        var o=(r.c||'').trim();if(!o)return;
+        counts[o]=(counts[o]||0)+1;
+      });
+    }
+    addRows(window._adoClosedAutoData);
+    addRows(window._agingFlagRows);
+    var best=null,bestN=0;
+    Object.keys(counts).forEach(function(k){if(counts[k]>bestN){bestN=counts[k];best=k;}});
+    return best||'';
+  }
+
   function liGetAccounts(){
     var seen={},out=[];
     function add(rows){if(!rows)return;rows.forEach(function(r){var a=(r.acct||'').trim();if(a&&!seen[a.toLowerCase()]){seen[a.toLowerCase()]=1;out.push(a);}});}
@@ -15940,7 +15957,8 @@ if(window.opener&&!window.opener.closed){
     _liAcct=name;
     var inp=document.getElementById('liAcctInput');if(inp)inp.value=name;
     var dd=document.getElementById('liAcctDropdown');if(dd)dd.style.display='none';
-    var badge=document.getElementById('liAcctBadge');if(badge)badge.textContent='';
+    var badge=document.getElementById('liAcctBadge');
+    if(badge){var ow=liGetOwner(liNorm(name));badge.textContent=ow?'Owner: '+ow:'';}
     renderLeadingInd();
   };
 
@@ -16039,11 +16057,11 @@ if(window.opener&&!window.opener.closed){
   function liRenderHealth(cr,nr,clr,ar){
     var panel=document.getElementById('liHealthScore'),cont=document.getElementById('liHealthContent');
     if(!panel||!cont)return;
-    var ns=0,cs=0,cl=0,ac=10;
-    if(nr)ns=nr.avg>=9?30:nr.avg>=7?15:0;
-    if(cr)cs=cr.avg>=4?30:cr.avg>=3?15:0;
-    if(clr)cl=clr.avgDays<20?30:clr.avgDays<=30?10:0;
-    if(ar&&ar.critical)ac=0;
+    // No data = full weightage; actual score of 0 = zero weightage
+    var ns=nr?(nr.avg>=9?30:nr.avg>=7?15:0):30;
+    var cs=cr?(cr.avg>=4?30:cr.avg>=3?15:0):30;
+    var cl=clr?(clr.avgDays<20?30:clr.avgDays<=30?10:0):30;
+    var ac=ar?(ar.critical?0:10):10;
     var tot=ns+cs+cl+ac,status,sc,bg;
     if(tot>=90){status='Perfect Health';sc='#16a34a';bg='#f0fdf4';}
     else if(tot>=75){status='Good Health';sc='#2563eb';bg='#eff6ff';}
@@ -16053,10 +16071,10 @@ if(window.opener&&!window.opener.closed){
     html+='<div style="font-size:48px;font-weight:800;color:'+sc+';">'+tot+'<span style="font-size:20px;color:var(--muted);">/100</span></div>';
     html+='<div style="padding:8px 18px;background:'+bg+';border-radius:8px;font-size:15px;font-weight:700;color:'+sc+';">'+status+'</div>';
     html+='<div style="font-size:11px;color:var(--muted);line-height:1.7;">&ge;90 = Perfect Health<br>75&#8211;89 = Good Health<br>&lt;75 = Danger</div></div>';
-    html+=r('NPS',ns,30,nr?'avg '+nr.avg.toFixed(1):'no data');
-    html+=r('CSAT',cs,30,cr?'avg '+cr.avg.toFixed(1):'no data');
-    html+=r('Closed TTR',cl,30,clr?'avg '+clr.avgDays.toFixed(0)+'d':'no data');
-    html+=r('Active Tickets',ac,10,ar?(ar.critical?'2+ over 20d':'within target'):'no data');
+    html+=r('NPS',ns,30,nr?'avg '+nr.avg.toFixed(1):'no data (full score)');
+    html+=r('CSAT',cs,30,cr?'avg '+cr.avg.toFixed(1):'no data (full score)');
+    html+=r('Closed TTR',cl,30,clr?'avg '+clr.avgDays.toFixed(0)+'d':'no data (full score)');
+    html+=r('Active Tickets',ac,10,ar?(ar.critical?'2+ over 20d':'within target'):'no data (full score)');
     cont.innerHTML=html;panel.style.display='block';
   }
 
@@ -16065,6 +16083,7 @@ if(window.opener&&!window.opener.closed){
     var rows=_summaryData.map(function(d){
       return {
         'Account':d.acct,
+        'Owner':d.owner||'',
         'Data Points':d.dataCount+'/4',
         'Health Score':d.health!==null?d.health:'N/A',
         'CSAT Avg':d.csatAvg!==null?+(d.csatAvg.toFixed(2)):'',
@@ -16136,17 +16155,19 @@ if(window.opener&&!window.opener.closed){
       var over20=acRows.filter(function(r){var d=r.created?Math.round((today-new Date(r.created))/86400000):0;return d>20;}).length;
 
       var dc=(csatAvg!==null?1:0)+(npsAvg!==null?1:0)+(ttrAvg!==null?1:0)+(acRows.length?1:0);
+      var owner=liGetOwner(norm);
 
       var health=null;
       if(dc>0){
-        var ns2=npsAvg!==null?(npsAvg>=9?30:npsAvg>=7?15:0):0;
-        var cs2=csatAvg!==null?(csatAvg>=4?30:csatAvg>=3?15:0):0;
-        var cl2=ttrAvg!==null?(ttrAvg<20?30:ttrAvg<=30?10:0):0;
-        var ac2=acRows.length?(over20>=2?0:10):0;
+        // No data = full weightage; actual bad score = 0
+        var ns2=npsAvg!==null?(npsAvg>=9?30:npsAvg>=7?15:0):30;
+        var cs2=csatAvg!==null?(csatAvg>=4?30:csatAvg>=3?15:0):30;
+        var cl2=ttrAvg!==null?(ttrAvg<20?30:ttrAvg<=30?10:0):30;
+        var ac2=acRows.length?(over20>=2?0:10):10;
         health=ns2+cs2+cl2+ac2;
       }
 
-      var rec={acct:dispName,dataCount:dc,health:health,csatAvg:csatAvg,npsAvg:npsAvg,ttrAvg:ttrAvg,over20:over20,totalActive:acRows.length};
+      var rec={acct:dispName,owner:owner,dataCount:dc,health:health,csatAvg:csatAvg,npsAvg:npsAvg,ttrAvg:ttrAvg,over20:over20,totalActive:acRows.length};
       _summaryData.push(rec);
       groups[dc].push(rec);
     }
@@ -16186,6 +16207,7 @@ if(window.opener&&!window.opener.closed){
       html+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
       html+='<thead><tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">';
       html+='<th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;">ACCOUNT</th>';
+      html+='<th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;">OWNER</th>';
       if(showCols){
         html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">HEALTH</th>';
         html+='<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted);font-size:11px;">CSAT</th>';
@@ -16198,8 +16220,10 @@ if(window.opener&&!window.opener.closed){
       for(var ri=0;ri<recs.length;ri++){
         var rec=recs[ri];
         var safe=rec.acct.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        var ownerSafe=(rec.owner||'').replace(/&/g,'&amp;');
         html+='<tr data-li-acct="'+safe+'" style="border-bottom:1px solid #f3f4f6;cursor:pointer;">';
         html+='<td style="padding:9px 12px;font-weight:500;color:var(--text);">'+safe+'</td>';
+        html+='<td style="padding:9px 12px;font-size:12px;color:var(--muted);">'+(ownerSafe||'<span style="font-style:italic;opacity:.5;">&#8212;</span>')+'</td>';
         if(showCols){
           var sc=rec.health;
           var scCol=liScoreColor(sc);
