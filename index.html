@@ -16081,14 +16081,12 @@ if(window.opener&&!window.opener.closed){
       XLSX.writeFile(wb,'LeadingIndicators_Summary.xlsx');
     } else {
       var keys2=Object.keys(rows[0]);
-      var csv=keys2.join(',')+'
-'+rows.map(function(row){
+      var csv=keys2.join(',')+'\n'+rows.map(function(row){
         return keys2.map(function(k){
           var v=row[k];
           return (typeof v==='string'&&v.indexOf(',')>=0)?'"'+v+'"':v;
         }).join(',');
-      }).join('
-');
+      }).join('\n');
       var blob=new Blob([csv],{type:'text/csv'});
       var url=URL.createObjectURL(blob);
       var a=document.createElement('a');a.href=url;a.download='LeadingIndicators_Summary.csv';a.click();
