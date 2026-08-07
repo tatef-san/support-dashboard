@@ -15913,25 +15913,27 @@ if(window.opener&&!window.opener.closed){
 
   function liGetOwner(norm){
     var counts={};
-    function addRows(rows){
+    var yr=new Date().getFullYear();
+    function addRows(rows,useYr){
       if(!Array.isArray(rows))return;
       rows.forEach(function(r){
         if(liNorm(r.acct)!==norm)return;
+        if(useYr&&new Date(r.closed).getFullYear()!==yr)return;
         var o=(r.c||'').trim();if(!o)return;
         counts[o]=(counts[o]||0)+1;
       });
     }
-    addRows(window._adoClosedAutoData);
-    addRows(window._agingFlagRows);
+    addRows(window._adoClosedAutoData,true);
+    addRows(window._agingFlagRows,false);
     var best=null,bestN=0;
     Object.keys(counts).forEach(function(k){if(counts[k]>bestN){bestN=counts[k];best=k;}});
     return best||'';
   }
 
   function liGetAccounts(){
-    var seen={},out=[];
-    function add(rows){if(!rows)return;rows.forEach(function(r){var a=(r.acct||'').trim();if(a&&!seen[a.toLowerCase()]){seen[a.toLowerCase()]=1;out.push(a);}});}
-    add(window._adoClosedAutoData);add(window._agingFlagRows);
+    var seen={},out=[],yr=new Date().getFullYear();
+    function add(rows,useYr){if(!rows)return;rows.forEach(function(r){if(useYr&&new Date(r.closed).getFullYear()!==yr)return;var a=(r.acct||'').trim();if(a&&!seen[a.toLowerCase()]){seen[a.toLowerCase()]=1;out.push(a);}});}
+    add(window._adoClosedAutoData,true);add(window._agingFlagRows,false);
     out.sort(function(a,b){return a.localeCompare(b);});return out;
   }
 
@@ -16021,7 +16023,8 @@ if(window.opener&&!window.opener.closed){
 
   function liRenderClosed(acct){
     var box=document.getElementById('liBoxClosed');if(!box)return null;
-    var rows=(window._adoClosedAutoData||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct);});
+    var curYear=new Date().getFullYear();
+    var rows=(window._adoClosedAutoData||[]).filter(function(r){return liNorm(r.acct)===liNorm(acct)&&new Date(r.closed).getFullYear()===curYear;});
     if(!rows.length){box.innerHTML=bh('Closed Tickets','#059669')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No closed tickets for this account</div>';return null;}
     var ages=rows.map(function(r){return Number(r.age)||0;}).sort(function(a,b){return a-b;});
     var mid=Math.floor(ages.length/2),med=ages.length%2===0?(ages[mid-1]+ages[mid])/2:ages[mid];
@@ -16118,19 +16121,24 @@ if(window.opener&&!window.opener.closed){
     if(!panel)return;
 
     var allAccts={};
-    function addAccts(rows){
+    var curYear=new Date().getFullYear();
+    function addAccts(rows,useYr){
       if(!Array.isArray(rows))return;
-      rows.forEach(function(r){var a=(r.acct||'').trim();if(a&&!allAccts[liNorm(a)])allAccts[liNorm(a)]=a;});
+      rows.forEach(function(r){
+        if(useYr&&new Date(r.closed).getFullYear()!==curYear)return;
+        var a=(r.acct||'').trim();if(a&&!allAccts[liNorm(a)])allAccts[liNorm(a)]=a;
+      });
     }
-    addAccts(window._csatRows);
-    addAccts(window._adoClosedAutoData);
-    addAccts(window._agingFlagRows);
+    addAccts(window._csatRows,false);
+    addAccts(window._adoClosedAutoData,true);
+    addAccts(window._agingFlagRows,false);
     var npsData=window._nrNpsData||window._npsRows||null;
     if(!npsData||!npsData.length){try{var _npsLs=localStorage.getItem('nrNpsData');if(_npsLs)npsData=JSON.parse(_npsLs);}catch(e){}}
     if(!Array.isArray(npsData))npsData=[];
     addAccts(npsData);
 
     var today=new Date();
+    var curYear=today.getFullYear();
     var keys=Object.keys(allAccts).sort(function(a,b){return allAccts[a].localeCompare(allAccts[b]);});
     var groups={4:[],3:[],2:[],1:[],0:[]};
     _summaryData=[];
@@ -16147,7 +16155,7 @@ if(window.opener&&!window.opener.closed){
       var npsScores=npsRows.map(function(r){return Number(r.nps);}).filter(function(v){return !isNaN(v);});
       var npsAvg=npsScores.length?npsScores.reduce(function(a,b){return a+b;},0)/npsScores.length:null;
 
-      var clRows=(window._adoClosedAutoData||[]).filter(function(r){return liNorm(r.acct)===norm;});
+      var clRows=(window._adoClosedAutoData||[]).filter(function(r){return liNorm(r.acct)===norm&&new Date(r.closed).getFullYear()===curYear;});
       var ttrVals=clRows.map(function(r){return Number(r.age)||0;});
       var ttrAvg=ttrVals.length?ttrVals.reduce(function(a,b){return a+b;},0)/ttrVals.length:null;
 
