@@ -15960,7 +15960,9 @@ if(window.opener&&!window.opener.closed){
 
   function liRenderNps(acct){
     var box=document.getElementById('liBoxNps');if(!box)return null;
-    var npsData=window._nrNpsData||window._npsRows||[];
+    var npsData=window._nrNpsData||window._npsRows||null;
+    if(!npsData||!npsData.length){try{var ls=localStorage.getItem('nrNpsData');if(ls)npsData=JSON.parse(ls);}catch(e){}}
+    if(!npsData||!Array.isArray(npsData))npsData=[];
     var rows=npsData.filter(function(r){return liNorm(r.acct)===liNorm(acct);});
     if(!rows.length){box.innerHTML=bh('NPS','#7c3aed')+'<div style="color:var(--muted);font-size:13px;margin-top:16px;">No NPS data &#8212; upload in NPS &amp; MRR tab</div>';return null;}
     var sc2=rows.map(function(r){return Number(r.nps);}).filter(function(v){return !isNaN(v);});
@@ -16040,10 +16042,75 @@ if(window.opener&&!window.opener.closed){
     cont.innerHTML=html;panel.style.display='block';
   }
 
+  function liRenderSummary(){
+    var panel=document.getElementById('liSummaryPanel');
+    if(!panel)return;
+    var csatIdx={},npsIdx={},closedIdx={},activeIdx={},allAccts={};
+    function idxArr(rows,set){
+      if(!Array.isArray(rows))return;
+      for(var i=0;i<rows.length;i++){
+        var a=(rows[i].acct||'').trim();if(!a)continue;
+        var n=liNorm(a);
+        if(!set[n])set[n]=a;
+        if(!allAccts[n])allAccts[n]=a;
+      }
+    }
+    idxArr(window._csatRows,csatIdx);
+    var _npsArr=window._nrNpsData||window._npsRows||null;
+    if(!_npsArr||!_npsArr.length){try{var _npsLs=localStorage.getItem('nrNpsData');if(_npsLs)_npsArr=JSON.parse(_npsLs);}catch(e){}}
+    idxArr(Array.isArray(_npsArr)?_npsArr:[],npsIdx);
+    idxArr(window._adoClosedAutoData,closedIdx);
+    idxArr(window._agingFlagRows,activeIdx);
+    var keys=Object.keys(allAccts).sort(function(a,b){return allAccts[a].localeCompare(allAccts[b]);});
+    var groups={4:[],3:[],2:[],1:[],0:[]};
+    for(var k=0;k<keys.length;k++){
+      var n=keys[k];
+      var cnt=(csatIdx[n]?1:0)+(npsIdx[n]?1:0)+(closedIdx[n]?1:0)+(activeIdx[n]?1:0);
+      groups[cnt].push(allAccts[n]);
+    }
+    var cfgMap={
+      4:{label:'Full Data (all 4 metrics)',color:'#16a34a',bg:'#f0fdf4'},
+      3:{label:'3 of 4 metrics',color:'#2563eb',bg:'#eff6ff'},
+      2:{label:'2 of 4 metrics',color:'#d97706',bg:'#fffbeb'},
+      1:{label:'1 of 4 metrics',color:'#ea580c',bg:'#fff7ed'},
+      0:{label:'No data - not scored',color:'#9ca3af',bg:'#f9fafb'}
+    };
+    var html='<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:16px;">Account Data Coverage</div>';
+    var levels=[4,3,2,1,0];
+    for(var li=0;li<levels.length;li++){
+      var cnt=levels[li];var accts=groups[cnt];if(!accts.length)continue;
+      var cf=cfgMap[cnt];
+      html+='<div style="margin-bottom:16px;">';
+      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+      html+='<span style="font-size:12px;font-weight:700;padding:2px 8px;background:'+cf.bg+';color:'+cf.color+';border-radius:10px;">'+cnt+'/4</span>';
+      html+='<span style="font-size:13px;font-weight:600;color:var(--text);">'+cf.label+'</span>';
+      html+='<span style="font-size:11px;color:var(--muted);">('+accts.length+' account'+(accts.length!==1?'s':'')+')</span>';
+      html+='</div><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+      for(var ai=0;ai<accts.length;ai++){
+        var acctName=accts[ai];
+        var safe=acctName.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        html+='<span data-li-acct="'+safe+'" style="padding:3px 9px;background:'+cf.bg+';border:1px solid '+cf.color+'30;border-radius:10px;font-size:11px;color:'+cf.color+';cursor:pointer;transition:opacity .15s;" onmouseenter="this.style.opacity=.7" onmouseleave="this.style.opacity=1">'+safe+'</span>';
+      }
+      html+='</div></div>';
+    }
+    panel.innerHTML=html;panel.style.display='block';
+    var chips=panel.querySelectorAll('[data-li-acct]');
+    for(var ci=0;ci<chips.length;ci++){
+      chips[ci].addEventListener('click',function(){
+        var acct=this.getAttribute('data-li-acct');
+        liSelectAccount(acct);
+        var inp=document.getElementById('liAcctInput');if(inp)inp.value=acct;
+        window.scrollTo(0,0);
+      });
+    }
+  }
+
   window.renderLeadingInd=function(){
+    liRenderSummary();
     if(!_liAcct)return;
     var cr=liRenderCsat(_liAcct),nr=liRenderNps(_liAcct),clr=liRenderClosed(_liAcct),ar=liRenderActive(_liAcct);
-    liRenderHealth(cr,nr,clr,ar);
+    if(cr||nr||clr||ar)liRenderHealth(cr,nr,clr,ar);
+    else{var hs=document.getElementById('liHealthScore');if(hs)hs.style.display='none';}
   };
 })();
 // == END LEADING INDICATORS ==========================================
@@ -16930,6 +16997,8 @@ document.addEventListener('DOMContentLoaded', function() {
     <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:14px;">Account Health Score</div>
     <div id="liHealthContent"></div>
   </div>
+
+  <div id="liSummaryPanel" class="panel" style="padding:22px;margin-top:20px;display:none;"></div>
 
 </div>
 </div>
