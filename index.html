@@ -17218,6 +17218,62 @@ document.addEventListener('DOMContentLoaded', function() {
     </ul>
   </div>
 
+  <div class="panel" style="margin-bottom:18px;padding:0;border-left:4px solid #2563eb;overflow:hidden;">
+    <div onclick="(function(el){var b=el.nextElementSibling;var a=el.querySelector('.li-kpi-arrow');b.style.display=b.style.display==='none'?'block':'none';a.textContent=b.style.display==='none'?'&#9660;':'&#9650;';})(this)"
+      style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;background:var(--panel);">
+      <div style="font-size:13px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;">How is Account Health Calculated?</div>
+      <span class="li-kpi-arrow" style="font-size:11px;color:var(--muted);">&#9660;</span>
+    </div>
+    <div style="display:none;padding:18px 22px;border-top:1px solid var(--border);">
+      <p style="margin:0 0 14px 0;font-size:13px;color:var(--text);line-height:1.7;">
+        Each account receives a <strong>health score out of 100</strong> based on four KPIs. If an account has <em>no data</em> for a KPI, it receives the <strong>full weightage</strong> for that KPI (benefit of the doubt). A score of zero only applies when data exists but performance is poor.
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;">
+        <thead>
+          <tr style="background:#1e3a5f;color:#fff;">
+            <th style="padding:8px 12px;text-align:left;font-weight:600;">KPI</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:600;">Max Score</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;">Scoring Rule</th>
+            <th style="padding:8px 12px;text-align:center;font-weight:600;">No Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 12px;font-weight:600;color:#7c3aed;">NPS</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:700;">30 pts</td>
+            <td style="padding:8px 12px;color:var(--text);">Avg &ge;9 &#8594; 30 pts &nbsp;|&nbsp; Avg &ge;7 &#8594; 15 pts &nbsp;|&nbsp; Avg &lt;7 &#8594; 0 pts</td>
+            <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:700;">30 pts</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);background:var(--bg);">
+            <td style="padding:8px 12px;font-weight:600;color:#2563eb;">CSAT</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:700;">30 pts</td>
+            <td style="padding:8px 12px;color:var(--text);">Avg &ge;4 &#8594; 30 pts &nbsp;|&nbsp; Avg &ge;3 &#8594; 15 pts &nbsp;|&nbsp; Avg &lt;3 &#8594; 0 pts</td>
+            <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:700;">30 pts</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 12px;font-weight:600;color:#059669;">Closed TTR</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:700;">30 pts</td>
+            <td style="padding:8px 12px;color:var(--text);">Avg &lt;20d &#8594; 30 pts &nbsp;|&nbsp; Avg &le;30d &#8594; 10 pts &nbsp;|&nbsp; Avg &gt;30d &#8594; 0 pts</td>
+            <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:700;">30 pts</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;font-weight:600;color:#ea580c;">Active Tickets</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:700;">10 pts</td>
+            <td style="padding:8px 12px;color:var(--text);">2+ tickets &gt;20 days old &#8594; 0 pts &nbsp;|&nbsp; Otherwise &#8594; 10 pts</td>
+            <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:700;">10 pts</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="padding:8px 16px;background:#f0fdf4;border:1px solid #16a34a55;border-radius:8px;font-size:12px;font-weight:700;color:#16a34a;">&#9650; Perfect Health &mdash; Score &ge;90</div>
+        <div style="padding:8px 16px;background:#eff6ff;border:1px solid #2563eb55;border-radius:8px;font-size:12px;font-weight:700;color:#2563eb;">&#9679; Good Health &mdash; Score 75&ndash;89</div>
+        <div style="padding:8px 16px;background:#fef2f2;border:1px solid #dc262655;border-radius:8px;font-size:12px;font-weight:700;color:#dc2626;">&#9660; Danger &mdash; Score &lt;75</div>
+      </div>
+    </div>
+  </div>
+
   <div class="panel" style="margin-bottom:18px;padding:16px 20px;">
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
       <label style="font-size:13px;font-weight:700;color:var(--primary);">Select Account:</label>
