@@ -15950,9 +15950,17 @@ if(window.opener&&!window.opener.closed){
     var accs=liGetAccounts(),lq=(q||'').toLowerCase().trim();
     var m=lq?accs.filter(function(a){return a.toLowerCase().indexOf(lq)>=0;}):accs;
     if(!m.length){dd.style.display='none';return;}
-    dd.innerHTML=m.slice(0,60).map(function(a){
-      return '<div onclick="liSelectAccount(this.getAttribute('data-n'));" data-n="'+a.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f4f6;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">'+a.replace(/&/g,'&amp;')+'</div>';
-    }).join('');dd.style.display='block';
+    dd.innerHTML='';
+    m.slice(0,60).forEach(function(a){
+      var el=document.createElement('div');
+      el.textContent=a;
+      el.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f4f6;';
+      el.addEventListener('mouseenter',function(){this.style.background='#f0f4ff';});
+      el.addEventListener('mouseleave',function(){this.style.background='';});
+      el.addEventListener('mousedown',function(){liSelectAccount(a);});
+      dd.appendChild(el);
+    });
+    dd.style.display='block';
   };
 
   window.liSelectAccount=function(name){
