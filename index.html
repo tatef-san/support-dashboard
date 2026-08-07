@@ -16231,6 +16231,15 @@ if(window.opener&&!window.opener.closed){
       groups[dc].push(rec);
     }
 
+    // Predictive score summary counts
+    var scored=_summaryData.filter(function(r){return r.health!==null;});
+    var perfect=scored.filter(function(r){return r.health>=90;});
+    var good=scored.filter(function(r){return r.health>=75&&r.health<90;});
+    var danger=scored.filter(function(r){return r.health<75;});
+    var noData=_summaryData.filter(function(r){return r.health===null;});
+    var total=_summaryData.length;
+    function liPct(n){return total?Math.round(n/total*100):0;}
+
     var cfgMap={
       4:{label:'Full Data (all 4 metrics)',color:'#16a34a',bg:'#f0fdf4'},
       3:{label:'3 of 4 metrics',color:'#2563eb',bg:'#eff6ff'},
@@ -16240,8 +16249,28 @@ if(window.opener&&!window.opener.closed){
     };
 
     var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">';
-    html+='<div style="font-size:13px;font-weight:700;color:var(--primary);">Account Data Coverage &mdash; '+keys.length+' accounts</div>';
+    html+='<div style="font-size:13px;font-weight:700;color:var(--primary);">Account Health Predictive Score &mdash; '+total+' accounts</div>';
     html+='<button onclick="liExportSummary()" style="font-size:12px;font-weight:600;padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;">&#8659; Export to Excel</button>';
+    html+='</div>';
+
+    // Score summary strip
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">';
+    function liScoreCard(label,count,pct,col,bg){
+      return '<div style="background:'+bg+';border:1.5px solid '+col+'55;border-radius:10px;padding:14px 16px;text-align:center;">'
+        +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+col+';margin-bottom:6px;">'+label+'</div>'
+        +'<div style="font-size:32px;font-weight:800;color:'+col+';">'+count+'</div>'
+        +'<div style="font-size:13px;font-weight:600;color:'+col+';margin-top:2px;">'+pct+'%</div>'
+        +'<div style="font-size:10px;color:var(--muted);margin-top:2px;">of all accounts</div>'
+        +'</div>';
+    }
+    html+=liScoreCard('Perfect Health (&ge;90)',perfect.length,liPct(perfect.length),'#16a34a','#f0fdf4');
+    html+=liScoreCard('Good Health (75&ndash;89)',good.length,liPct(good.length),'#2563eb','#eff6ff');
+    html+=liScoreCard('Danger (&lt;75)',danger.length,liPct(danger.length),'#dc2626','#fef2f2');
+    html+=liScoreCard('No Data',noData.length,liPct(noData.length),'#9ca3af','#f9fafb');
+    html+='</div>';
+
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">';
+    html+='<div style="font-size:12px;font-weight:600;color:var(--muted);">Account Data Coverage</div>';
     html+='</div>';
 
     var levels=[4,3,2,1,0];
