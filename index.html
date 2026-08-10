@@ -13080,11 +13080,40 @@ if(window.opener&&!window.opener.closed){
     h+=trow('Avg TTR (d)',gv(mD,'avgTtr'),yD.avgTtr,gv(wD,'avgTtr'),num,function(v){return hcol(v,false,7,20);});
     h+=trow('FRT SLA %',gv(mD,'frtPct'),yD.frtPct,gv(wD,'frtPct'),pct,function(v){return hcol(v,true,0.75,0.90);});
     h+='</table></div></div>';
-    // Active tickets — same source as active tab, filtered by analyst only
+    // Active tickets — same source as active tab, filtered by analyst only (no roster check)
     var actAll=(DATA.active||[]).filter(function(r){
       return _analyst==='All'||r.c===_analyst;
     });
     var aTotal=actAll.length;
+    var bkts=[
+      {l:'< 7d',n:0,col:'#16a34a',bg:'#f0fdf4'},
+      {l:'7-15d',n:0,col:'#65a30d',bg:'#f7fee7'},
+      {l:'15-30d',n:0,col:'#d97706',bg:'#fffbeb'},
+      {l:'30-60d',n:0,col:'#ea580c',bg:'#fff7ed'},
+      {l:'60-90d',n:0,col:'#dc2626',bg:'#fef2f2'},
+      {l:'> 90d',n:0,col:'#991b1b',bg:'#fef2f2'}
+    ];
+    actAll.forEach(function(r){
+      var a=r.age||0;
+      if(a<7)bkts[0].n++;
+      else if(a<15)bkts[1].n++;
+      else if(a<30)bkts[2].n++;
+      else if(a<60)bkts[3].n++;
+      else if(a<90)bkts[4].n++;
+      else bkts[5].n++;
+    });
+    h+='<div class="panel" style="margin-bottom:16px;padding:18px 22px;">';
+    h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">Active Tickets Aging <span style="font-size:12px;font-weight:400;color:var(--muted);">Total: '+aTotal+'</span></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;">';
+    bkts.forEach(function(b){
+      var p=aTotal?Math.round(b.n/aTotal*100):0;
+      h+='<div style="background:'+b.bg+';border:1px solid '+b.col+'55;border-radius:8px;padding:12px 8px;text-align:center;">';
+      h+='<div style="font-size:9px;font-weight:700;color:'+b.col+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">'+b.l+'</div>';
+      h+='<div style="font-size:26px;font-weight:800;color:'+b.col+';line-height:1.1;">'+b.n+'</div>';
+      h+='<div style="font-size:11px;font-weight:600;color:'+b.col+';margin-top:2px;">'+p+'%</div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
     // Shared ticket link helper
     var ADO_BASE='https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
     function tkLink(r){
