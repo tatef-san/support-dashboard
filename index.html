@@ -13010,6 +13010,7 @@ if(window.opener&&!window.opener.closed){
     function pct(v){return v!=null?(v*100).toFixed(1)+'%':'--';}
     function num(v){return v!=null?v.toFixed(1):'--';}
     function cnt(v){return v!=null?String(v):'--';}
+    function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
     function hcol(v,hiGood,lo,hi){
       if(v==null)return 'var(--muted)';
       if(hiGood)return v>=hi?'#16a34a':v>=lo?'#d97706':'#dc2626';
@@ -13025,12 +13026,20 @@ if(window.opener&&!window.opener.closed){
       return{csatPct:cN>0?cS/cN:null,avgTtr:fN>0?fS/fN:null,frtPct:rN>0?rS/rN:null};
     }
     function clCnt(r){return closedInScope(r,region,'All').length;}
+    var MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmtWk(ws,we){
+      var sd=new Date(ws+'T00:00:00Z'),ed=new Date(we+'T00:00:00Z');
+      var sm=MNAMES[sd.getUTCMonth()],sn=sd.getUTCDate();
+      var em=MNAMES[ed.getUTCMonth()],en=ed.getUTCDate();
+      return sm===em?sm+' '+sn+'-'+en:sm+' '+sn+'-'+em+' '+en;
+    }
     var today=new Date(),todayISO=today.toISOString().slice(0,10);
     var last4W=[];
     for(var wi=3;wi>=0;wi--){
       var wE=new Date(today.getTime()-wi*7*86400000);
       var wS=new Date(wE.getTime()-6*86400000);
-      last4W.push({start:wS.toISOString().slice(0,10),end:wE.toISOString().slice(0,10),label:wi===0?'This Wk':'Wk -'+wi});
+      var ws=wS.toISOString().slice(0,10),we=wE.toISOString().slice(0,10);
+      last4W.push({start:ws,end:we,label:fmtWk(ws,we)});
     }
     var mD=preMonthRows.map(function(rows,i){
       var d=aggRows(rows);d.closed=clCnt(mRanges[i]);return d;
@@ -13046,7 +13055,7 @@ if(window.opener&&!window.opener.closed){
       h+='<th style="padding:6px 10px;text-align:left;min-width:110px;">KPI</th>';
       mRanges.forEach(function(r){h+='<th style="padding:6px 7px;text-align:center;min-width:44px;">'+r.label+'</th>';});
       h+='<th style="padding:6px 7px;text-align:center;background:#1d4ed8;min-width:44px;">YTD</th>';
-      last4W.forEach(function(w,i){h+='<th style="padding:6px 7px;text-align:center;min-width:58px;'+(i===3?'background:#166534;':'')+'">'+w.label+'</th>';});
+      last4W.forEach(function(w,i){h+='<th style="padding:6px 7px;text-align:center;min-width:78px;'+(i===3?'background:#166534;':'')+'">'+esc(w.label)+'</th>';});
       h+='</tr>';return h;
     }
     function trow(lbl,mVals,yVal,wVals,fmtFn,cFn){
@@ -13058,6 +13067,7 @@ if(window.opener&&!window.opener.closed){
       h+='</tr>';return h;
     }
     var h='';
+    // Panel 1: KPI Trends
     h+='<div class="panel" style="margin-bottom:16px;padding:18px 22px;">';
     h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">Team KPI Trends</div>';
     h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">';
@@ -13067,6 +13077,7 @@ if(window.opener&&!window.opener.closed){
     h+=trow('Avg TTR (d)',gv(mD,'avgTtr'),yD.avgTtr,gv(wD,'avgTtr'),num,function(v){return hcol(v,false,7,20);});
     h+=trow('FRT SLA %',gv(mD,'frtPct'),yD.frtPct,gv(wD,'frtPct'),pct,function(v){return hcol(v,true,0.75,0.90);});
     h+='</table></div></div>';
+    // Panel 2: Active Ticket Aging
     var rSet=rosterNames(region);
     var actAll=(DATA.active||[]).filter(function(r){return rSet.has(r.c||'');});
     var aTotal=actAll.length;
@@ -13099,57 +13110,106 @@ if(window.opener&&!window.opener.closed){
       h+='</div>';
     });
     h+='</div></div>';
-    var acctM={};
-    function addA(acct,isOpen,age){
-      var k=(acct||'').trim();if(!k)return;
-      if(!acctM[k])acctM[k]={open:0,a0:0,a1:0,a2:0,a3:0,a4:0,a5:0,closed:0};
-      if(isOpen){
-        acctM[k].open++;
-        var a=age||0;
-        if(a<7)acctM[k].a0++;
-        else if(a<15)acctM[k].a1++;
-        else if(a<30)acctM[k].a2++;
-        else if(a<60)acctM[k].a3++;
-        else if(a<90)acctM[k].a4++;
-        else acctM[k].a5++;
-      } else{acctM[k].closed++;}
+    // Shared ticket link helper
+    var ADO_BASE='https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
+    function tkLink(r){
+      var wi=r.wi||r.id||'';
+      if(!wi)return '-';
+      return '<a href="'+ADO_BASE+wi+'" target="_blank" style="font-family:monospace;color:#4f46e5;font-weight:700;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">#'+wi+'</a>';
     }
-    actAll.forEach(function(r){addA(r.acct,true,r.age||0);});
-    closedInScope(ytdRange,region,'All').forEach(function(r){addA(r.acct,false,0);});
-    var acctList=Object.keys(acctM).map(function(k){
-      return{acct:k,open:acctM[k].open,a0:acctM[k].a0,a1:acctM[k].a1,a2:acctM[k].a2,a3:acctM[k].a3,a4:acctM[k].a4,a5:acctM[k].a5,closed:acctM[k].closed};
-    }).sort(function(a,b){return b.open-a.open||a.acct.localeCompare(b.acct);});
-    function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-    function dc(v){return v?String(v):'<span style="color:var(--muted);font-size:10px;">-</span>';}
+    // Summary aging inline for <details> header
+    function agingInline(rows){
+      var b=[0,0,0,0,0,0];
+      rows.forEach(function(r){var a=r.age||0;if(a<7)b[0]++;else if(a<15)b[1]++;else if(a<30)b[2]++;else if(a<60)b[3]++;else if(a<90)b[4]++;else b[5]++;});
+      var cols=['#16a34a','#65a30d','#d97706','#ea580c','#dc2626','#991b1b'];
+      var labs=['<7d','7-15d','15-30d','30-60d','60-90d','>90d'];
+      var parts=[];
+      b.forEach(function(n,i){if(n)parts.push('<span style="color:'+cols[i]+';font-weight:700;">'+n+'</span><span style="color:var(--muted);font-size:10px;"> '+labs[i]+'</span>');});
+      return parts.join('<span style="margin:0 5px;color:var(--muted);">·</span>');
+    }
+    function openBadgeStyle(rows){
+      var mx=0;rows.forEach(function(r){if((r.age||0)>mx)mx=r.age||0;});
+      if(mx>=90)return 'background:#fee2e2;color:#991b1b;';
+      if(mx>=30)return 'background:#ffedd5;color:#c2410c;';
+      return 'background:#dcfce7;color:#15803d;';
+    }
+    // Panel 3: Active Tickets by Account (collapsible, dashboard source = DATA.active filtered by roster)
+    var actByAcct={};
+    actAll.forEach(function(r){var k=(r.acct||'').trim();if(!k)return;if(!actByAcct[k])actByAcct[k]=[];actByAcct[k].push(r);});
+    var actAccts=Object.keys(actByAcct).filter(function(k){return actByAcct[k].length>0;})
+      .sort(function(a,b){return actByAcct[b].length-actByAcct[a].length||a.localeCompare(b);});
     h+='<div class="panel" style="margin-bottom:16px;padding:18px 22px;">';
-    h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">Account Status Summary <span style="font-size:12px;font-weight:400;color:var(--muted);">'+acctList.length+' accounts &middot; YTD closed</span></div>';
-    h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
-    h+='<thead><tr style="background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
-    h+='<th style="padding:6px 10px;text-align:left;">Account</th>';
-    h+='<th style="padding:6px 8px;text-align:center;">Open</th>';
-    h+='<th style="padding:6px 8px;text-align:center;color:#86efac;">&lt;7d</th>';
-    h+='<th style="padding:6px 8px;text-align:center;color:#fde68a;">7-15d</th>';
-    h+='<th style="padding:6px 8px;text-align:center;color:#fdba74;">15-30d</th>';
-    h+='<th style="padding:6px 8px;text-align:center;color:#fca5a5;">30-60d</th>';
-    h+='<th style="padding:6px 8px;text-align:center;color:#fca5a5;">60-90d</th>';
-    h+='<th style="padding:6px 8px;text-align:center;color:#f87171;">&gt;90d</th>';
-    h+='<th style="padding:6px 8px;text-align:center;background:#1d4ed8;">YTD Closed</th>';
-    h+='</tr></thead><tbody>';
-    acctList.forEach(function(a,i){
-      var bg=i%2===0?'var(--panel)':'var(--bg)';
-      h+='<tr style="border-bottom:1px solid var(--border);background:'+bg+';">';
-      h+='<td style="padding:6px 10px;font-weight:600;white-space:nowrap;">'+esc(a.acct)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;font-weight:700;">'+a.open+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;color:#16a34a;font-weight:600;">'+dc(a.a0)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;color:#65a30d;font-weight:600;">'+dc(a.a1)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;color:#d97706;font-weight:600;">'+dc(a.a2)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;color:#ea580c;font-weight:600;">'+dc(a.a3)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;color:#dc2626;font-weight:600;">'+dc(a.a4)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;color:#991b1b;font-weight:700;">'+dc(a.a5)+'</td>';
-      h+='<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1d4ed8;">'+a.closed+'</td>';
-      h+='</tr>';
+    h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">Active Tickets by Account <span style="font-size:12px;font-weight:400;color:var(--muted);">'+actAccts.length+' accounts · '+aTotal+' open</span></div>';
+    if(!actAccts.length){h+='<p style="color:var(--muted);font-size:13px;margin:0;">No active tickets.</p>';}
+    actAccts.forEach(function(k){
+      var rows=actByAcct[k].slice().sort(function(a,b){return (b.age||0)-(a.age||0);});
+      var n=rows.length;
+      h+='<details style="margin-bottom:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">';
+      h+='<summary style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;background:var(--panel);user-select:none;list-style:none;">';
+      h+='<span style="font-size:13px;font-weight:700;flex:1;color:var(--text);">'+esc(k)+'</span>';
+      h+='<span style="'+openBadgeStyle(rows)+'font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;margin-right:6px;">'+n+' open</span>';
+      h+=agingInline(rows);
+      h+='<span style="font-size:10px;color:var(--muted);margin-left:8px;">&#9660;</span>';
+      h+='</summary>';
+      h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      h+='<thead><tr style="background:#f1f5f9;">';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">#</th>';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">Title</th>';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">Analyst</th>';
+      h+='<th style="padding:5px 8px;font-weight:600;color:var(--muted);text-align:center;font-size:11px;">Age (d)</th>';
+      h+='</tr></thead><tbody>';
+      rows.forEach(function(r,i){
+        var age=r.age||0;
+        var ac=age>=90?'#991b1b':age>=60?'#dc2626':age>=30?'#ea580c':age>=15?'#d97706':'#16a34a';
+        var bg=i%2===0?'':'background:var(--bg);';
+        h+='<tr style="border-bottom:1px solid var(--border);'+bg+'">';
+        h+='<td style="padding:5px 10px;">'+tkLink(r)+'</td>';
+        h+='<td style="padding:5px 10px;color:var(--muted);">'+esc((r.title||'').slice(0,60))+(r.title&&r.title.length>60?'&hellip;':'')+'</td>';
+        h+='<td style="padding:5px 10px;">'+esc(r.c||'-')+'</td>';
+        h+='<td style="padding:5px 8px;text-align:center;font-weight:700;color:'+ac+';">'+age+'</td>';
+        h+='</tr>';
+      });
+      h+='</tbody></table></div></details>';
     });
-    h+='</tbody></table></div></div>';
+    h+='</div>';
+    // Panel 4: Closed Tickets by Account YTD (collapsible, dashboard source = closedInScope YTD)
+    var closedAll=closedInScope(ytdRange,region,'All');
+    var clByAcct={};
+    closedAll.forEach(function(r){var k=(r.acct||'').trim();if(!k)return;if(!clByAcct[k])clByAcct[k]=[];clByAcct[k].push(r);});
+    var clAccts=Object.keys(clByAcct).sort(function(a,b){return clByAcct[b].length-clByAcct[a].length||a.localeCompare(b);});
+    h+='<div class="panel" style="margin-bottom:16px;padding:18px 22px;">';
+    h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">Closed Tickets by Account (YTD) <span style="font-size:12px;font-weight:400;color:var(--muted);">'+clAccts.length+' accounts · '+closedAll.length+' total</span></div>';
+    if(!clAccts.length){h+='<p style="color:var(--muted);font-size:13px;margin:0;">No closed tickets.</p>';}
+    clAccts.forEach(function(k){
+      var rows=clByAcct[k].slice().sort(function(a,b){return (b.closed||'').localeCompare(a.closed||'');});
+      var n=rows.length;
+      h+='<details style="margin-bottom:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">';
+      h+='<summary style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;background:var(--panel);user-select:none;list-style:none;">';
+      h+='<span style="font-size:13px;font-weight:700;flex:1;color:var(--text);">'+esc(k)+'</span>';
+      h+='<span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;">'+n+' closed YTD</span>';
+      h+='<span style="font-size:10px;color:var(--muted);margin-left:8px;">&#9660;</span>';
+      h+='</summary>';
+      h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      h+='<thead><tr style="background:#f1f5f9;">';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">#</th>';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">Title</th>';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">Analyst</th>';
+      h+='<th style="padding:5px 10px;font-weight:600;color:var(--muted);text-align:left;font-size:11px;">Closed</th>';
+      h+='<th style="padding:5px 8px;font-weight:600;color:var(--muted);text-align:center;font-size:11px;">TTR (d)</th>';
+      h+='</tr></thead><tbody>';
+      rows.forEach(function(r,i){
+        var bg=i%2===0?'':'background:var(--bg);';
+        h+='<tr style="border-bottom:1px solid var(--border);'+bg+'">';
+        h+='<td style="padding:5px 10px;">'+tkLink(r)+'</td>';
+        h+='<td style="padding:5px 10px;color:var(--muted);">'+esc((r.title||'').slice(0,60))+(r.title&&r.title.length>60?'&hellip;':'')+'</td>';
+        h+='<td style="padding:5px 10px;">'+esc(r.c||'-')+'</td>';
+        h+='<td style="padding:5px 10px;color:var(--muted);">'+esc((r.closed||'-').slice(0,10))+'</td>';
+        h+='<td style="padding:5px 8px;text-align:center;color:var(--muted);">'+(r.age!=null?r.age.toFixed(1):'--')+'</td>';
+        h+='</tr>';
+      });
+      h+='</tbody></table></div></details>';
+    });
+    h+='</div>';
     return h;
   }
 
