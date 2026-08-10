@@ -13301,26 +13301,25 @@ if(window.opener&&!window.opener.closed){
     var txt=window._ooShareText||'';
     var html=window._ooShareHtml||'';
     var subj=window._ooShareSubj||'1:1 Scorecard';
+    var htmlType='text/html';
+    var txtType='text/plain';
     function copyRich(cb){
-      if(typeof ClipboardItem!=='undefined'&&html){
-        navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([txt],{type:'text/plain'})})]).then(cb).catch(function(){navigator.clipboard.writeText(txt).then(cb);});
-      }else{navigator.clipboard.writeText(txt).then(cb);}
+      try{
+        if(typeof ClipboardItem!=='undefined'&&html){
+          var ci={};ci[htmlType]=new Blob([html],{type:htmlType});ci[txtType]=new Blob([txt],{type:txtType});
+          navigator.clipboard.write([new ClipboardItem(ci)]).then(cb).catch(function(){navigator.clipboard.writeText(txt).then(cb);});
+        }else{navigator.clipboard.writeText(txt).then(cb);}
+      }catch(e){navigator.clipboard.writeText(txt).then(cb);}
     }
     if(type==='copy'){
-      copyRich(function(){alert('Copied with formatting — paste into Outlook, Word or Teams to keep colors.');});
+      copyRich(function(){alert('Copied with formatting. Paste into Outlook or Teams to keep colors.');});
     }else if(type==='email'){
       copyRich(function(){
-        alert('Formatted scorecard copied!
-
-Open your email client, create a new email to the analyst, then paste (Ctrl+V) — colors are preserved in Outlook.');
+        alert('Scorecard copied. Open your email, paste (Ctrl+V) — Outlook keeps the colors.');
         location.href='mailto:?subject='+encodeURIComponent(subj);
       });
     }else if(type==='teams'){
-      copyRich(function(){
-        alert('Formatted scorecard copied!
-
-Open Teams, start a chat with the analyst, then paste (Ctrl+V).');
-      });
+      copyRich(function(){alert('Scorecard copied. Open Teams, start a chat, then paste (Ctrl+V).');});
     }
   };
 
