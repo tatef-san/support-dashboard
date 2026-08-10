@@ -13115,7 +13115,7 @@ if(window.opener&&!window.opener.closed){
     function tkLink(r){
       var wi=r.wi||r.id||'';
       if(!wi)return '-';
-      return '<a href="'+ADO_BASE+wi+'" target="_blank" style="font-family:monospace;color:#4f46e5;font-weight:700;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">#'+wi+'</a>';
+      return '<a href="'+ADO_BASE+wi+'" target="_blank" style="font-family:monospace;color:#4f46e5;font-weight:700;text-decoration:underline;">#'+wi+'</a>';
     }
     // Summary aging inline for <details> header
     function agingInline(rows){
