@@ -13099,11 +13099,20 @@ if(window.opener&&!window.opener.closed){
     h+=trow('Median TTR (d)',gv(mD,'ttr'),yD.ttr,gv(wD,'ttr'),num,function(v){return hcol(v,false,7,20);});
     h+=trow('FRT SLA %',gv(mD,'frt'),yD.frt,gv(wD,'frt'),pct,function(v){return hcol(v,true,0.75,0.90);});
     h+='</table></div></div>';
-    // Active tickets — exact same filter as active tab (inScopeFilter normalises names via _normName)
-    var _actF=inScopeFilter(region,_analyst==='All'?'All':_analyst);
-    var actAll=(DATA.active||[]).filter(function(r){
-      return _actF(r.c);
-    });
+    // Active tickets — same source as active tab: actPendUpload (Power BI) first, DATA.active fallback
+    var actAll=(function(){
+      try{
+        var up=JSON.parse(localStorage.getItem('actPendUpload')||'null');
+        if(up&&up.rows&&up.rows.length){
+          var f=inScopeFilter(region,_analyst==='All'?'All':_analyst);
+          return up.rows
+            .filter(function(r){return f(r.analyst)&&typeof r.age==='number';})
+            .map(function(r){return{c:r.analyst,age:r.age,wi:r.wi,acct:r.acct,title:r.title};});
+        }
+      }catch(e){}
+      var f2=inScopeFilter(region,_analyst==='All'?'All':_analyst);
+      return(DATA.active||[]).filter(function(r){return f2(r.c);});
+    })();
     var aTotal=actAll.length;
     var bkts=[
       {l:'< 7d',n:0,col:'#16a34a',bg:'#f0fdf4'},
