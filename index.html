@@ -13249,24 +13249,78 @@ if(window.opener&&!window.opener.closed){
       h+='</tbody></table></div></details>';
     });
     h+='</div>';
-    // Build share text from computed data and expose for share buttons
+    // Build plain-text share summary
     var _sl=[_scopeLabel+' - 1:1 Scorecard ('+todayISO+')','','KPI TRENDS (YTD)','CSAT %: '+pct(yD.csatPct),'Closed: '+cnt(yD.closed),'Median TTR: '+num(yD.ttr)+'d','FRT SLA %: '+pct(yD.frt),'','ACTIVE TICKETS: '+aTotal];
     bkts.forEach(function(b){if(b.n)_sl.push('  '+b.l+': '+b.n+' ('+(aTotal?Math.round(b.n/aTotal*100):0)+'%)');});
     if(actAccts&&actAccts.length){_sl.push('','ACTIVE TICKETS BY ACCOUNT');actAccts.forEach(function(k){_sl.push('  '+k+': '+actByAcct[k].length+' open');});}
     window._ooShareText=_sl.join('\n');
     window._ooShareSubj=_scopeLabel+' - 1:1 Scorecard '+todayISO;
+    // Build rich HTML table (inline styles = preserves colors when pasted into Outlook)
+    var _th='<div style="font-family:Arial,sans-serif;">';
+    _th+='<p style="font-size:14px;font-weight:700;color:#1e3a5f;margin:0 0 10px;">'+_scopeLabel+' &mdash; 1:1 Scorecard ('+todayISO+')</p>';
+    _th+='<table style="border-collapse:collapse;font-size:12px;">';
+    _th+='<thead><tr style="background:#1e3a5f;color:#fff;">';
+    _th+='<th style="padding:6px 10px;text-align:left;color:#fff;">KPI</th>';
+    mRanges.forEach(function(r){_th+='<th style="padding:6px 7px;text-align:center;color:#fff;">'+r.label+'</th>';});
+    _th+='<th style="padding:6px 7px;text-align:center;background:#1d4ed8;color:#fff;">YTD</th>';
+    last4W.forEach(function(w,i){_th+='<th style="padding:6px 7px;text-align:center;color:#fff;'+(i===3?'background:#166534;':'')+'">'+w.label+'</th>';});
+    _th+='</tr></thead><tbody>';
+    function _thr(lbl,mVals,yVal,wVals,fmtFn,cFn){
+      _th+='<tr style="border-bottom:1px solid #e5e7eb;">';
+      _th+='<td style="padding:5px 10px;font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap;">'+lbl+'</td>';
+      mVals.forEach(function(v){_th+='<td style="padding:5px 7px;text-align:center;font-weight:600;color:'+cFn(v)+';">'+fmtFn(v)+'</td>';});
+      _th+='<td style="padding:5px 7px;text-align:center;font-weight:700;background:#eff6ff;color:'+cFn(yVal)+';">'+fmtFn(yVal)+'</td>';
+      wVals.forEach(function(v,i){_th+='<td style="padding:5px 7px;text-align:center;font-weight:600;color:'+cFn(v)+';'+(i===3?'background:#f0fdf4;':'')+'">'+fmtFn(v)+'</td>';});
+      _th+='</tr>';
+    }
+    _thr('CSAT %',gv(mD,'csatPct'),yD.csatPct,gv(wD,'csatPct'),pct,function(v){return hcol(v,true,0.70,0.80);});
+    _thr('Closed',gv(mD,'closed'),yD.closed,gv(wD,'closed'),cnt,function(){return '#1e293b';});
+    _thr('Median TTR (d)',gv(mD,'ttr'),yD.ttr,gv(wD,'ttr'),num,function(v){return hcol(v,false,7,20);});
+    _thr('FRT SLA %',gv(mD,'frt'),yD.frt,gv(wD,'frt'),pct,function(v){return hcol(v,true,0.75,0.90);});
+    _th+='</tbody></table>';
+    if(aTotal>0){
+      _th+='<br><p style="font-size:13px;font-weight:700;color:#1e3a5f;margin:8px 0 4px;">Active Tickets Aging &mdash; Total: '+aTotal+'</p>';
+      _th+='<table style="border-collapse:collapse;font-size:12px;"><thead><tr style="background:#1e3a5f;color:#fff;">';
+      bkts.forEach(function(b){_th+='<th style="padding:5px 12px;text-align:center;color:#fff;">'+b.l+'</th>';});
+      _th+='</tr></thead><tbody><tr>';
+      bkts.forEach(function(b){_th+='<td style="padding:5px 12px;text-align:center;font-weight:700;color:'+b.col+';">'+b.n+'</td>';});
+      _th+='</tr></tbody></table>';
+    }
+    if(actAccts&&actAccts.length){
+      _th+='<br><p style="font-size:13px;font-weight:700;color:#1e3a5f;margin:8px 0 4px;">Active Tickets by Account</p>';
+      _th+='<table style="border-collapse:collapse;font-size:12px;"><thead><tr style="background:#1e3a5f;color:#fff;"><th style="padding:5px 12px;text-align:left;color:#fff;">Account</th><th style="padding:5px 12px;text-align:center;color:#fff;">Open</th></tr></thead><tbody>';
+      actAccts.forEach(function(k,i){_th+='<tr style="'+(i%2===0?'':'background:#f9fafb;')+'"><td style="padding:4px 12px;">'+k+'</td><td style="padding:4px 12px;text-align:center;font-weight:600;">'+actByAcct[k].length+'</td></tr>';});
+      _th+='</tbody></table>';
+    }
+    _th+='</div>';
+    window._ooShareHtml=_th;
     return h;
   }
 
   window._ooShare=function(type){
     var txt=window._ooShareText||'';
+    var html=window._ooShareHtml||'';
     var subj=window._ooShareSubj||'1:1 Scorecard';
+    function copyRich(cb){
+      if(typeof ClipboardItem!=='undefined'&&html){
+        navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([txt],{type:'text/plain'})})]).then(cb).catch(function(){navigator.clipboard.writeText(txt).then(cb);});
+      }else{navigator.clipboard.writeText(txt).then(cb);}
+    }
     if(type==='copy'){
-      navigator.clipboard.writeText(txt).then(function(){alert('Copied to clipboard!');}).catch(function(){alert('Copy failed - please copy manually.');});
+      copyRich(function(){alert('Copied with formatting — paste into Outlook, Word or Teams to keep colors.');});
     }else if(type==='email'){
-      location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(txt);
+      copyRich(function(){
+        alert('Formatted scorecard copied!
+
+Open your email client, create a new email to the analyst, then paste (Ctrl+V) — colors are preserved in Outlook.');
+        location.href='mailto:?subject='+encodeURIComponent(subj);
+      });
     }else if(type==='teams'){
-      window.open('https://teams.microsoft.com/l/chat/0/0?message='+encodeURIComponent(txt.slice(0,4000)),'_blank');
+      copyRich(function(){
+        alert('Formatted scorecard copied!
+
+Open Teams, start a chat with the analyst, then paste (Ctrl+V).');
+      });
     }
   };
 
