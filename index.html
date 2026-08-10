@@ -13099,9 +13099,10 @@ if(window.opener&&!window.opener.closed){
     h+=trow('Median TTR (d)',gv(mD,'ttr'),yD.ttr,gv(wD,'ttr'),num,function(v){return hcol(v,false,7,20);});
     h+=trow('FRT SLA %',gv(mD,'frt'),yD.frt,gv(wD,'frt'),pct,function(v){return hcol(v,true,0.75,0.90);});
     h+='</table></div></div>';
-    // Active tickets — same source as active tab, case-insensitive analyst match
+    // Active tickets — exact same filter as active tab (inScopeFilter normalises names via _normName)
+    var _actF=inScopeFilter(region,_analyst==='All'?'All':_analyst);
     var actAll=(DATA.active||[]).filter(function(r){
-      return matchAnalyst(r.c);
+      return _actF(r.c);
     });
     var aTotal=actAll.length;
     var bkts=[
