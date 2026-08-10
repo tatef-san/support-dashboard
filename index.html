@@ -13040,11 +13040,10 @@ if(window.opener&&!window.opener.closed){
     }
     function frtSla(r){
       if(typeof respAllInScope!=='function')return null;
-      var rows=respAllInScope(r,region,_analyst);
-      if(!rows||!rows.length)return null;
+      var rows=respAllInScope(r,region,_analyst).filter(function(x){return typeof x.resp==='number';});
+      if(!rows.length)return null;
       var tgt=DATA.targets&&DATA.targets.resp!=null?DATA.targets.resp:24;
-      var met=rows.filter(function(x){return typeof x.resp==='number'&&x.resp<=tgt;}).length;
-      return met/rows.length;
+      return rows.filter(function(x){return x.resp<=tgt;}).length/rows.length;
     }
     var MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     function fmtWk(ws,we){
