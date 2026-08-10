@@ -13088,6 +13088,13 @@ if(window.opener&&!window.opener.closed){
     }
     var h='';
     var _scopeLabel=_analyst==='All'?'Team':_analyst;
+    // Share buttons row
+    h+='<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;">';
+    h+='<span style="font-size:12px;color:var(--muted);">Send scorecard:</span>';
+    h+='<button onclick="_ooShare('email')" style="font-size:12px;padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">&#128140; Email</button>';
+    h+='<button onclick="_ooShare('teams')" style="font-size:12px;padding:5px 14px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">&#128172; Teams</button>';
+    h+='<button onclick="_ooShare('copy')" style="font-size:12px;padding:5px 14px;background:#374151;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">&#128203; Copy</button>';
+    h+='</div>';
     // Panel 1: KPI Trends
     h+='<div class="panel" style="margin-bottom:16px;padding:18px 22px;">';
     h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">'+esc(_scopeLabel)+' — KPI Trends</div>';
@@ -13242,8 +13249,26 @@ if(window.opener&&!window.opener.closed){
       h+='</tbody></table></div></details>';
     });
     h+='</div>';
+    // Build share text from computed data and expose for share buttons
+    var _sl=[_scopeLabel+' - 1:1 Scorecard ('+todayISO+')','','KPI TRENDS (YTD)','CSAT %: '+pct(yD.csatPct),'Closed: '+cnt(yD.closed),'Median TTR: '+num(yD.ttr)+'d','FRT SLA %: '+pct(yD.frt),'','ACTIVE TICKETS: '+aTotal];
+    bkts.forEach(function(b){if(b.n)_sl.push('  '+b.l+': '+b.n+' ('+(aTotal?Math.round(b.n/aTotal*100):0)+'%)');});
+    if(actAccts&&actAccts.length){_sl.push('','ACTIVE TICKETS BY ACCOUNT');actAccts.forEach(function(k){_sl.push('  '+k+': '+actByAcct[k].length+' open');});}
+    window._ooShareText=_sl.join('\n');
+    window._ooShareSubj=_scopeLabel+' - 1:1 Scorecard '+todayISO;
     return h;
   }
+
+  window._ooShare=function(type){
+    var txt=window._ooShareText||'';
+    var subj=window._ooShareSubj||'1:1 Scorecard';
+    if(type==='copy'){
+      navigator.clipboard.writeText(txt).then(function(){alert('Copied to clipboard!');}).catch(function(){alert('Copy failed - please copy manually.');});
+    }else if(type==='email'){
+      location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(txt);
+    }else if(type==='teams'){
+      window.open('https://teams.microsoft.com/l/chat/0/0?message='+encodeURIComponent(txt.slice(0,4000)),'_blank');
+    }
+  };
 
   window.copyOO = function(key) {
     const text = (window._scorecardsMap || {})[key] || '';
