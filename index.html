@@ -13003,10 +13003,10 @@ if(window.opener&&!window.opener.closed){
     });
 
     html+='</div>';
-    container.innerHTML=_ooRevamp(monthRanges,ytdRange,region,monthRows,rowsYTD)+html;
+    container.innerHTML=_ooRevamp(monthRanges,ytdRange,region,monthRows,rowsYTD,analystOnly)+html;
   }
 
-  function _ooRevamp(mRanges, ytdRange, region, preMonthRows, preYtdRows) {
+  function _ooRevamp(mRanges, ytdRange, region, preMonthRows, preYtdRows, analystOnly) {
     function pct(v){return v!=null?(v*100).toFixed(1)+'%':'--';}
     function num(v){return v!=null?v.toFixed(1):'--';}
     function cnt(v){return v!=null?String(v):'--';}
@@ -13016,16 +13016,18 @@ if(window.opener&&!window.opener.closed){
       if(hiGood)return v>=hi?'#16a34a':v>=lo?'#d97706':'#dc2626';
       return v<=lo?'#16a34a':v<=hi?'#d97706':'#dc2626';
     }
+    var _analyst=analystOnly||'All';
     function aggRows(rows){
+      var src=_analyst==='All'?(rows||[]):(rows||[]).filter(function(a){return a.name===_analyst;});
       var cN=0,cS=0,fN=0,fS=0,rN=0,rS=0;
-      (rows||[]).forEach(function(a){
+      src.forEach(function(a){
         if(a.csatN){cN+=a.csatN;cS+=(a.csatPct!=null?a.csatPct*a.csatN:0);}
         if(a.fix!=null&&a.closed){fN+=a.closed;fS+=a.fix*a.closed;}
         if(a.respMetN){rN+=a.respMetN;rS+=(a.respMet||0);}
       });
       return{csatPct:cN>0?cS/cN:null,avgTtr:fN>0?fS/fN:null,frtPct:rN>0?rS/rN:null};
     }
-    function clCnt(r){return closedInScope(r,region,'All').length;}
+    function clCnt(r){return closedInScope(r,region,_analyst).length;}
     var MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     function fmtWk(ws,we){
       var sd=new Date(ws+'T00:00:00Z'),ed=new Date(we+'T00:00:00Z');
@@ -13067,9 +13069,10 @@ if(window.opener&&!window.opener.closed){
       h+='</tr>';return h;
     }
     var h='';
+    var _scopeLabel=_analyst==='All'?'Team':_analyst;
     // Panel 1: KPI Trends
     h+='<div class="panel" style="margin-bottom:16px;padding:18px 22px;">';
-    h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">Team KPI Trends</div>';
+    h+='<div class="oneone-section-title" style="margin-top:0;margin-bottom:12px;">'+esc(_scopeLabel)+' — KPI Trends</div>';
     h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">';
     h+=thdr();
     h+=trow('CSAT %',gv(mD,'csatPct'),yD.csatPct,gv(wD,'csatPct'),pct,function(v){return hcol(v,true,0.70,0.80);});
@@ -13079,7 +13082,9 @@ if(window.opener&&!window.opener.closed){
     h+='</table></div></div>';
     // Panel 2: Active Ticket Aging
     var rSet=rosterNames(region);
-    var actAll=(DATA.active||[]).filter(function(r){return rSet.has(r.c||'');});
+    var actAll=(DATA.active||[]).filter(function(r){
+      return rSet.has(r.c||'')&&(_analyst==='All'||r.c===_analyst);
+    });
     var aTotal=actAll.length;
     var bkts=[
       {l:'< 7d',n:0,col:'#16a34a',bg:'#f0fdf4'},
@@ -13173,7 +13178,7 @@ if(window.opener&&!window.opener.closed){
     });
     h+='</div>';
     // Panel 4: Closed Tickets by Account YTD (collapsible, dashboard source = closedInScope YTD)
-    var closedAll=closedInScope(ytdRange,region,'All');
+    var closedAll=closedInScope(ytdRange,region,_analyst);
     var clByAcct={};
     closedAll.forEach(function(r){var k=(r.acct||'').trim();if(!k)return;if(!clByAcct[k])clByAcct[k]=[];clByAcct[k].push(r);});
     var clAccts=Object.keys(clByAcct).sort(function(a,b){return clByAcct[b].length-clByAcct[a].length||a.localeCompare(b);});
