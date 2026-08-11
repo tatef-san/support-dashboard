@@ -2772,6 +2772,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   }
   function rosterNames(region) { return new Set(rosterFor(region).map(r => r[0])); }
   function inRoster(name) { return !!name && rosterNames('All').has(name); }
+  window.inRoster = inRoster;
 
   // ===========================================================================
   // SCOPE — single combined dropdown for Overall / Region / Analyst.
@@ -3082,6 +3083,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     DATA.closed.forEach(r => { if (inRange(r.closed, range)) allClosedInPeriod++; });
 
     const cStat = {};
+    const orgAgeVals = [];
     DATA.closed.forEach(r => {
       // Closed-derived KPIs filter by closure date (when the ticket was closed)
       if (!inRange(r.closed, range)) return;
@@ -3089,7 +3091,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       if (!inRoster(r.c)) return;
       const k = cStat[r.c] = cStat[r.c] || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,respVals:[],escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
       k.closed++;
-      if (typeof r.age === 'number') { k.ageSum += r.age; k.ageN++; k.ageVals.push(r.age); k.slaN++; if (r.age <= DATA.targets.fixAvg) k.slaMet++; }
+      if (typeof r.age === 'number') { k.ageSum += r.age; k.ageN++; k.ageVals.push(r.age); k.slaN++; if (r.age <= DATA.targets.fixAvg) k.slaMet++; orgAgeVals.push(r.age); }
       if (typeof r.resp === 'number') { k.respSum += r.resp; k.respN++; k.respVals.push(r.resp); k.respMetN++; if (r.resp <= DATA.targets.resp) k.respMet++; }
       if (r.solo !== 1) k.escN++;
     });
@@ -3155,6 +3157,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       pendCust: analystRows.reduce((s,a)=>s+(a.pendCust||0),0),
       closed: allClosedInPeriod,
       fix: orgAgeN ? orgAge/orgAgeN : null,
+      fixMedian: median(orgAgeVals),
       resp: orgRespN ? orgResp/orgRespN : null,
       escPct: allClosedInPeriod ? orgEsc/allClosedInPeriod : null,
       util: (() => { const xs = analystRows.map(a => a.util).filter(x => typeof x === 'number'); return xs.length ? xs.reduce((s,x)=>s+x,0)/xs.length : null; })(),
@@ -3530,7 +3533,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   function renderKPIs(t, overrides) {
     overrides = overrides || {};
     if (overrides.escPct  != null) t.escPct  = overrides.escPct;
-    if (overrides.fix     != null) t.fix     = overrides.fix;
+    if (overrides.fix     != null) t.fixMedian = overrides.fix;
     if (overrides.resp    != null) t.resp    = overrides.resp;
     if (overrides.frtSla  != null) t.frtSla  = overrides.frtSla;
 
@@ -3670,7 +3673,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
           '<div class="ov-sublabel">'+cfg.sub+'</div>' +
         '</div>'+badge+'</div>' +
         '<div class="ov-main">'+fp(curVal)+(curPeriodLabel ? '<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:6px;">'+curPeriodLabel+'</span>' : '')+'</div>' +
-        (cfg.key === 'ttrSla' && t.fix != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Median TTR: <strong style="color:var(--text);font-size:13px;">'+t.fix.toFixed(1)+'d</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.fixAvg+'d</div>' : '') +
+        (cfg.key === 'ttrSla' && t.fixMedian != null ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">Median TTR: <strong style="color:var(--text);font-size:13px;">'+t.fixMedian.toFixed(1)+'d</strong> &nbsp;·&nbsp; target ≤ '+DATA.targets.fixAvg+'d</div>' : '') +
         (cfg.key === 'frtSla' ? (function(){ var _aH = t.resp != null ? t.resp : (monthly[5] && monthly[5].avgResp != null ? monthly[5].avgResp : null); var _mH = monthly[5] && monthly[5].medianResp != null ? monthly[5].medianResp : null; return (_aH != null || _mH != null) ? '<div style="font-size:12.5px;color:var(--muted);margin-top:2px;margin-bottom:4px;">'+(_aH != null ? 'Avg: <strong style="color:var(--text);font-size:13px;">'+_aH.toFixed(1)+'h</strong>' : '')+(_aH != null && _mH != null ? ' &nbsp;·&nbsp; ' : '')+(_mH != null ? 'Median: <strong style="color:var(--text);font-size:13px;">'+_mH.toFixed(1)+'h</strong>' : '')+' &nbsp;·&nbsp; target ≤ '+DATA.targets.resp+'h</div>' : ''; })() : '') +
         trendHtml +
         '<div class="ov-stats-row">' +
@@ -15982,7 +15985,7 @@ if(window.opener&&!window.opener.closed){
             var atRaw = (r.AssignedTo && r.AssignedTo.UserName) ? r.AssignedTo.UserName.trim() : '';
             var fromOData = scRaw || atRaw;
             var fromODataName = fromOData ? normalizeAnalystName(_closedEmailMap[fromOData.toLowerCase()] || fromOData) : null;
-            var analystName = (fromODataName && fromODataName !== 'Unassigned' && !_isNonAnalyst(fromODataName) && inRoster(fromODataName))
+            var analystName = (fromODataName && fromODataName !== 'Unassigned' && !_isNonAnalyst(fromODataName) && window.inRoster(fromODataName))
               ? fromODataName
               : (_psResolveEmail(_psCommentMap[id]) || _psWrvActiveMap[id] || 'Undefined - Partner Support');
             return {
