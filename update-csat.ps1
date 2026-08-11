@@ -123,7 +123,10 @@ try {
     $stamp = Get-Date -Format "yyyy-MM-dd HH:mm"
     git commit -m "Update CSAT data ($stamp)" 2>&1 | Out-Null
     git push origin main 2>&1 | Out-Null
-    Write-Host "  Pushed to GitHub — dashboard will refresh in ~1 min." -ForegroundColor Green
+    # The live site deploys from gh-pages, not main — push there too or the
+    # update silently never reaches the dashboard.
+    git push origin main:gh-pages 2>&1 | Out-Null
+    Write-Host "  Pushed to GitHub (main + gh-pages) — dashboard will refresh in ~1 min." -ForegroundColor Green
 } catch {
     Write-Host "  WARNING: Git push failed: $_" -ForegroundColor Yellow
 } finally {
