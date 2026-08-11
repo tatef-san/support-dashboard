@@ -3083,7 +3083,6 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     DATA.closed.forEach(r => { if (inRange(r.closed, range)) allClosedInPeriod++; });
 
     const cStat = {};
-    const orgAgeVals = [];
     DATA.closed.forEach(r => {
       // Closed-derived KPIs filter by closure date (when the ticket was closed)
       if (!inRange(r.closed, range)) return;
@@ -3091,7 +3090,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       if (!inRoster(r.c)) return;
       const k = cStat[r.c] = cStat[r.c] || { closed:0,ageSum:0,ageN:0,ageVals:[],respSum:0,respN:0,respVals:[],escN:0,slaMet:0,slaN:0,respMet:0,respMetN:0 };
       k.closed++;
-      if (typeof r.age === 'number') { k.ageSum += r.age; k.ageN++; k.ageVals.push(r.age); k.slaN++; if (r.age <= DATA.targets.fixAvg) k.slaMet++; orgAgeVals.push(r.age); }
+      if (typeof r.age === 'number') { k.ageSum += r.age; k.ageN++; k.ageVals.push(r.age); k.slaN++; if (r.age <= DATA.targets.fixAvg) k.slaMet++; }
       if (typeof r.resp === 'number') { k.respSum += r.resp; k.respN++; k.respVals.push(r.resp); k.respMetN++; if (r.resp <= DATA.targets.resp) k.respMet++; }
       if (r.solo !== 1) k.escN++;
     });
@@ -3157,7 +3156,9 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       pendCust: analystRows.reduce((s,a)=>s+(a.pendCust||0),0),
       closed: allClosedInPeriod,
       fix: orgAgeN ? orgAge/orgAgeN : null,
-      fixMedian: median(orgAgeVals),
+      // Same population as the TTR deep-dive tab (closedInScope + inSegment), so the
+      // Overview card's Median TTR always agrees with what that tab shows for this scope.
+      fixMedian: median(closedInScope(range, region, analystFilter).filter(r => inSegment(r.acct) && typeof r.age === 'number').map(r => r.age)),
       resp: orgRespN ? orgResp/orgRespN : null,
       escPct: allClosedInPeriod ? orgEsc/allClosedInPeriod : null,
       util: (() => { const xs = analystRows.map(a => a.util).filter(x => typeof x === 'number'); return xs.length ? xs.reduce((s,x)=>s+x,0)/xs.length : null; })(),
