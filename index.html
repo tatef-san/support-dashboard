@@ -9001,43 +9001,13 @@ if(window.opener&&!window.opener.closed){
   }
 
   // ===========================================================================
-  // KPI DEEP-DIVE: ACTIVE TICKETS
+  // Open/active tickets in scope — single source of truth for both the Active
+  // Tickets deep-dive tab and the 1:1 tab, so they can never disagree on counts.
   // ===========================================================================
-  function renderKpiActive() {
-    renderTargetBadge('actTargetBadge', r => r.gt15 === 0, r => r.actAllCount === 0);
-    const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
+  function computeActiveRows(region, analyst) {
     const inScope = inScopeFilter(region, analyst);
-
-    // If actPendUpload came from a file upload (not a live ADO Sync), auto-trigger ADO state
-    // check to remove Done/Wishlist tickets. Three states:
-    //   _actAutoCleanInProgress=true  → clean is running, show banner and wait
-    //   _actAutoCleanDone=true        → clean finished this session, proceed normally
-    //   neither                       → trigger clean if function is ready, else show banner
-    // When adoSync has run, DATA.active already contains all CS tickets (open+closed)
-    // with correct states — skip actPendUpload (which only stores open-only scan results).
     const _hasAdoSync = !!(window._dashDATA && window._dashDATA._adoSync);
     const upload = _hasAdoSync ? null : JSON.parse(localStorage.getItem('actPendUpload')||'null');
-    const _needsClean = upload && upload.filename !== 'ADO Live Sync' && !window._actAutoCleanDone;
-    if (_needsClean) {
-      const _bannerEl = $('actSummary');
-      if (window._actAutoCleanInProgress) {
-        if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Verifying ticket states from ADO — removing Done/Wishlist…</div>';
-        return;
-      }
-      if (window._autoCleanActPend) {
-        window._actAutoCleanInProgress = true;
-        if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Verifying ticket states from ADO — removing Done/Wishlist…</div>';
-        window._autoCleanActPend().finally(() => {
-          window._actAutoCleanInProgress = false;
-          window._actAutoCleanDone = true;
-          try { render(); } catch(e) {}
-        });
-        return;
-      }
-      // Function not ready yet (page still initialising) — show banner and wait for next render
-      if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Initialising — verifying ticket states from ADO…</div>';
-      return;
-    }
     const EXCL_ACTIVE = new Set(['done','wishlist','wish list','closed','resolved','cancelled','canceled','removed','rejected','wontfix','won\'t fix','duplicate']);
     const excludedWIs = new Set(JSON.parse(localStorage.getItem('actExcludedWIs') || '[]'));
     // actMentions was already filtered against ADO states — use its WIs as an allowlist if available
@@ -9115,6 +9085,48 @@ if(window.opener&&!window.opener.closed){
     }
 
     rows = rows.filter(r => inSegment(r.acct));
+    return rows;
+  }
+
+  // ===========================================================================
+  // KPI DEEP-DIVE: ACTIVE TICKETS
+  // ===========================================================================
+  function renderKpiActive() {
+    renderTargetBadge('actTargetBadge', r => r.gt15 === 0, r => r.actAllCount === 0);
+    const _scope = getScope(); const region = _scope.region; const analyst = _scope.analyst;
+    const inScope = inScopeFilter(region, analyst);
+
+    // If actPendUpload came from a file upload (not a live ADO Sync), auto-trigger ADO state
+    // check to remove Done/Wishlist tickets. Three states:
+    //   _actAutoCleanInProgress=true  → clean is running, show banner and wait
+    //   _actAutoCleanDone=true        → clean finished this session, proceed normally
+    //   neither                       → trigger clean if function is ready, else show banner
+    // When adoSync has run, DATA.active already contains all CS tickets (open+closed)
+    // with correct states — skip actPendUpload (which only stores open-only scan results).
+    const _hasAdoSync = !!(window._dashDATA && window._dashDATA._adoSync);
+    const upload = _hasAdoSync ? null : JSON.parse(localStorage.getItem('actPendUpload')||'null');
+    const _needsClean = upload && upload.filename !== 'ADO Live Sync' && !window._actAutoCleanDone;
+    if (_needsClean) {
+      const _bannerEl = $('actSummary');
+      if (window._actAutoCleanInProgress) {
+        if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Verifying ticket states from ADO — removing Done/Wishlist…</div>';
+        return;
+      }
+      if (window._autoCleanActPend) {
+        window._actAutoCleanInProgress = true;
+        if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Verifying ticket states from ADO — removing Done/Wishlist…</div>';
+        window._autoCleanActPend().finally(() => {
+          window._actAutoCleanInProgress = false;
+          window._actAutoCleanDone = true;
+          try { render(); } catch(e) {}
+        });
+        return;
+      }
+      // Function not ready yet (page still initialising) — show banner and wait for next render
+      if (_bannerEl) _bannerEl.innerHTML = '<div style="padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:#92400e;">⏳ Initialising — verifying ticket states from ADO…</div>';
+      return;
+    }
+    let rows = computeActiveRows(region, analyst);
 
     // Categories panel — must use the same enriched+filtered rows as the rest of this function
     renderActCatInsight(rows);
@@ -13109,20 +13121,9 @@ if(window.opener&&!window.opener.closed){
     h+=trow('Median TTR (d)',gv(mD,'ttr'),yD.ttr,gv(wD,'ttr'),num,function(v){return hcol(v,false,7,20);});
     h+=trow('FRT SLA %',gv(mD,'frt'),yD.frt,gv(wD,'frt'),pct,function(v){return hcol(v,true,0.75,0.90);});
     h+='</table></div></div>';
-    // Active tickets — same source as active tab: actPendUpload (Power BI) first, DATA.active fallback
-    var actAll=(function(){
-      try{
-        var up=JSON.parse(localStorage.getItem('actPendUpload')||'null');
-        if(up&&up.rows&&up.rows.length){
-          var f=inScopeFilter(region,_analyst==='All'?'All':_analyst);
-          return up.rows
-            .filter(function(r){return f(r.analyst)&&typeof r.age==='number';})
-            .map(function(r){return{c:r.analyst,age:r.age,wi:r.wi,acct:r.acct,title:r.title};});
-        }
-      }catch(e){}
-      var f2=inScopeFilter(region,_analyst==='All'?'All':_analyst);
-      return(DATA.active||[]).filter(function(r){return f2(r.c);});
-    })();
+    // Active tickets — same computation as the Active Tickets deep-dive tab, so
+    // this tab's counts can never drift from what the dashboard itself shows.
+    var actAll = computeActiveRows(region, _analyst === 'All' ? 'All' : _analyst);
     var aTotal=actAll.length;
     var bkts=[
       {l:'< 7d',n:0,col:'#16a34a',bg:'#f0fdf4'},
