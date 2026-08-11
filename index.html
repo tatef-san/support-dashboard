@@ -2352,7 +2352,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
           wi,
           url:      wi ? ADO_BASE + wi : null,
           acct:     _str(get('Account Name', r)),
-          c:        _normName(get('Service Consultant', r)),
+          c:        _normName(get('Service Consultant', r)) || 'No SA assigned',
           title:    _str(get('Title', r)),
           created:  _serialToISO(_num(get('Created date', r))),
           closed:   _serialToISO(_num(get('Closed date', r))),
@@ -2366,7 +2366,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
           feature:  _str(get('Feature', r)),
           capability: _str(get('Capabilities', r) ?? get('Capability', r)),
         };
-      }).filter(x => x.c && x.closed);
+      }).filter(x => x.closed);
     }
     if (kind === 'hours') {
       return rawRows.slice(1).map(r => {
