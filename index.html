@@ -3603,6 +3603,11 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
     var prev      = monthly[4];
     var prevLabel = mRange(yr, curM - 1).label;
     var ytd       = extractM({ start: yr + '-01-01', end: todayISO }, null);
+    // Headline number always matches whatever Period the header is set to (Daily/
+    // Weekly/Monthly/YTD) — same range the deep-dive tabs use — so it can't quietly
+    // show a different window (e.g. current month) than what the page says it's showing.
+    var selRange  = periodRange();
+    var selP      = period === 'Monthly' ? cur : extractM(selRange);
 
     function fp(v) { return v != null ? (v * 100).toFixed(1) + '%' : '—'; }
 
@@ -3615,7 +3620,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
 
     var html = '';
     CARDS.forEach(function(cfg) {
-      var curVal  = cfg.get(cur);
+      var curVal  = cfg.get(selP);
       var prevVal = cfg.get(prev);
       var ytdVal  = cfg.get(ytd);
       var spark   = monthly.map(function(m){return cfg.get(m);});
@@ -3629,14 +3634,19 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
                   : '<span class="ov-badge off-track">OFF TRACK</span>';
 
       var trendHtml;
-      if (curVal != null && prevVal != null) {
+      if (period === 'Monthly' && curVal != null && prevVal != null) {
         var diff = (curVal - prevVal) * 100;
         var goodMove = diff >= 0;
         var arrow = diff >= 0 ? '↑' : '↓';
         trendHtml = '<div class="ov-trend ' + (goodMove ? 'trend-good' : 'trend-bad') + '">' +
           arrow + ' ' + Math.abs(diff).toFixed(1) + 'pp vs ' + prevLabel + '</div>';
-      } else {
+      } else if (period === 'Monthly') {
         trendHtml = '<div class="ov-trend trend-neutral">No prior month data</div>';
+      } else {
+        // Month-over-month comparison doesn't apply to a Daily/Weekly/YTD window —
+        // the period is already shown next to the headline number above, and the
+        // sparkline below still shows the monthly trend for context.
+        trendHtml = '';
       }
 
       var sparkHtml;
@@ -3667,7 +3677,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
         }).join('');
       }
 
-      var curPeriodLabel = period === 'Monthly' ? mRange(yr, curM).label + ' ' + yr : '';
+      var curPeriodLabel = selRange.label || '';
       html += '<div class="ov-kpi-card" style="--card-color:'+cfg.color+'">' +
         '<div class="ov-card-top"><div>' +
           '<div class="ov-label">'+cfg.label+'</div>' +
