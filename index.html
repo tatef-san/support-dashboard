@@ -9276,12 +9276,13 @@ if(window.opener&&!window.opener.closed){
     const el = $('actAccountsView');
     if (!el) return;
     const _mgrOf = nm => { const n=(nm||'').toLowerCase(); if(/nouraldeen|elfaramawy|toqa|bayoumi/.test(n)) return 'Tarek'; if(/hoyos|najabi|salgado|daniela/.test(n)) return 'Francisco'; return 'Rafferty'; };
-    const counts = {}; const acctAnalysts = {};
+    const counts = {}; const acctAnCounts = {};
     rows.forEach(r => {
       const acct = (r.acct || '').trim();
       if (!acct) return;
       counts[acct] = (counts[acct] || 0) + 1;
-      const an = (r.c || '').trim(); if (an) { if (!acctAnalysts[acct]) acctAnalysts[acct] = new Set(); acctAnalysts[acct].add(an); }
+      const an = (r.c || '').trim();
+      if (an) { if (!acctAnCounts[acct]) acctAnCounts[acct] = {}; acctAnCounts[acct][an] = (acctAnCounts[acct][an]||0)+1; }
     });
     const multi = Object.entries(counts)
       .filter(([,n]) => n >= 2)
@@ -9308,13 +9309,14 @@ if(window.opener&&!window.opener.closed){
       const pct = Math.round(n / maxVal * 100);
       const bg = i % 2 === 0 ? '' : 'background:var(--bg-alt,rgba(0,0,0,0.02));';
       const seg = segmentOf(acct);
-      const _an18=[...(acctAnalysts[acct]||new Set())];
-      const _mg18=[...new Set(_an18.map(_mgrOf))];
+      const _anEnt18=Object.entries(acctAnCounts[acct]||{}).sort((a,b)=>b[1]-a[1]);
+      const _topAn18=_anEnt18.length?_anEnt18[0][0]:'';
+      const _mgr18=_topAn18?_mgrOf(_topAn18):'';
       html += '<tr style="' + bg + '">' +
         '<td style="padding:6px 10px;">' + esc(acct) + '</td>' +
         '<td style="padding:6px 10px;">' + _segPill(seg) + '</td>' +
-        '<td style="padding:6px 10px;font-size:12px;">' + esc(_an18.join(', ')||'-') + '</td>' +
-        '<td style="padding:6px 10px;">' + (_mg18.map(_mgrPill).join(' ')||'-') + '</td>' +
+        '<td style="padding:6px 10px;font-size:12px;">' + esc(_topAn18||'-') + '</td>' +
+        '<td style="padding:6px 10px;">' + (_mgr18?_mgrPill(_mgr18):'-') + '</td>' +
         '<td style="text-align:right;padding:6px 10px;font-weight:600;font-variant-numeric:tabular-nums;">' + n + '</td>' +
         '<td style="padding:6px 10px;">' +
           '<div style="background:var(--border);border-radius:3px;height:10px;overflow:hidden;">' +
