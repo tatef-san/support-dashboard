@@ -3622,7 +3622,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       { key:'csatPct', label:'CSAT',            sub:'Customer Satisfaction',   goal: DATA.targets.csat,                  color:'#3b82f6', get: function(m){return m.csatPct;} },
       { key:'frtSla',  label:'FRT SLA',          sub:'First Response Time ≤2h · 90% goal', goal: DATA.targets.respMet || 0.9,        color:'#8b5cf6', get: function(m){return m.frtSla;}  },
       { key:'ttrSla',  label:'TTR SLA',          sub:'Time to Resolve 7 days',  goal: DATA.targets.closedSlaMet || 0.53,  color:'#f59e0b', get: function(m){return m.ttrSla;}  },
-      { key:'aiFirst', label:'AI-First Support', sub:'Maya / All Created',      goal: null,                               color:'#10b981', get: function(m){return m.aiFirst;} }
+      { key:'aiFirst', label:'AI-First Support', sub:'Maya / All Created',      goal: 0.70,                               color:'#10b981', get: function(m){return m.aiFirst;} }
     ];
 
     var html = '';
