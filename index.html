@@ -12217,7 +12217,7 @@ if(window.opener&&!window.opener.closed){
         if (cntDd) cntDd.textContent = visible.length + ' rows';
         var show = visible.slice(0,500);
         var ADO_BASE = 'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/';
-        var COLS = ['Ticket','CustomerName','CustomerEmail','TranscriptId','AgentVersion','Rating','Conversation Summary','Improvement Feedback'];
+        var COLS = ['Ticket','CustomerName','CustomerEmail','TranscriptId','AgentVersion','Rating Date','Rating','Conversation Summary','Improvement Feedback'];
         var h = '<table style="width:100%;border-collapse:collapse;min-width:900px;">' +
           '<thead><tr style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">';
         COLS.forEach(function(c){ h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap;">'+c+'</th>'; });
@@ -12235,6 +12235,7 @@ if(window.opener&&!window.opener.closed){
             '<td style="padding:7px 10px;font-size:11px;color:var(--muted);white-space:nowrap;">'+(r.cust||'').replace(/</g,'&lt;')+'</td>' +
             '<td style="padding:7px 10px;font-size:11px;color:var(--muted);">'+(r.id||'—')+'</td>' +
             '<td style="padding:7px 10px;font-size:11px;color:var(--muted);white-space:nowrap;">'+(r.v||'—')+'</td>' +
+            '<td style="padding:7px 10px;font-size:11px;color:var(--muted);white-space:nowrap;">'+(r.d||'—')+'</td>' +
             '<td style="padding:7px 10px;font-weight:700;color:'+starCol+';white-space:nowrap;">'+(rShort[r.rating]||r.rating)+'</td>' +
             '<td style="padding:7px 10px;max-width:280px;line-height:1.5;"><span title="'+esc(summary)+'">'+summary.replace(/</g,'&lt;').slice(0,120)+(summary.length>120?'…':'')+'</span></td>' +
             '<td style="padding:7px 10px;max-width:200px;line-height:1.5;">'+(fbShort?'<span title="'+esc(fbText)+'" style="color:var(--text);">'+fbShort.replace(/</g,'&lt;')+'</span>':'<span style="color:var(--muted);">—</span>')+'</td>' +
