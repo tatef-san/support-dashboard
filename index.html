@@ -2102,6 +2102,13 @@
               <option value="2">2 &#9733; Unsatisfied</option>
               <option value="1">1 &#9733; Very Unsatisfied</option>
             </select>
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">TYPE</span>
+            <select id="mayaTypeFilter" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--panel);color:var(--text);">
+              <option value="">All types</option>
+              <option value="Dedicated">Dedicated</option>
+              <option value="Pooled">Pooled</option>
+              <option value="Partner">Partner</option>
+            </select>
             <span id="mayaRowCount" style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;"></span>
           </div>
           <div id="mayaConversations" style="overflow-x:auto;font-size:12px;"></div>
@@ -11634,10 +11641,10 @@ if(window.opener&&!window.opener.closed){
     var range    = periodRange();
     var filtered = raw.filter(function(r){ return inRange(r.d, range); });
     // Segment filter: join wi→acct from closed/active, then apply inSegment
+    var _mayaWiAcct = {};
+    (DATA.closed||[]).forEach(function(r){ if(r.wi && r.acct) _mayaWiAcct[+r.wi]=r.acct; });
+    (DATA.active||[]).forEach(function(r){ var wi=+(r.id||r.wi); if(wi && r.acct) _mayaWiAcct[wi]=r.acct; });
     if (getSegment()) {
-      var _mayaWiAcct = {};
-      (DATA.closed||[]).forEach(function(r){ if(r.wi && r.acct) _mayaWiAcct[+r.wi]=r.acct; });
-      (DATA.active||[]).forEach(function(r){ var wi=+(r.id||r.wi); if(wi && r.acct) _mayaWiAcct[wi]=r.acct; });
       filtered = filtered.filter(function(r){ return inSegment(_mayaWiAcct[+r.wi]||''); });
     }
     var total    = filtered.length;
@@ -12134,9 +12141,11 @@ if(window.opener&&!window.opener.closed){
         var sq = ((document.getElementById('mayaSearch')||{}).value||'').toLowerCase();
         var rF = ((document.getElementById('mayaRatingFilter')||{}).value||'');
         var cF = ((document.getElementById('mayaCustomerFilter')||{}).value||'');
+        var tF = ((document.getElementById('mayaTypeFilter')||{}).value||'');
         var visible = allConvs.filter(function(r){
           if (rF && String(r.rating) !== rF) return false;
           if (cF && getAccount(r.cust) !== cF) return false;
+          if (tF && segmentOf(_mayaWiAcct[+(r.wi||0)]||'') !== tF) return false;
           if (sq) {
             var blob = [r.d||'', getAccount(r.cust), r.cust||'', String(r.rating||''), r.id||'', r.wi||'', r.summary||'', r.fb||'', r.v||''].join(' ').toLowerCase();
             return blob.indexOf(sq) >= 0;
@@ -12175,7 +12184,7 @@ if(window.opener&&!window.opener.closed){
       }
       renderMayaTable();
       var _mct; var debounceM = function(){ clearTimeout(_mct); _mct = setTimeout(renderMayaTable, 180); };
-      ['mayaSearch','mayaRatingFilter','mayaCustomerFilter'].forEach(function(id){
+      ['mayaSearch','mayaRatingFilter','mayaCustomerFilter','mayaTypeFilter'].forEach(function(id){
         var el2 = document.getElementById(id); if (!el2) return;
         el2.removeEventListener('input', debounceM); el2.removeEventListener('change', debounceM);
         el2.addEventListener('input', debounceM); el2.addEventListener('change', debounceM);
