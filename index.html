@@ -12619,7 +12619,17 @@ if(window.opener&&!window.opener.closed){
   }
 
   function ooOpenFocus(analystName) {
-    const all = (DATA.active || []).filter(function(r){ return r.c === analystName; });
+    // Mirror computeKPIs source priority: actPendUpload.rows (analyst field) when available,
+    // otherwise DATA.active (c field). Fixes 1:1 tab showing 0 active tickets when upload/sync
+    // attributes tickets via r.analyst rather than r.c.
+    let all;
+    try {
+      const up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
+      if (up && up.rows && up.rows.length) {
+        all = up.rows.filter(function(r){ return r.analyst === analystName; });
+      }
+    } catch(e) {}
+    if (!all) all = (DATA.active || []).filter(function(r){ return r.c === analystName; });
     const total = all.length;
     function n(fn) { return all.filter(fn).length; }
     function p(cnt) { return total > 0 ? (cnt / total * 100).toFixed(1) : null; }
