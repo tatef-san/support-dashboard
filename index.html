@@ -12619,17 +12619,28 @@ if(window.opener&&!window.opener.closed){
   }
 
   function ooOpenFocus(analystName) {
-    // Mirror computeKPIs source priority: actPendUpload.rows (analyst field) when available,
-    // otherwise DATA.active (c field). Fixes 1:1 tab showing 0 active tickets when upload/sync
-    // attributes tickets via r.analyst rather than r.c.
+    // actMentions is the authoritative source (diagnostic confirmed DATA.active is scoped/empty;
+    // all active tickets live in actMentions after ADO sync).
+    const _analystLc = analystName.toLowerCase().trim();
+    const _eWIs = new Set(JSON.parse(localStorage.getItem('actExcludedWIs')||'[]'));
     let all;
     try {
-      const up = JSON.parse(localStorage.getItem('actPendUpload') || 'null');
-      if (up && up.rows && up.rows.length) {
-        all = up.rows.filter(function(r){ return r.analyst === analystName; });
+      const _ms = JSON.parse(localStorage.getItem('actMentions')||'null');
+      if (_ms && _ms.data) {
+        all = Object.values(_ms.data)
+          .filter(function(m){ return !_eWIs.has(m.wi); })
+          .filter(function(m){ return (m.analyst||'').toLowerCase().trim() === _analystLc; });
       }
     } catch(e) {}
-    if (!all) all = (DATA.active || []).filter(function(r){ return r.c === analystName; });
+    if (!all) {
+      try {
+        const up = JSON.parse(localStorage.getItem('actPendUpload')||'null');
+        if (up && up.rows && up.rows.length) {
+          all = up.rows.filter(function(r){ return (r.analyst||'').toLowerCase().trim() === _analystLc; });
+        }
+      } catch(e) {}
+    }
+    if (!all) all = (DATA.active||[]).filter(function(r){ return r.c === analystName; });
     const total = all.length;
     function n(fn) { return all.filter(fn).length; }
     function p(cnt) { return total > 0 ? (cnt / total * 100).toFixed(1) : null; }
@@ -13283,9 +13294,37 @@ if(window.opener&&!window.opener.closed){
     h+=trow('Median TTR (d)',gv(mD,'ttr'),yD.ttr,gv(wD,'ttr'),num,function(v){return hcol(v,false,7,20);});
     h+=trow('FRT SLA %',gv(mD,'frt'),yD.frt,gv(wD,'frt'),pct,function(v){return hcol(v,true,0.75,0.90);});
     h+='</table></div></div>';
-    // Active tickets — use DATA.active directly (same source as Active Tickets tab)
-    var _actF=inScopeFilter(region,_analyst==='All'?'All':_analyst);
-    var actAll=(DATA.active||[]).filter(function(r){return _actF(r.c);});
+    // Active tickets — actMentions is the authoritative source (confirmed by diagnostic:
+    // DATA.active is scoped/empty; all tickets live in actMentions after ADO sync).
+    // Fall back to actPendUpload then DATA.active only when actMentions is absent.
+    var actAll=(function(){
+      var _eWIs=new Set(JSON.parse(localStorage.getItem('actExcludedWIs')||'[]'));
+      try{
+        var _ms=JSON.parse(localStorage.getItem('actMentions')||'null');
+        if(_ms&&_ms.data){
+          return Object.values(_ms.data)
+            .filter(function(m){return !_eWIs.has(m.wi);})
+            .filter(function(m){var a=(m.analyst||'').trim();return a&&a!=='-';})
+            .filter(function(m){
+              if(_analyst==='All')return inRoster(m.analyst);
+              return (m.analyst||'').toLowerCase().trim()===_analystLc;
+            })
+            .map(function(m){return{c:m.analyst,wi:m.wi,id:m.wi,age:m.age||0,acct:m.acct||'',title:m.title||'',
+              url:'https://sanacommerce.visualstudio.com/Sana%20Projects/_workitems/edit/'+m.wi};});
+        }
+      }catch(e){}
+      try{
+        var up=JSON.parse(localStorage.getItem('actPendUpload')||'null');
+        if(up&&up.rows&&up.rows.length){
+          return up.rows.filter(function(r){
+            if(_analyst==='All')return inRoster(r.analyst);
+            return (r.analyst||'').toLowerCase().trim()===_analystLc;
+          });
+        }
+      }catch(e){}
+      var _actF=inScopeFilter(region,_analyst==='All'?'All':_analyst);
+      return (DATA.active||[]).filter(function(r){return _actF(r.c);});
+    })();
     var aTotal=actAll.length;
     var bkts=[
       {l:'< 7d',n:0,col:'#16a34a',bg:'#f0fdf4'},
