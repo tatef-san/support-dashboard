@@ -9468,6 +9468,12 @@ if(window.opener&&!window.opener.closed){
           (function(a){var s=segmentOf(a);var col=s==='Dedicated'?'#2563eb':s==='Pooled'?'#7c3aed':s==='Partner'?'#059669':null;return '<td style="padding:6px 8px;white-space:nowrap;">'+(col?'<span style="font-size:10px;font-weight:700;color:'+col+';padding:1px 7px;border-radius:4px;background:'+col+'22;text-transform:uppercase;letter-spacing:.06em;">'+s+'</span>':'<span style="color:var(--muted);font-size:11px;">&#8212;</span>')+'</td>';})(t.acct||t.account||'') +
           '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
+          (function(){
+            var d = t.created ? new Date(t.created) : (typeof t.age==='number' ? new Date(Date.now() - t.age*86400000) : null);
+            if (!d || isNaN(d)) return '<td style="padding:6px 10px;color:#9ca3af;">—</td>';
+            var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return '<td style="padding:6px 10px;white-space:nowrap;color:#6b7280;font-size:11px;">'+mo[d.getUTCMonth()]+' '+d.getUTCDate()+', '+d.getUTCFullYear()+'</td>';
+          })() +
           '<td style="padding:6px 10px;text-align:right;color:#6b7280;">' + (DATA.commentCounts && DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : (t.comments != null ? t.comments : '—')) + '</td>' +
           '<td style="padding:6px 10px;white-space:nowrap;">' + (DATA.commentBreakdown && DATA.commentBreakdown[String(t.wi||t.id)] ? DATA.commentBreakdown[String(t.wi||t.id)] : '') + '</td>' +
           '</tr>';
@@ -9495,6 +9501,7 @@ if(window.opener&&!window.opener.closed){
                   '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Type</th>' +
                   '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Analyst</th>' +
                   '<th style="padding:7px 10px;text-align:right;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">Age</th>' +
+                  '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Created</th>' +
                   '<th style="padding:7px 10px;text-align:right;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Comments</th>' +
                   '<th style="padding:7px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">Breakdown</th>' +
                 '</tr></thead>' +
@@ -9515,15 +9522,17 @@ if(window.opener&&!window.opener.closed){
       .filter(r => typeof r.age === 'number' && r.age >= minAge && r.age < maxAge)
       .sort((a, b) => b.age - a.age);
     if (!tickets.length) return;
-    const lines = [['WI #', 'Title', 'Account', 'Analyst', 'Age (days)', 'URL', 'Comments'].join(',')];
+    const lines = [['WI #', 'Title', 'Account', 'Analyst', 'Age (days)', 'Created', 'URL', 'Comments'].join(',')];
     tickets.forEach(t => {
       const _cmts = DATA.commentCounts ? (DATA.commentCounts[String(t.wi||t.id)] != null ? DATA.commentCounts[String(t.wi||t.id)] : '') : '';
+      const _cd = t.created ? t.created.slice(0,10) : (typeof t.age==='number' ? new Date(Date.now()-t.age*86400000).toISOString().slice(0,10) : '');
       lines.push([
         t.wi || t.id || '',
         '"' + (t.title   || '').replace(/"/g, '""') + '"',
         '"' + (t.acct || t.account || '').replace(/"/g, '""') + '"',
         '"' + (t.c       || '').replace(/"/g, '""') + '"',
         Math.round(t.age || 0),
+        _cd,
         adoTicketUrl(t) || '',
         _cmts
       ].join(','));
