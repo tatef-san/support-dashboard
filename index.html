@@ -15594,6 +15594,15 @@ if(window.opener&&!window.opener.closed){
       return NON_ANALYST_VALUES.some(function(n) { return n && (l === n || l.startsWith(n + ' ') || l.startsWith(n + '_') || l.startsWith(n + '@')); });
     }
 
+    // States that must NEVER be treated as closed/terminal, no matter what the ADO
+    // connection's configured closedStates list says (UI-editable, prone to mistakes)
+    // or what a specific query's terminal-state list contains. These are always active.
+    var FORCE_ACTIVE_STATES = ['in progress', 'ready for review', 'waiting for review'];
+    function isForcedActiveState(state) {
+      var s = (state || '').toLowerCase().trim();
+      return FORCE_ACTIVE_STATES.indexOf(s) !== -1;
+    }
+
     function mapActive(items, c) {
       // State-to-pending mapping based on Sana Projects ADO states
       var CUSTOMER_STATES = ['on customer','on-customer','waiting customer','pending customer','waiting for customer','pending update','pending client','awaiting customer','awaiting client','customer response','waiting response'];
@@ -15818,7 +15827,7 @@ if(window.opener&&!window.opener.closed){
 
           var aItems = _odataRows.map(function(r) {
             var st   = r.State || '';
-            var isCl = _csList.indexOf(st) >= 0;
+            var isCl = _csList.indexOf(st) >= 0 && !isForcedActiveState(st);
             var endD = isCl ? (r.CompletedDate || r.ChangedDate) : null;
             return { fields: {
               'System.Id':          r.WorkItemId,
@@ -15840,7 +15849,8 @@ if(window.opener&&!window.opener.closed){
           active = mapActive(aItems, c);
           lf('Splitting closed tickets from OData result…');
           var cItems = aItems.filter(function(it) {
-            return _csList.indexOf(it.fields['System.State']) >= 0;
+            var st = it.fields['System.State'];
+            return _csList.indexOf(st) >= 0 && !isForcedActiveState(st);
           });
           lf('Found ' + cItems.length + ' closed Customer Support tickets.');
           closedArr = mapClosed(cItems, c);
@@ -16106,8 +16116,8 @@ if(window.opener&&!window.opener.closed){
           lf('Partner Support: ' + _psRows.length + ' total tickets.');
 
           var _PS_TERMINAL = ['Done','Cancelled','Closed'];
-          var _psActive = _psRows.filter(function(r){ return _PS_TERMINAL.indexOf(r.State) === -1; });
-          var _psClosed = _psRows.filter(function(r){ return _PS_TERMINAL.indexOf(r.State) !== -1; });
+          var _psActive = _psRows.filter(function(r){ return _PS_TERMINAL.indexOf(r.State) === -1 || isForcedActiveState(r.State); });
+          var _psClosed = _psRows.filter(function(r){ return _PS_TERMINAL.indexOf(r.State) !== -1 && !isForcedActiveState(r.State); });
           lf('Partner Support: ' + _psActive.length + ' active, ' + _psClosed.length + ' closed.');
 
           var _psAllIds = _psRows.map(function(r){ return r.WorkItemId; });
