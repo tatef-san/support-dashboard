@@ -2791,6 +2791,7 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
   }
   function rosterNames(region) { return new Set(rosterFor(region).map(r => r[0])); }
   function inRoster(name) { return !!name && rosterNames('All').has(name); }
+  window.inRoster = inRoster; // exposed globally — referenced from the Partner Support block, which lives in a separate closure
 
   // ===========================================================================
   // SCOPE — single combined dropdown for Overall / Region / Analyst.
