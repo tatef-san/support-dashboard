@@ -13598,16 +13598,15 @@ if(window.opener&&!window.opener.closed){
     };
 
     // Enrich ALL CSAT rows with account names from the full WI→account map
-    const _range = periodRange();
     const regularRows = (DATA.csat || []).map(r => {
       if (r.acct && r.acct.trim()) return r;
       if (r.wi && _ahWiAcct[r.wi]) return Object.assign({}, r, { acct: _ahWiAcct[r.wi] });
       return r;
-    }).filter(r => (r.acct||'').trim() && inRange(r.d, _range));
+    }).filter(r => (r.acct||'').trim());
 
     // Normalize Maya CSAT rows and merge — integer rating 1-5 maps directly
     const _MAYA_RMAP = {5:'very satisfied',4:'satisfied',3:'neutral',2:'unsatisfied',1:'very unsatisfied'};
-    const mayaRows = (window._mayaCsatData || []).filter(r => inRange(r.d, _range)).map(r => {
+    const mayaRows = (window._mayaCsatData || []).map(r => {
       const ratingText = _MAYA_RMAP[r.rating];
       if (!ratingText) return null; // unrecognised rating
       // Account: prefer WI→account map, fall back to email domain derivation
@@ -15728,6 +15727,37 @@ if(window.opener&&!window.opener.closed){
         var closed = closedList.map(wqlStr).join(',');
         var cutoff = '2026-01-01';
 
+        // ── REST API helpers (replaces analytics.dev.azure.com OData which returns 403 CORS) ──
+        var _restAuthHdr = window._adoAccessToken
+          ? ('Bearer ' + window._adoAccessToken)
+          : ('Basic ' + btoa(':' + (c.pat || '')));
+        var _restOrg = 'https://sanacommerce.visualstudio.com';
+        var _restProj = 'Sana%20Projects';
+        var _restPost = async function(url, body) {
+          var r = await fetch(url, { method: 'POST', headers: { 'Authorization': _restAuthHdr, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(body) });
+          if (!r.ok) { var t = await r.text().catch(function(){return '';}); throw new Error('ADO ' + r.status + (t ? ': ' + t.slice(0,120) : '')); }
+          return r.json();
+        };
+        var _wiqlIds = async function(query) {
+          var data = await _restPost(_restOrg + '/' + _restProj + '/_apis/wit/wiql?api-version=7.1', { query: query });
+          return (data.workItems || []).map(function(w){ return w.id; });
+        };
+        var _batchFields = async function(ids, fields, lfn) {
+          var rows = []; var CHUNK = 200;
+          for (var _bi = 0; _bi < ids.length; _bi += CHUNK) {
+            var data = await _restPost(_restOrg + '/_apis/wit/workitemsbatch?api-version=7.1', { ids: ids.slice(_bi, _bi + CHUNK), fields: fields });
+            (data.value || []).forEach(function(wi){ rows.push(wi.fields); });
+            if (ids.length > CHUNK && lfn) lfn('  Fetched ' + rows.length + ' / ' + ids.length + ' items…');
+          }
+          return rows;
+        };
+        var _toEmail = function(v) {
+          if (!v) return '';
+          if (typeof v === 'string') return v;
+          return v.uniqueName || v.displayName || '';
+        };
+        var _csItems; // populated in Path B, used by WRV section below
+
         var areaFilter = '';
         if (c.areaPath) {
           var areaPaths = c.areaPath.split(';').map(function(p){return p.trim();}).filter(Boolean);
@@ -15793,62 +15823,43 @@ if(window.opener&&!window.opener.closed){
           window._adoSampleIds = _sqlRows.slice(0,20).map(function(r){ return r.id; });
 
         } else {
-          // ── Path B: OData Analytics — PowerBI-matching TicketType filter ────────────
-          lf('Querying Customer Support tickets via OData Analytics…');
-          var _odataBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
-          var _odataSel  = 'WorkItemId,WorkItemType,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount,Custom_ProjectReleaseVersion,Custom_ServiceConsultant,Custom_TicketMainCategory,Custom_TicketSubCategory,Custom_SPPDeterminedSupportpriority';
-          var _odataExp  = 'AssignedTo($select=UserName),ChangedBy($select=UserName),Area($select=AreaPath)';
-          var _odataFlt  = "WorkItemType eq 'Ticket'" +
-            " and Custom_ProjectReleaseVersion ne null" +
-            " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
-            " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
-            " and Custom_ProjectReleaseVersion ne 'support - partner support'" +
-            " and CreatedDate ge 2026-01-01T00:00:00Z";
-          var _odataUrl  = _odataBase
-            + '?$select=' + encodeURIComponent(_odataSel)
-            + '&$expand=' + encodeURIComponent(_odataExp)
-            + '&$filter=' + encodeURIComponent(_odataFlt);
-          // Pre-start WRV SC and Partner Support WRV fetches in parallel with main tickets
-          var _wrvBaseEarly = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          var _wrvUrlSCEarly = _wrvBaseEarly + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,Custom_ServiceConsultant') + '&$filter=' + encodeURIComponent("WorkItemType eq 'Ticket' and Custom_ServiceConsultant ne null and Custom_ProjectReleaseVersion ne null and startswith(tolower(Custom_ProjectReleaseVersion),'support') and Custom_ProjectReleaseVersion ne 'support - wishlist' and RevisedDate ge 2026-01-01T00:00:00Z");
-          var _psWrvBaseEarly = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          var _psWrvUrlEarly = _psWrvBaseEarly + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,State') + '&$expand=' + encodeURIComponent('ChangedBy($select=UserName)') + '&$filter=' + encodeURIComponent("Custom_ProjectReleaseVersion eq 'Partner Support' and RevisedDate ge 2026-01-01T00:00:00Z");
-          var _psUrlEarly = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems' + '?$select=' + encodeURIComponent('WorkItemId,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount,Custom_ServiceConsultant') + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName),Area($select=AreaPath)') + '&$filter=' + encodeURIComponent("Custom_ProjectReleaseVersion eq 'Partner Support' and CreatedDate ge 2026-01-01T00:00:00Z");
-          lf('Prefetching WRV and Partner Support in parallel with main tickets…');
-          window._fetchODataAllCached(_wrvUrlSCEarly, 8*60*1000, lf);
-          window._fetchODataAllCached(_psWrvUrlEarly, 8*60*1000, lf);
-          window._fetchODataAllCached(_psUrlEarly, 5*60*1000, lf);
-          var _odataRows = await window._fetchODataAllCached(_odataUrl, 5*60*1000, lf);
-          lf('OData: ' + _odataRows.length + ' Customer Support tickets found.');
-          _odataRows = _odataRows.filter(function(r) {
-            return !((r.Area && r.Area.AreaPath) || '').toLowerCase().includes('test');
+          // ── Path B: REST API (WIQL + WorkItemsBatch) — replaces OData CORS-blocked calls ──
+          lf('Querying Customer Support tickets via REST API (WIQL + Batch)…');
+          var _csWiql = "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'Ticket' AND [Custom.ProjectReleaseVersion] CONTAINS 'support' AND [Custom.ProjectReleaseVersion] <> 'Partner Support' AND [Custom.ProjectReleaseVersion] <> 'support - partner support' AND [Custom.ProjectReleaseVersion] <> 'support - wishlist' AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] ASC";
+          var _csFields = ['System.Id','System.State','System.Title','System.CreatedDate','System.ChangedDate','System.ResolvedDate','System.AreaPath','System.AssignedTo','System.ChangedBy','System.CommentCount','Custom.ServiceConsultant','Custom.TicketMainCategory','Custom.TicketSubCategory'];
+          var _csIds = await _wiqlIds(_csWiql);
+          lf('WIQL: ' + _csIds.length + ' Customer Support ticket IDs found.');
+          _csItems = await _batchFields(_csIds, _csFields, lf);
+          lf('Batch complete: ' + _csItems.length + ' Customer Support tickets fetched.');
+          _csItems = _csItems.filter(function(f) {
+            return !((f['System.AreaPath'] || '').toLowerCase().includes('test'));
           });
-          lf('After area filter: ' + _odataRows.length + ' Customer Support tickets.');
-          window._adoSampleIds = _odataRows.slice(0,20).map(function(r){ return r.WorkItemId; });
+          lf('After area filter: ' + _csItems.length + ' Customer Support tickets.');
+          window._adoSampleIds = _csItems.slice(0,20).map(function(f){ return f['System.Id']; });
 
-          var aItems = _odataRows.map(function(r) {
-            var st   = r.State || '';
+          var aItems = _csItems.map(function(f) {
+            var st   = f['System.State'] || '';
             var isCl = _csList.indexOf(st) >= 0 && !isForcedActiveState(st);
-            var endD = isCl ? (r.CompletedDate || r.ChangedDate) : null;
+            var endD = isCl ? (f['System.ResolvedDate'] || f['System.ChangedDate']) : null;
             return { fields: {
-              'System.Id':          r.WorkItemId,
+              'System.Id':          f['System.Id'],
               'System.State':       st,
-              'System.Title':       r.Title || '',
-              'System.CreatedDate': r.CreatedDate,
-              'System.ChangedDate': r.ChangedDate,
+              'System.Title':       f['System.Title'] || '',
+              'System.CreatedDate': f['System.CreatedDate'],
+              'System.ChangedDate': f['System.ChangedDate'],
               'System.ResolvedDate':endD,
               'System.ClosedDate':  endD,
-              'System.AssignedTo':  (r.AssignedTo && r.AssignedTo.UserName) || '',
-              'System.ChangedBy':   (r.ChangedBy && r.ChangedBy.UserName) || '',
-              'System.AreaPath':    (r.Area && r.Area.AreaPath) || '',
-              'System.CommentCount': r.CommentCount != null ? Number(r.CommentCount) : null,
-              'Custom.ServiceConsultant':  r.Custom_ServiceConsultant || '',
-              'Custom.TicketMainCategory': r.Custom_TicketMainCategory || '',
-              'Custom.TicketSubCategory':  r.Custom_TicketSubCategory || '',
+              'System.AssignedTo':  _toEmail(f['System.AssignedTo']),
+              'System.ChangedBy':   _toEmail(f['System.ChangedBy']),
+              'System.AreaPath':    f['System.AreaPath'] || '',
+              'System.CommentCount': f['System.CommentCount'] != null ? Number(f['System.CommentCount']) : null,
+              'Custom.ServiceConsultant':  f['Custom.ServiceConsultant'] || '',
+              'Custom.TicketMainCategory': f['Custom.TicketMainCategory'] || '',
+              'Custom.TicketSubCategory':  f['Custom.TicketSubCategory'] || '',
             }};
           });
           active = mapActive(aItems, c);
-          lf('Splitting closed tickets from OData result…');
+          lf('Splitting closed tickets from REST result…');
           var cItems = aItems.filter(function(it) {
             var st = it.fields['System.State'];
             return _csList.indexOf(st) >= 0 && !isForcedActiveState(st);
@@ -15974,61 +15985,20 @@ if(window.opener&&!window.opener.closed){
           lf('ClosedSQL: not available — ' + (_sqlCErr.message||''));
         }
 
-        // WorkItemRevisions: use Custom_ServiceConsultant (permanent SA record, survives routing/transfers).
-        // Primary: last revision where Custom_ServiceConsultant is set per ticket.
-        // Fallback: if < 100 rows returned, use last AssignedTo (old approach).
+        // WorkItemRevisions: Custom_ServiceConsultant already fetched in REST batch above.
+        // Build attribution map from the batch data — current field value = last known SC.
         try {
-          lf('WorkItemRevisions: fetching Custom_ServiceConsultant attribution…');
-          var _wrvBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-          var _wrvUrlSC = _wrvBase
-            + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,Custom_ServiceConsultant')
-            + '&$filter=' + encodeURIComponent(
-                "WorkItemType eq 'Ticket'" +
-                " and Custom_ServiceConsultant ne null" +
-                " and Custom_ProjectReleaseVersion ne null" +
-                " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
-                " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
-                " and RevisedDate ge 2026-01-01T00:00:00Z"
-              );
-          var _wrvRowsSC = await window._fetchODataAllCached(_wrvUrlSC, 8*60*1000, lf);
-          lf('WorkItemRevisions: ' + _wrvRowsSC.length + ' rows with Custom_ServiceConsultant set.');
-
+          lf('WorkItemRevisions: building SC attribution from REST batch data…');
           var _wrvMap = {};
-          if (_wrvRowsSC.length >= 100) {
-            // Primary path — Custom_ServiceConsultant
-            _wrvRowsSC.forEach(function(rv) {
-              var id = rv.WorkItemId;
-              var sc = (rv.Custom_ServiceConsultant || '').trim();
-              var dt = rv.RevisedDate || '';
-              if (!id || !sc) return;
-              var ex = _wrvMap[id];
-              if (!ex || dt > ex.dt) _wrvMap[id] = { dt: dt, user: sc };
+          if (typeof _csItems !== 'undefined' && _csItems) {
+            _csItems.forEach(function(f) {
+              var id = f['System.Id'];
+              var sc = (f['Custom.ServiceConsultant'] || '').trim();
+              if (id && sc) _wrvMap[id] = { dt: f['System.ChangedDate'] || '', user: sc };
             });
-            lf('WorkItemRevisions: built map from Custom_ServiceConsultant (' + Object.keys(_wrvMap).length + ' tickets).');
+            lf('WorkItemRevisions: SC map built for ' + Object.keys(_wrvMap).length + ' tickets from REST batch.');
           } else {
-            // Fallback path — last AssignedTo
-            lf('WorkItemRevisions: Custom_ServiceConsultant too sparse, falling back to AssignedTo…');
-            var _wrvUrlAT = _wrvBase
-              + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate')
-              + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName)')
-              + '&$filter=' + encodeURIComponent(
-                  "WorkItemType eq 'Ticket'" +
-                  " and AssignedTo/UserName ne null" +
-                  " and Custom_ProjectReleaseVersion ne null" +
-                  " and startswith(tolower(Custom_ProjectReleaseVersion),'support')" +
-                  " and Custom_ProjectReleaseVersion ne 'support - wishlist'" +
-                  " and RevisedDate ge 2026-01-01T00:00:00Z"
-                );
-            var _wrvRowsAT = await window._fetchODataAllCached(_wrvUrlAT, 8*60*1000, lf);
-            lf('WorkItemRevisions: ' + _wrvRowsAT.length + ' rows (AssignedTo fallback).');
-            _wrvRowsAT.forEach(function(rv) {
-              var id   = rv.WorkItemId;
-              var user = (rv.AssignedTo && rv.AssignedTo.UserName) ? rv.AssignedTo.UserName : '';
-              var dt   = rv.RevisedDate || '';
-              if (!id || !user) return;
-              var ex = _wrvMap[id];
-              if (!ex || dt > ex.dt) _wrvMap[id] = { dt: dt, user: user };
-            });
+            lf('WorkItemRevisions: no REST batch data (SQL path) — skipping SC map.');
           }
 
           var _wrvFixed = 0;
@@ -16044,7 +16014,7 @@ if(window.opener&&!window.opener.closed){
           });
           lf('WorkItemRevisions: applied attribution to ' + _wrvFixed + ' / ' + (closedArr||[]).length + ' tickets.');
         } catch(_wrvErr) {
-          lf('WorkItemRevisions: not available — ' + (_wrvErr.message || _wrvErr));
+          lf('WorkItemRevisions: error — ' + (_wrvErr.message || _wrvErr));
         }
 
         // SQL closedattr: override row.c (last-SC-before-close) and row.resp for 2026 tickets.
@@ -16104,16 +16074,27 @@ if(window.opener&&!window.opener.closed){
         // Attribution: active → WorkItemRevisions ChangedBy (state → Backlog Analyze);
         //              closed → Sphere DB last SA comment; fallback: WRV last SA ChangedBy.
         try {
-          lf('Partner Support: fetching tickets…');
-          var _psWIBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItems';
-          var _psUrl = _psWIBase
-            + '?$select=' + encodeURIComponent('WorkItemId,State,Title,CreatedDate,CompletedDate,ChangedDate,CommentCount,Custom_ServiceConsultant')
-            + '&$expand=' + encodeURIComponent('AssignedTo($select=UserName),Area($select=AreaPath)')
-            + '&$filter=' + encodeURIComponent(
-                "Custom_ProjectReleaseVersion eq 'Partner Support'"
-                + " and CreatedDate ge 2026-01-01T00:00:00Z"
-              );
-          var _psRows = await window._fetchODataAllCached(_psUrl, 5*60*1000, lf);
+          lf('Partner Support: fetching tickets via REST API (WIQL + Batch)…');
+          var _psWiql = "SELECT [System.Id] FROM WorkItems WHERE [Custom.ProjectReleaseVersion] = 'Partner Support' AND [System.CreatedDate] >= '2026-01-01' ORDER BY [System.CreatedDate] ASC";
+          var _psFieldList = ['System.Id','System.State','System.Title','System.CreatedDate','System.ResolvedDate','System.ChangedDate','System.AreaPath','System.AssignedTo','System.CommentCount','Custom.ServiceConsultant'];
+          var _psIds = await _wiqlIds(_psWiql);
+          lf('Partner Support WIQL: ' + _psIds.length + ' IDs found.');
+          var _psBatch = await _batchFields(_psIds, _psFieldList, lf);
+          // Reshape to match the shape the downstream code expects (same as old OData rows)
+          var _psRows = _psBatch.map(function(f) {
+            return {
+              WorkItemId:               f['System.Id'],
+              State:                    f['System.State'] || '',
+              Title:                    f['System.Title'] || '',
+              CreatedDate:              f['System.CreatedDate'],
+              CompletedDate:            f['System.ResolvedDate'],
+              ChangedDate:              f['System.ChangedDate'],
+              CommentCount:             f['System.CommentCount'],
+              Custom_ServiceConsultant: f['Custom.ServiceConsultant'] || '',
+              AssignedTo:               { UserName: _toEmail(f['System.AssignedTo']) },
+              Area:                     { AreaPath:  f['System.AreaPath'] || '' }
+            };
+          });
           lf('Partner Support: ' + _psRows.length + ' total tickets.');
 
           var _PS_TERMINAL = ['Done','Cancelled','Closed'];
@@ -16159,17 +16140,10 @@ if(window.opener&&!window.opener.closed){
             'ri.khan@sana-commerce.com','m.martinez@sana-commerce.com'
           ];
           try {
-            lf('Partner Support WRV: fetching revisions…');
-            var _psWrvBase = 'https://analytics.dev.azure.com/sanacommerce/Sana%20Projects/_odata/v3.0-preview/WorkItemRevisions';
-            var _psWrvUrl = _psWrvBase
-              + '?$select=' + encodeURIComponent('WorkItemId,RevisedDate,State')
-              + '&$expand=' + encodeURIComponent('ChangedBy($select=UserName)')
-              + '&$filter=' + encodeURIComponent(
-                  "Custom_ProjectReleaseVersion eq 'Partner Support'"
-                  + " and RevisedDate ge 2026-01-01T00:00:00Z"
-                );
-            var _psWrvRows = await window._fetchODataAllCached(_psWrvUrl, 8*60*1000, lf);
-            lf('Partner Support WRV: ' + _psWrvRows.length + ' revision rows.');
+            // Partner Support WRV: revision history not available from REST API without per-ticket calls.
+            // Attribution falls back to Custom_ServiceConsultant and AssignedTo from the batch above.
+            var _psWrvRows = [];
+            lf('Partner Support WRV: using REST batch attribution (Custom_ServiceConsultant + AssignedTo).');
 
             // Sort ascending for active (first Backlog Analyze wins)
             _psWrvRows.sort(function(a,b){ return (a.RevisedDate||'') < (b.RevisedDate||'') ? -1 : 1; });
@@ -17611,7 +17585,7 @@ document.addEventListener('DOMContentLoaded', function() {
 (function() {
   var _CLIENT_ID = '4e71ab59-a8a6-432a-851f-e2882ed143ea';
   var _TENANT_ID = '783727bb-afca-4f4e-925b-d2df74e54c12';
-  var _REDIRECT  = 'https://tatef-san.github.io/support-dashboard/';
+  var _REDIRECT  = 'https://stgperformacedashboard.z6.web.core.windows.net/';
   var _ADO_SCOPE = '499b84ac-1321-427f-aa17-267ca6975798/user_impersonation';
 
   var _msalCfg = {
