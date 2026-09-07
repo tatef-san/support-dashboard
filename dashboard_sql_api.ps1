@@ -13,14 +13,9 @@
 #   Application ID : 4e71ab59-a8a6-432a-851f-e2882ed143ea
 #   Tenant ID      : 783727bb-afca-4f4e-925b-d2df74e54c12
 
-# ── Credentials — set these as environment variables, never hardcode ──────────
-# Set them in PowerShell before running this script:
-#   $env:SQL_SERVER = "10.171.0.9"
-#   $env:SQL_USER   = "t.atef"
-#   $env:SQL_PASS   = "your-password-here"
-$Server = if ($env:SQL_SERVER) { $env:SQL_SERVER } else { throw "SQL_SERVER env var not set" }
-$DbUser = if ($env:SQL_USER)   { $env:SQL_USER   } else { throw "SQL_USER env var not set" }
-$DbPass = if ($env:SQL_PASS)   { $env:SQL_PASS   } else { throw "SQL_PASS env var not set" }
+$Server = "10.171.0.9"
+$DbUser = "t.atef"
+$DbPass = "D@a6bKq7zsrWC2!"
 $Port   = 3012
 
 # ── DB helpers — ticket index DB (AzureDevops_Issue_Revision lives here) ──────
@@ -473,78 +468,6 @@ try {
                 $jsonRows = $actParts -join ','
                 $body = '{"count":' + $actDt.Rows.Count + ',"source":"prisma_sql","rows":[' + $jsonRows + ']}'
                 Write-Host "$ts GET /api/active → $($actDt.Rows.Count) tickets" -ForegroundColor Green
-            }
-            elseif ($path -eq "/api/commentcounts" -and $req.HttpMethod -eq "POST") {
-                Write-Host "$ts POST /api/commentcounts — targeted query..." -ForegroundColor Yellow
-                $ccBodyRdr = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
-                $ccBodyText = $ccBodyRdr.ReadToEnd()
-                $ccIds = ($ccBodyText | ConvertFrom-Json).ids
-                if (-not $ccIds -or $ccIds.Count -eq 0) {
-                    $body = '{"rows":[]}'
-                } else {
-                    $ccIdList = ($ccIds | ForEach-Object { [int]$_ }) -join ','
-                    $ccCs = "Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
-                    $ccConn = New-Object System.Data.SqlClient.SqlConnection($ccCs); $ccConn.Open()
-                    $ccCmd = $ccConn.CreateCommand()
-                    $ccCmd.CommandText = "SELECT WorkItemId, COUNT(*) AS CommentCount FROM AzureDevops_Issue_Revision WHERE Field = 'System.History' AND WorkItemId IN ($ccIdList) GROUP BY WorkItemId"
-                    $ccCmd.CommandTimeout = 60
-                    $ccRdr = $ccCmd.ExecuteReader()
-                    $ccSb = New-Object System.Text.StringBuilder
-                    $ccSb.Append('{"rows":[') | Out-Null
-                    $ccFirst = $true; $ccN = 0
-                    while ($ccRdr.Read()) {
-                        if (-not $ccFirst) { $ccSb.Append(',') | Out-Null }
-                        $ccSb.Append('{"id":"') | Out-Null
-                        $ccSb.Append($ccRdr.GetInt32(0)) | Out-Null
-                        $ccSb.Append('","n":') | Out-Null
-                        $ccSb.Append($ccRdr.GetInt32(1)) | Out-Null
-                        $ccSb.Append('}') | Out-Null
-                        $ccFirst = $false; $ccN++
-                    }
-                    $ccRdr.Close(); $ccConn.Close()
-                    $ccSb.Append(']}') | Out-Null
-                    $body = $ccSb.ToString()
-                }
-                Write-Host "$ts POST /api/commentcounts → $ccN tickets" -ForegroundColor Green
-            }
-            elseif ($path -eq "/api/commentbreakdown" -and $req.HttpMethod -eq "POST") {
-                Write-Host "$ts POST /api/commentbreakdown — author breakdown..." -ForegroundColor Yellow
-                $bdBodyRdr = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
-                $bdBodyText = $bdBodyRdr.ReadToEnd()
-                $bdIds = ($bdBodyText | ConvertFrom-Json).ids
-                if (-not $bdIds -or $bdIds.Count -eq 0) {
-                    $body = '{"rows":[]}'
-                } else {
-                    $bdIdList = ($bdIds | ForEach-Object { [int]$_ }) -join ','
-                    $bdCs = "Server=$Server;Database=Sana_Start_TicketIndex_live;User ID=$DbUser;Password=$DbPass;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;"
-                    $bdConn = New-Object System.Data.SqlClient.SqlConnection($bdCs); $bdConn.Open()
-                    $bdCmd = $bdConn.CreateCommand()
-                    $bdCmd.CommandText = "SELECT WorkItemId, ChangedBy, COUNT(*) AS n FROM AzureDevops_Issue_Revision WHERE Field = 'System.History' AND WorkItemId IN ($bdIdList) GROUP BY WorkItemId, ChangedBy"
-                    $bdCmd.CommandTimeout = 60
-                    $bdRdr = $bdCmd.ExecuteReader()
-                    $bdSb = New-Object System.Text.StringBuilder
-                    $bdSb.Append('{"rows":[') | Out-Null
-                    $bdFirst = $true; $bdN = 0
-                    while ($bdRdr.Read()) {
-                        if (-not $bdFirst) { $bdSb.Append(',') | Out-Null }
-                        $bdWI = $bdRdr.GetInt32(0)
-                        $bdAuthor = if ($bdRdr.IsDBNull(1)) { '' } else { $bdRdr.GetString(1) }
-                        $bdCount = $bdRdr.GetInt32(2)
-                        $bdAuthorEsc = $bdAuthor.Replace('\','\\').Replace('"','\"').Replace("`r",'').Replace("`n",' ').Replace("`t",' ')
-                        $bdSb.Append('{"id":') | Out-Null
-                        $bdSb.Append($bdWI) | Out-Null
-                        $bdSb.Append(',"a":"') | Out-Null
-                        $bdSb.Append($bdAuthorEsc) | Out-Null
-                        $bdSb.Append('","n":') | Out-Null
-                        $bdSb.Append($bdCount) | Out-Null
-                        $bdSb.Append('}') | Out-Null
-                        $bdFirst = $false; $bdN++
-                    }
-                    $bdRdr.Close(); $bdConn.Close()
-                    $bdSb.Append(']}') | Out-Null
-                    $body = $bdSb.ToString()
-                }
-                Write-Host "$ts POST /api/commentbreakdown → $bdN rows" -ForegroundColor Green
             }
             elseif ($path -eq "/api/secondlayer") {
                 Write-Host "$ts GET /api/secondlayer — querying revision DB..." -ForegroundColor Yellow
