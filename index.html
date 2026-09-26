@@ -3039,7 +3039,6 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       window._mgrRosterOverride.forEach(r => addOpt(r[0], r[0]));
     } else {
       addOpt('All', 'Overall (org)');
-      REGIONS.forEach(reg => addOpt(reg, reg + ' — region'));
       REGIONS.forEach(reg => {
         const og = document.createElement('optgroup');
         og.label = reg + ' — analysts';
