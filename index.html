@@ -3039,7 +3039,16 @@ const EMBEDDED = {"escFallback":{"413929":"Rifa Khan","406652":"Sruthi Sreedhara
       window._mgrRosterOverride.forEach(r => addOpt(r[0], r[0]));
     } else {
       addOpt('All', 'Overall (org)');
-      DATA.roster.forEach(r => addOpt(r[0], r[0]));
+      REGIONS.forEach(reg => addOpt(reg, reg + ' — team'));
+      REGIONS.forEach(reg => {
+        const og = document.createElement('optgroup');
+        og.label = reg + ' — analysts';
+        DATA.roster.filter(r => r[1] === reg).forEach(r => {
+          const o = document.createElement('option'); o.value = r[0]; o.textContent = r[0];
+          og.appendChild(o);
+        });
+        sel.appendChild(og);
+      });
     }
     if ([...sel.options].some(o => o.value === cur)) sel.value = cur; else sel.value = 'All';
   }
