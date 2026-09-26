@@ -636,9 +636,6 @@
       <label for="scope">Scope</label>
       <select id="scope" style="min-width:240px;">
         <option value="All" selected>Overall (org)</option>
-        <option value="EMEA 1">EMEA 1 — region</option>
-        <option value="Americas">Americas — region</option>
-        <option value="EMEA 2 (Alex)">EMEA 2 (Alex) — region</option>
       </select>
       <label for="segment" style="margin-left:8px;">Segment</label>
       <select id="segment" style="min-width:130px;">
@@ -9479,7 +9476,7 @@ if(window.opener&&!window.opener.closed){
   function renderAccountsView(rows) {
     const el = $('actAccountsView');
     if (!el) return;
-    const _mgrOf = nm => { const n=(nm||'').toLowerCase(); if(/nouraldeen|elfaramawy|toqa|bayoumi/.test(n)) return 'Tarek'; if(/hoyos|najabi|salgado|daniela/.test(n)) return 'Francisco'; return 'Rafferty'; };
+    const _mgrOf = nm => { const n=(nm||'').toLowerCase(); if(/nouraldeen|elfaramawy|toqa|bayoumi|rifa|archana|chakravarty/.test(n)) return 'Tarek'; if(/hoyos|najabi|salgado|daniela|stephenson|ohinska/.test(n)) return 'Francisco'; return 'Rafferty'; };
     const counts = {}; const acctAnCounts = {};
     rows.forEach(r => {
       const acct = (r.acct || '').trim();
@@ -17115,9 +17112,9 @@ if(window.opener&&!window.opener.closed){
   // ── Manager definitions ────────────────────────────────────────────────
   var MANAGER_DEFS = {
     '__mgr_rogier__':    { display: 'Rogier',    label: '👔 Rogier (Overall)',     analysts: null, overall: true },
-    '__mgr_raffery__':   { display: 'Raffery',   label: '👔 Raffery (EMEA Team)',  analysts: ['Alexis Stephenson','Archana Chakravarty','Meha Johny','Rifa Khan','Gert Overheul','Sruthi Sreedharan','Judith Hüneburg','Anna Ohinska','Katie Durisova'] },
-    '__mgr_francisco__': { display: 'Francisco', label: '👔 Francisco (Americas)', analysts: ['Alexander Hoyos Gonzalez','Najabi Salgado Giraldo','Maria Daniela Martinez'] },
-    '__mgr_tarek__':     { display: 'Tarek',     label: '👔 Tarek (Alexandria)',   analysts: ['Ahmed Nouraldeen','Sarah Elfaramawy','Toqa Refaat','Mohamed Bayoumi'] },
+    '__mgr_raffery__':   { display: 'Rafferty',  label: '👔 Rafferty (Team C)',   analysts: ['Gert Overheul','Judith Hüneburg','Katie Durisova','Sruthi Sreedharan','Meha Johny'] },
+    '__mgr_francisco__': { display: 'Francisco', label: '👔 Francisco (Team A)',  analysts: ['Alexis Stephenson','Alexander Hoyos Gonzalez','Maria Daniela Martinez','Anna Ohinska','Najabi Salgado Giraldo'] },
+    '__mgr_tarek__':     { display: 'Tarek',     label: '👔 Tarek (Team B)',      analysts: ['Ahmed Nouraldeen','Sarah Elfaramawy','Toqa Refaat','Mohamed Bayoumi','Rifa Khan','Archana Chakravarty'] },
   };
 
   // ── Email-based user access config ────────────────────────────────────
