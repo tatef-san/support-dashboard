@@ -8046,7 +8046,7 @@ if(window.opener&&!window.opener.closed){
             '<td style="padding:7px 10px;white-space:nowrap;color:var(--muted);">'+esc(r.d||'')+'</td>' +
             '<td style="padding:7px 10px;white-space:nowrap;">'+wiLink+'</td>' +
             '<td style="padding:7px 10px;font-weight:600;">'+esc(r.acct||'')+'</td>' +
-            (function(a){var s=segmentOf(a);var col=s==='Dedicated'?'#2563eb':s==='Pooled'?'#7c3aed':s==='Partner'?'#059669':null;return '<td style="padding:7px 8px;white-space:nowrap;">'+(col?'<span style="font-size:10px;font-weight:700;color:'+col+';padding:1px 7px;border-radius:4px;background:'+col+'22;text-transform:uppercase;letter-spacing:.06em;">'+s+'</span>':'<span style="color:var(--muted);font-size:11px;">&#8212;</span>')+'</td>';})(r.acct||'') +
+            (function(r2){var s=r2.isPartner?'Partner':segmentOf(r2.acct||'');var col=s==='Dedicated'?'#2563eb':s==='Pooled'?'#7c3aed':s==='Partner'?'#059669':null;return '<td style="padding:7px 8px;white-space:nowrap;">'+(col?'<span style="font-size:10px;font-weight:700;color:'+col+';padding:1px 7px;border-radius:4px;background:'+col+'22;text-transform:uppercase;letter-spacing:.06em;">'+s+'</span>':'<span style="color:var(--muted);font-size:11px;">&#8212;</span>')+'</td>';})(r) +
             '<td style="padding:7px 10px;">'+(inRoster(r.c) ? esc(r.c||'') : '<span style="color:var(--muted);font-style:italic;" title="Not in analyst roster">'+(r.c?esc(r.c):'—')+'</span>')+'</td>' +
             '<td style="padding:7px 10px;font-weight:700;color:'+rcol+';">'+esc(rlabel)+'</td>' +
             '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+rcol+';">'+score+'</td>' +
@@ -9633,7 +9633,7 @@ if(window.opener&&!window.opener.closed){
           '<td style="padding:6px 10px;white-space:nowrap;font-weight:600;">' + wiLink + '</td>' +
           '<td style="padding:6px 10px;">' + esc(t.title || '-') + partnerBadge + '</td>' +
           '<td style="padding:6px 10px;color:#6b7280;">' + esc(t.acct || t.account || '-') + '</td>' +
-          (function(a){var s=segmentOf(a);var col=s==='Dedicated'?'#2563eb':s==='Pooled'?'#7c3aed':s==='Partner'?'#059669':null;return '<td style="padding:6px 8px;white-space:nowrap;">'+(col?'<span style="font-size:10px;font-weight:700;color:'+col+';padding:1px 7px;border-radius:4px;background:'+col+'22;text-transform:uppercase;letter-spacing:.06em;">'+s+'</span>':'<span style="color:var(--muted);font-size:11px;">&#8212;</span>')+'</td>';})(t.acct||t.account||'') +
+          (function(t2){var s=t2.isPartner?'Partner':segmentOf(t2.acct||t2.account||'');var col=s==='Dedicated'?'#2563eb':s==='Pooled'?'#7c3aed':s==='Partner'?'#059669':null;return '<td style="padding:6px 8px;white-space:nowrap;">'+(col?'<span style="font-size:10px;font-weight:700;color:'+col+';padding:1px 7px;border-radius:4px;background:'+col+'22;text-transform:uppercase;letter-spacing:.06em;">'+s+'</span>':'<span style="color:var(--muted);font-size:11px;">&#8212;</span>')+'</td>';})(t) +
           '<td style="padding:6px 10px;' + (t.c ? 'color:#6b7280;' : 'color:#9ca3af;font-style:italic;') + '">' + esc(t.c || 'Unassigned') + '</td>' +
           '<td style="padding:6px 10px;text-align:right;font-weight:700;">' + Math.round(t.age) + 'd</td>' +
           (function(){
