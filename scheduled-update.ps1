@@ -1,5 +1,5 @@
-# scheduled-update.ps1
-# Self-contained headless update script — runs on SQL server (10.171.0.9)
+﻿# scheduled-update.ps1
+# Self-contained headless update script - runs on SQL server (10.171.0.9)
 # Refreshes CSAT, closed tickets, and closedattr every run, then deploys to Azure.
 # No interactive prompts. All credentials loaded from .credentials.ps1
 #
@@ -10,7 +10,7 @@
 
 param()
 
-# Hardcoded install path — avoids $MyInvocation being null when run as SYSTEM via Task Scheduler
+# Hardcoded install path - avoids $MyInvocation being null when run as SYSTEM via Task Scheduler
 $WorkDir  = "C:\DashboardUpdate"
 $LogDir   = Join-Path $WorkDir "logs"
 $LogFile  = Join-Path $LogDir ("update-" + (Get-Date -Format "yyyy-MM-dd") + ".log")
@@ -79,8 +79,8 @@ function Open-Conn([string]$db) {
         $c.Open()
         return $c
     } catch {
-        # Throw a sanitized message — never expose the connection string
-        throw "SQL connection to '$db' on $SqlServer failed: $($_.Exception.GetType().Name) — $($_.Exception.Message -replace [regex]::Escape($SqlPass),'***')"
+        # Throw a sanitized message - never expose the connection string
+        throw "SQL connection to '$db' on $SqlServer failed: $($_.Exception.GetType().Name) - $($_.Exception.Message -replace [regex]::Escape($SqlPass),'***')"
     }
 }
 
@@ -95,7 +95,7 @@ function Sanitize-Err([string]$msg) {
     return $msg
 }
 
-# Force TLS 1.2 — required by Azure Storage (server may default to TLS 1.0/1.1)
+# Force TLS 1.2 - required by Azure Storage (server may default to TLS 1.0/1.1)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # ── STEP 1: Download latest index.html from Azure ─────────────────────────────
@@ -124,6 +124,13 @@ try {
                   "    '409656': 'Sarah Elfaramawy',`n" +
                   "    '410927': 'Sarah Elfaramawy',`n" +
                   "    '411017': 'Sarah Elfaramawy',`n" +
+                  "    '401550': 'Ahmed Nouereldeen',`n" +
+                  "    '410775': 'Anna Ohinska',`n" +
+                  "    '420885': 'Anna Ohinska',`n" +
+                  "    '420111': 'Toqa Refaat',`n" +
+                  "    '420139': 'Toqa Refaat',`n" +
+                  "    '423382': 'Toqa Refaat',`n" +
+                  "    '423545': 'Toqa Refaat',`n" +
                   "  };`n" +
                   "  const _ACCOUNT_ANALYST_OVERRIDES = {};`n`n"
         $ovContent = $ovContent -replace '(  const _ACCT_ALIASES = \{)', ($ovDefn + '  const _ACCT_ALIASES = {')
@@ -139,37 +146,91 @@ try {
         [System.IO.File]::WriteAllText($TempHtml, $ovContent, [System.Text.Encoding]::UTF8)
         Log "Analyst overrides injected for tickets 395664/399787/399904/401955/409656/410927/411017 -> Sarah Elfaramawy" "Green"
     } else {
-        Log "Analyst overrides already present — skipped." "DarkGray"
+        Log "Analyst overrides already present - skipped." "DarkGray"
     }
 } catch {
     Log "WARNING: Could not inject analyst overrides: $(Sanitize-Err "$_")" "Yellow"
 }
 
 # ── STEP 2: CSAT update ────────────────────────────────────────────────────────
+$NAME_MAP = @{
+        'a.nouraldeen@sana-commerce.com'  = 'Ahmed Nouraldeen';  'ahmed nouraldeen'          = 'Ahmed Nouraldeen'
+        's.elfarmawy@sana-commerce.com'   = 'Sarah Elfaramawy';  's.elfaramawy@sana-commerce.com' = 'Sarah Elfaramawy'; 'sarah elfaramawy' = 'Sarah Elfaramawy'
+        't.refaat@sana-commerce.com'      = 'Toqa Refaat';       'toqa refaat'               = 'Toqa Refaat';       'toqa refaat abo-khatwa' = 'Toqa Refaat'
+        'm.bayoumi@sana-commerce.com'     = 'Mohamed Bayoumi';   'mohamed bayoumi'           = 'Mohamed Bayoumi';   'mohamed ashraf bayoumy' = 'Mohamed Bayoumi'
+        't.atef@sana-commerce.com'        = 'Tarek Atef';        'tarek atef'                = 'Tarek Atef'
+        'n.salgado@sana-commerce.com'     = 'Najabi Salgado Giraldo'; 'najabi salgado giraldo' = 'Najabi Salgado Giraldo'
+        'a.hoyos@sana-commerce.com'       = 'Alexander Hoyos Gonzalez'; 'alexander hoyos gonzalez' = 'Alexander Hoyos Gonzalez'
+        'm.martinez@sana-commerce.com'    = 'Maria Daniela Martinez'; 'maria daniela martinez' = 'Maria Daniela Martinez'
+        'f.tovar@sana-commerce.com'       = 'Francisco Tovar';   'francisco tovar'           = 'Francisco Tovar'
+        'r.garcia@sana-commerce.com'      = 'Rafferty Garcia';   'rafferty garcia'           = 'Rafferty Garcia'
+        'ri.khan@sana-commerce.com'       = 'Rifa Khan';         'rifa khan'                 = 'Rifa Khan'
+        'a.stephenson@sana-commerce.com'  = 'Alexis Stephenson'; 'alexis stephenson'         = 'Alexis Stephenson'
+        'a.chakravarty@sana-commerce.com' = 'Archana Chakravarty'; 'archana chakravarty'     = 'Archana Chakravarty'
+        'a.ohinska@sana-commerce.com'     = 'Anna Ohinska';      'anna ohinska'              = 'Anna Ohinska'
+        's.sreedharan@sana-commerce.com'  = 'Sruthi Sreedharan'; 'sruthi sreedharan'         = 'Sruthi Sreedharan'
+        'm.johny@sana-commerce.com'       = 'Meha Johny';        'meha johny'                = 'Meha Johny'
+        'j.huneburg@sana-commerce.com'    = 'Judith Huneburg';   'judith huneburg'           = 'Judith Huneburg'
+        'k.durisova@sana-commerce.com'    = 'Katie Durisova';    'katie durisova'            = 'Katie Durisova'
+        'g.overheul@sana-commerce.com'    = 'Gert Overheul';     'gert overheul'             = 'Gert Overheul'
+        'h.savchuk@sana-commerce.com'     = 'Halyna Savchuk';    'halyna savchuk'            = 'Halyna Savchuk';   'halian savchuk' = 'Halyna Savchuk'
+    }
+
 Log-Section "STEP 2: CSAT update (Sphere_sana_Live)"
 try {
+    # Build WI -> last-commenter map from AzureDevops_Issue_Revision
+    $csatAttrMap = @{}
+    try {
+        $connAttr = Open-Conn "Sana_Start_TicketIndex_live"
+        $attrSql = "WITH live_check_threshold AS (SELECT WorkItemId, MIN(Revision) AS threshold_revision FROM AzureDevops_Issue_Revision WHERE Field='System.State' AND LOWER(Value) IN ('live check','done','cancelled') GROUP BY WorkItemId), comment_before_lc AS (SELECT r.WorkItemId, r.Revision, ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision DESC) AS rn FROM AzureDevops_Issue_Revision r JOIN live_check_threshold lc ON lc.WorkItemId=r.WorkItemId WHERE r.Field='System.History' AND r.Revision < lc.threshold_revision), last_comment_rev AS (SELECT WorkItemId, Revision FROM comment_before_lc WHERE rn=1), last_commenter AS (SELECT lcr.WorkItemId, r.Value AS commenter_raw FROM last_comment_rev lcr JOIN AzureDevops_Issue_Revision r ON r.WorkItemId=lcr.WorkItemId AND r.Revision=lcr.Revision AND r.Field='System.ChangedBy') SELECT WorkItemId, commenter_raw FROM last_commenter"
+        $attrCmd = $connAttr.CreateCommand(); $attrCmd.CommandText = $attrSql; $attrCmd.CommandTimeout = 300
+        $attrDa  = New-Object System.Data.SqlClient.SqlDataAdapter($attrCmd)
+        $attrDt  = New-Object System.Data.DataTable
+        $attrDa.Fill($attrDt) | Out-Null
+        $connAttr.Close()
+        foreach ($arow in $attrDt.Rows) {
+            $wiKey = [string][int]$arow["WorkItemId"]
+            $commRaw = ([string]$arow["commenter_raw"]).Trim().ToLower()
+            if ($wiKey -and $commRaw) { $csatAttrMap[$wiKey] = $commRaw }
+        }
+        Log "CSAT attribution map: $($csatAttrMap.Count) entries" "Green"
+    } catch {
+        Log "WARN: CSAT attribution query failed: $(Sanitize-Err "$_")" "Yellow"
+    }
+
     $conn = Open-Conn "Sphere_sana_Live"
 
-    $csatSql = "SELECT f.Rating, f.SupportExperience, ISNULL(e.DisplayName,'Unattributed') AS ServiceConsultant, f.WorkItemId, f.Comment, f.NegativeReason, f.Timestamp FROM [dbo].[Feedback] f LEFT JOIN [Prisma_sana_live].[dbo].[OrganizationEmployee] e ON LOWER(e.CompanyEmailAddress) = LOWER(LTRIM(RTRIM(f.[ ServiceConsultant]))) WHERE f.Timestamp >= '2026-01-01' ORDER BY f.Timestamp DESC"
-    $cmd = $conn.CreateCommand(); $cmd.CommandText = $csatSql; $cmd.CommandTimeout = 60
-    $reader = $cmd.ExecuteReader()
+    $csatSql = "SELECT f.Rating, f.SupportExperience, ISNULL(e.DisplayName,'Unattributed') AS ServiceConsultant, f.WorkItemId, f.Comment, f.NegativeReason, f.Timestamp FROM [dbo].[Feedback] f LEFT JOIN [Prisma_sana_live].[dbo].[OrganizationEmployee] e ON LOWER(e.CompanyEmailAddress) = LOWER(LTRIM(RTRIM(f.[ ServiceConsultant]))) WHERE f.Timestamp >= '2025-01-01' ORDER BY f.Timestamp DESC"
+    $csatCmd = $conn.CreateCommand(); $csatCmd.CommandText = $csatSql; $csatCmd.CommandTimeout = 60
+    $csatDa  = New-Object System.Data.SqlClient.SqlDataAdapter($csatCmd)
+    $csatDt  = New-Object System.Data.DataTable
+    $csatDa.Fill($csatDt) | Out-Null
+    Log "CSAT Feedback: $($csatDt.Rows.Count) rows" "Green"
+
     $ratingMap = @{ '2'='very satisfied'; '1'='satisfied'; '0'='neutral'; '-1'='unsatisfied'; '-2'='very unsatisfied' }
     $cetMap    = @{ '2'='Very Easy'; '1'='Easy'; '0'='Neither'; '-1'='Difficult'; '-2'='Very Difficult' }
     $csatRows  = [System.Collections.Generic.List[string]]::new()
-    while ($reader.Read()) {
-        $ratingKey = [string][int]$reader["Rating"]
+    foreach ($row in $csatDt.Rows) {
+        $ratingKey = [string][int]$row["Rating"]
         $rating    = $ratingMap[$ratingKey]
         if (-not $rating) { continue }
-        $ts = $reader["Timestamp"]
+        $ts = $row["Timestamp"]
         $d  = if ($ts -is [DBNull]) { $null } else { ([datetime]$ts).ToString("yyyy-MM-dd") }
         if (-not $d) { continue }
-        $analyst = ([string]$reader["ServiceConsultant"]).Trim()
+        $analyst = ([string]$row["ServiceConsultant"]).Trim()
         if (-not $analyst) { $analyst = "Unattributed" }
-        $cetKey  = if ($reader["SupportExperience"] -is [DBNull]) { "" } else { [string][int]$reader["SupportExperience"] }
-        $cet     = if ($cetMap[$cetKey]) { $cetMap[$cetKey] } else { "" }
-        $wi      = if ($reader["WorkItemId"] -is [DBNull]) { "null" } else { [string][int]$reader["WorkItemId"] }
-        $comment = if ($reader["Comment"] -is [DBNull]) { "" } else { [string]$reader["Comment"] }
-        $reason  = if ($reader["NegativeReason"] -is [DBNull]) { "" } else { [string]$reader["NegativeReason"] }
+        $cetRaw  = $row["SupportExperience"]
+        $cetKey  = if ($cetRaw -is [DBNull]) { "" } else { [string][int]$cetRaw }
+        $cet     = if ($cetMap.ContainsKey($cetKey)) { $cetMap[$cetKey] } else { "" }
+        $wiRaw   = $row["WorkItemId"]
+        $wi      = if ($wiRaw -is [DBNull]) { "null" } else { [string][int]$wiRaw }
+        # Override analyst with last commenter before Live Check/Done if found on roster
+        if ($wi -ne "null" -and $csatAttrMap.ContainsKey($wi)) {
+            $commKey = $csatAttrMap[$wi]
+            if ($NAME_MAP -and $NAME_MAP.ContainsKey($commKey)) { $analyst = $NAME_MAP[$commKey] }
+        }
+        $comment = if ($row["Comment"] -is [DBNull]) { "" } else { [string]$row["Comment"] }
+        $reason  = if ($row["NegativeReason"] -is [DBNull]) { "" } else { [string]$row["NegativeReason"] }
         $csatRows.Add(('{' +
             '"d":"'       + $d + '",' +
             '"acct":"",' +
@@ -183,31 +244,37 @@ try {
             '"_src":"voiceflow"' +
             '}'))
     }
-    $reader.Close()
 
-    $mayaSql = "SELECT ID, Rating, CustomerEmail, AgentVersion, ConversationSummary, ImprovementFeedback, Timestamp FROM [dbo].[VoiceflowRating] WHERE Timestamp >= '2026-01-01' ORDER BY Timestamp DESC"
-    $mCmd = $conn.CreateCommand(); $mCmd.CommandText = $mayaSql; $mCmd.CommandTimeout = 60
-    $mReader = $mCmd.ExecuteReader()
+    $mayaSql = "SELECT ID, Rating, CustomerEmail, AgentVersion, ConversationSummary, ImprovementFeedback, Timestamp FROM [dbo].[VoiceflowRating] WHERE Timestamp >= '2025-01-01' ORDER BY Timestamp DESC"
+    $mayaCmd = $conn.CreateCommand(); $mayaCmd.CommandText = $mayaSql; $mayaCmd.CommandTimeout = 60
+    $mayaDa  = New-Object System.Data.SqlClient.SqlDataAdapter($mayaCmd)
+    $mayaDt  = New-Object System.Data.DataTable
+    $mayaDa.Fill($mayaDt) | Out-Null
+    $conn.Close()
+    Log "Maya CSAT: $($mayaDt.Rows.Count) rows" "Green"
+
     $mayaRows = [System.Collections.Generic.List[string]]::new()
-    while ($mReader.Read()) {
-        if ($mReader["Rating"] -is [DBNull]) { continue }
-        $rv = [int]$mReader["Rating"]
+    foreach ($mrow in $mayaDt.Rows) {
+        $rv = if ($mrow["Rating"] -is [DBNull]) { 0 } else { [int]$mrow["Rating"] }
         if ($rv -lt 1 -or $rv -gt 5) { continue }
-        $ts = $mReader["Timestamp"]
+        $ts = $mrow["Timestamp"]
         $d  = if ($ts -is [DBNull]) { $null } else { ([datetime]$ts).ToString("yyyy-MM-dd") }
         if (-not $d) { continue }
+        $mayaId  = if ($mrow["ID"] -is [DBNull]) { "0" } else { [string][int]$mrow["ID"] }
+        $custRaw = if ($mrow["CustomerEmail"] -is [DBNull]) { "" } else { [string]$mrow["CustomerEmail"] }
+        $sumRaw  = if ($mrow["ConversationSummary"] -is [DBNull]) { "" } else { [string]$mrow["ConversationSummary"] }
+        $fbRaw   = if ($mrow["ImprovementFeedback"] -is [DBNull]) { "" } else { [string]$mrow["ImprovementFeedback"] }
+        $verRaw  = if ($mrow["AgentVersion"] -is [DBNull]) { "" } else { [string]$mrow["AgentVersion"] }
         $mayaRows.Add(('{' +
-            '"id":'       + (if ($mReader["ID"] -is [DBNull]) { "0" } else { [string][int]$mReader["ID"] }) + ',' +
+            '"id":'       + $mayaId + ',' +
             '"d":"'       + $d + '",' +
-            '"cust":"'    + (Escape-Json (if ($mReader["CustomerEmail"] -is [DBNull]) { "" } else { [string]$mReader["CustomerEmail"] })) + '",' +
+            '"cust":"'    + (Escape-Json $custRaw) + '",' +
             '"rating":'   + $rv + ',' +
-            '"summary":"' + (Escape-Json (if ($mReader["ConversationSummary"] -is [DBNull]) { "" } else { [string]$mReader["ConversationSummary"] })) + '",' +
-            '"fb":"'      + (Escape-Json (if ($mReader["ImprovementFeedback"] -is [DBNull]) { "" } else { [string]$mReader["ImprovementFeedback"] })) + '",' +
-            '"v":"'       + (Escape-Json (if ($mReader["AgentVersion"] -is [DBNull]) { "" } else { [string]$mReader["AgentVersion"] })) + '"' +
+            '"summary":"' + (Escape-Json $sumRaw)  + '",' +
+            '"fb":"'      + (Escape-Json $fbRaw)   + '",' +
+            '"v":"'       + (Escape-Json $verRaw)  + '"' +
             '}'))
     }
-    $mReader.Close()
-    $conn.Close()
 
     Log "CSAT: $($csatRows.Count) SA rows, $($mayaRows.Count) Maya rows" "Green"
 
@@ -234,7 +301,7 @@ try {
     $AdoHdrs    = @{ Authorization = "Basic $AdoAuthB64"; "Content-Type" = "application/json" }
 
     Log "Fetching closed ticket IDs from ADO..." "Cyan"
-    $wiqlBody = '{"query":"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]=''Sana Projects'' AND [System.State] IN (''Done'',''Live Accepted'',''Cancelled'') AND [System.CreatedDate] >= ''2026-01-01'' AND [System.WorkItemType] = ''Ticket'' ORDER BY [System.ChangedDate] DESC"}'
+    $wiqlBody = '{"query":"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject]=''Sana Projects'' AND [System.State] IN (''Done'',''Live Accepted'',''Cancelled'') AND [System.CreatedDate] >= ''2025-01-01'' AND [System.WorkItemType] = ''Ticket'' ORDER BY [System.ChangedDate] DESC"}'
     $wiqlResp = Invoke-RestMethod -Uri "$AdoOrg/$([Uri]::EscapeDataString($AdoProj))/_apis/wit/wiql?api-version=7.1" -Method POST -Headers $AdoHdrs -Body $wiqlBody
     $adoIds   = @($wiqlResp.workItems | ForEach-Object { [int]$_.id })
     Log "ADO returned $($adoIds.Count) closed tickets" "Green"
@@ -360,25 +427,25 @@ try {
             if ($sql.subCat)  { $subCat  = $sql.subCat  }
             if ($sql.acct)    { $acct    = $sql.acct     }
 
-            # Priority 1: last commenter before Live Check/Done — roster only
+            # Priority 1: last commenter before Live Check/Done - roster only
             if ($sql.last_comment_by -and $NAME_MAP.ContainsKey($sql.last_comment_by.Trim().ToLower())) {
                 $raw = $sql.last_comment_by
             }
-            # Priority 2: who moved ticket into active working state — roster only
+            # Priority 2: who moved ticket into active working state - roster only
             elseif ($sql.activated_by -and $NAME_MAP.ContainsKey($sql.activated_by.Trim().ToLower())) {
                 $raw = $sql.activated_by
             }
-            # Priority 3: analyst assigned at closure — roster only
+            # Priority 3: analyst assigned at closure - roster only
             elseif ($sql.raw_analyst -and $NAME_MAP.ContainsKey($sql.raw_analyst.Trim().ToLower())) {
                 $raw = $sql.raw_analyst
             }
         }
-        # Priority 3b: ADO current AssignedTo — roster only
+        # Priority 3b: ADO current AssignedTo - roster only
         if (-not $raw) {
             $adoKey = $t.assignedTo.Trim().ToLower()
             if ($adoKey -and $NAME_MAP.ContainsKey($adoKey)) { $raw = $t.assignedTo }
         }
-        # Priority 4: who moved ticket out of Backlog To Do — roster → attribute; non-roster → Team 4
+        # Priority 4: who moved ticket out of Backlog To Do - roster → attribute; non-roster → Team 4
         $analyst = Resolve-Analyst $raw
         if (-not $analyst -and $sqlMap.ContainsKey($wi)) {
             $mover = $sqlMap[$wi].todo_mover
@@ -395,7 +462,7 @@ try {
 
         if (-not $acct -and $t.areaPath) { $acct = ($t.areaPath -split "\\")[-1].Trim() }
 
-        # TTR: PowerBI-aligned — ClosedDate preferred over ChangedDate; last reopen overrides CreatedDate
+        # TTR: PowerBI-aligned - ClosedDate preferred over ChangedDate; last reopen overrides CreatedDate
         $sqlReopen = if ($sqlMap.ContainsKey($wi)) { $sqlMap[$wi].last_reopen } else { "" }
         $created = if ($sqlReopen) { $sqlReopen } else { $t.created }
         $closed  = if ($t.completed) { $t.completed } else { $t.changed }
@@ -463,41 +530,88 @@ try {
 Log-Section "STEP 5: Active tickets (Prisma_sana_live)"
 $ActiveFile = Join-Path $WorkDir "active.json"
 try {
-    $ACTIVE_SQL = "SELECT w.WorkitemId AS id, w.State AS state, ISNULL(w.Title,'') AS title, ISNULL(w.AssignedTo,'') AS assignedTo, ISNULL(w.AssignedToEmail,'') AS assignedToEmail, ISNULL(eA.DisplayName,'') AS assignedName, ISNULL(org.Name,'') AS region, CONVERT(varchar,ISNULL(w.ReopenDate,w.CreatedDateUTC),23) AS created, CONVERT(varchar,w.CloseDate,23) AS closed, ISNULL(w.TicketMainCategory,'') AS mainCat, ISNULL(w.TicketSubCategory,'') AS subCat, ISNULL(w.ProjectReleaseVersion,'') AS version, ISNULL(ii.CustomerName,'') AS customer, DATEDIFF(day,ISNULL(w.ReopenDate,w.CreatedDateUTC),ISNULL(w.CloseDate,GETUTCDATE())) AS age FROM AzureDevopsWorkitems w LEFT JOIN OrganizationEmployee eA ON LOWER(eA.CompanyEmailAddress)=LOWER(w.AssignedToEmail) LEFT JOIN OrganizationRegion org ON org.ID=eA.RegionId LEFT JOIN IterationInfo ii ON ii.IterationID=w.ProjectIterationId WHERE w.Type IN ('Ticket','TicketSimple') AND (w.ProjectReleaseVersion LIKE 'Support%' OR w.ProjectReleaseVersion='Partner Support') AND w.ProjectReleaseVersion NOT LIKE '%wishlist%' AND w.CreatedDateUTC>='2026-01-01' ORDER BY w.CreatedDateUTC DESC"
+    $ACTIVE_SQL = "SELECT w.WorkitemId AS id, w.State AS state, ISNULL(w.Title,'') AS title, ISNULL(w.AssignedTo,'') AS assignedTo, ISNULL(w.AssignedToEmail,'') AS assignedToEmail, ISNULL(eA.DisplayName,'') AS assignedName, ISNULL(org.Name,'') AS region, CONVERT(varchar,ISNULL(w.ReopenDate,w.CreatedDateUTC),23) AS created, CONVERT(varchar,w.CloseDate,23) AS closed, ISNULL(w.TicketMainCategory,'') AS mainCat, ISNULL(w.TicketSubCategory,'') AS subCat, ISNULL(w.ProjectReleaseVersion,'') AS version, ISNULL(ii.CustomerName,'') AS customer, DATEDIFF(day,ISNULL(w.ReopenDate,w.CreatedDateUTC),ISNULL(w.CloseDate,GETUTCDATE())) AS age FROM AzureDevopsWorkitems w LEFT JOIN OrganizationEmployee eA ON LOWER(eA.CompanyEmailAddress)=LOWER(w.AssignedToEmail) LEFT JOIN OrganizationRegion org ON org.ID=eA.RegionId LEFT JOIN IterationInfo ii ON ii.IterationID=w.ProjectIterationId WHERE w.Type IN ('Ticket','TicketSimple') AND (w.ProjectReleaseVersion LIKE 'Support%' OR w.ProjectReleaseVersion='Partner Support') AND w.ProjectReleaseVersion NOT LIKE '%wishlist%' AND w.CreatedDateUTC>='2025-01-01' AND LOWER(w.State) NOT IN ('done','live accepted','cancelled') ORDER BY w.CreatedDateUTC DESC"
+    # Mover query: who first moved each active ticket from Backlog To Do into an analyze/active state
+    $MOVER_SQL = "WITH activator AS (SELECT WorkItemId, MIN(Revision) AS activate_rev FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision WHERE Field='System.State' AND LOWER(Value) IN ('analyze','backlog analyze','backlog to analyze','in progress','active','analyzing','in analyze','sprint in progress','sprint analyze') AND WorkItemId IN (SELECT WorkitemId FROM AzureDevopsWorkitems WHERE Type IN ('Ticket','TicketSimple') AND (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion='Partner Support') AND ProjectReleaseVersion NOT LIKE '%wishlist%' AND CreatedDateUTC>='2025-01-01' AND LOWER(State) NOT IN ('done','live accepted','cancelled')) GROUP BY WorkItemId) SELECT a.WorkItemId, (SELECT TOP 1 RTRIM(r2.Value) FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r2 WHERE r2.WorkItemId=a.WorkItemId AND r2.Field='System.ChangedBy' AND r2.Revision=a.activate_rev) AS activated_by FROM activator a"
     $NON_ANALYST = @('customer@sana-commerce.com','core_support@sana-commerce.com','sci@sana-commerce.com','hosting@sana-commerce.com','add-on_support@sana-commerce.com','ax_fo_support@ism-egroup.com','sapecc_support@ism-egroup.com','support-planning@sana-commerce.com')
     $connA = Open-Conn "Prisma_sana_live"
+
+    # Build mover map: WorkItemId → activated_by (roster name)
+    $moverMap = @{}
+    $cmdMover = $connA.CreateCommand(); $cmdMover.CommandText = $MOVER_SQL; $cmdMover.CommandTimeout = 120
+    $daMover = New-Object System.Data.SqlClient.SqlDataAdapter($cmdMover)
+    $dtMover = New-Object System.Data.DataTable
+    $daMover.Fill($dtMover) | Out-Null
+    foreach ($mr in $dtMover.Rows) {
+        $mWi  = [string]$mr.Item("WorkItemId")
+        $mVal = if ($mr.Item("activated_by") -is [System.DBNull]) { "" } else { [string]$mr.Item("activated_by") }
+        if ($mVal) { $moverMap[$mWi] = $mVal }
+    }
+    Log "Active mover map: $($moverMap.Count) entries" "Cyan"
+
     $cmdA  = $connA.CreateCommand(); $cmdA.CommandText = $ACTIVE_SQL; $cmdA.CommandTimeout = 120
-    $rdrA  = $cmdA.ExecuteReader()
+    $daA   = New-Object System.Data.SqlClient.SqlDataAdapter($cmdA)
+    $dtA   = New-Object System.Data.DataTable
+    $daA.Fill($dtA) | Out-Null
+    $connA.Close()
     $actRows = [System.Collections.Generic.List[string]]::new()
-    while ($rdrA.Read()) {
-        $email   = ([string]$rdrA["assignedToEmail"]).ToLower().Trim()
+    foreach ($row in $dtA.Rows) {
+        $wi      = [string]$row.Item("id")
+        $emailRaw = ""; if (-not ($row.Item("assignedToEmail") -is [System.DBNull])) { $emailRaw = [string]$row.Item("assignedToEmail") }
+        $email = $emailRaw.ToLower().Trim()
         $isCust  = ($email -eq 'customer@sana-commerce.com')
         $isTeam  = ($NON_ANALYST -contains $email) -and (-not $isCust)
-        $analyst = ([string]$rdrA["assignedName"]).Trim()
-        if (-not $analyst) { $analyst = ([string]$rdrA["assignedTo"]).Trim() }
-        if (-not $analyst -or ($NON_ANALYST -contains $email)) { $analyst = "" }
-        $age    = if ($rdrA["age"] -is [System.DBNull]) { 0 } else { [int]$rdrA["age"] }
-        $closed = [string]$rdrA["closed"]
-        $closedJ = if (-not $closed -or $closed -eq '') { 'null' } else { '"' + $closed + '"' }
+        $assignedName = ""; if (-not ($row.Item("assignedName") -is [System.DBNull])) { $assignedName = [string]$row.Item("assignedName") }
+        $assignedTo   = ""; if (-not ($row.Item("assignedTo")   -is [System.DBNull])) { $assignedTo   = [string]$row.Item("assignedTo") }
+        $analyst = $assignedName.Trim()
+        if (-not $analyst) { $analyst = $assignedTo.Trim() }
+        # If assignee is not on roster, try mover attribution (who moved from Backlog To Do → Analyze)
+        $analystKey = $analyst.Trim().ToLower()
+        if (-not $analyst -or ($NON_ANALYST -contains $email) -or (-not $NAME_MAP.ContainsKey($analystKey))) {
+            if ($moverMap.ContainsKey($wi)) {
+                $moverRaw = $moverMap[$wi]
+                $moverKey = $moverRaw.Trim().ToLower()
+                if ($NAME_MAP.ContainsKey($moverKey)) {
+                    $analyst = $NAME_MAP[$moverKey]
+                } else {
+                    $analyst = ""
+                }
+            } else {
+                $analyst = ""
+            }
+        } else {
+            $analyst = $NAME_MAP[$analystKey]
+        }
+        $ageVal  = $row.Item("age")
+        $age = 0; if (-not ($ageVal -is [System.DBNull])) { $age = [int]$ageVal }
+        $closedRaw = ""; if (-not ($row.Item("closed") -is [System.DBNull])) { $closedRaw = [string]$row.Item("closed") }
+        $closedJ = 'null'; if ($closedRaw -and $closedRaw -ne '') { $closedJ = '"' + $closedRaw + '"' }
+        $stateVal   = ""; if (-not ($row.Item("state")    -is [System.DBNull])) { $stateVal   = [string]$row.Item("state") }
+        $titleVal   = ""; if (-not ($row.Item("title")    -is [System.DBNull])) { $titleVal   = [string]$row.Item("title") }
+        $regionVal  = ""; if (-not ($row.Item("region")   -is [System.DBNull])) { $regionVal  = [string]$row.Item("region") }
+        $createdVal = ""; if (-not ($row.Item("created")  -is [System.DBNull])) { $createdVal = [string]$row.Item("created") }
+        $mainCatVal = ""; if (-not ($row.Item("mainCat")  -is [System.DBNull])) { $mainCatVal = [string]$row.Item("mainCat") }
+        $subCatVal  = ""; if (-not ($row.Item("subCat")   -is [System.DBNull])) { $subCatVal  = [string]$row.Item("subCat") }
+        $versionVal = ""; if (-not ($row.Item("version")  -is [System.DBNull])) { $versionVal = [string]$row.Item("version") }
+        $customerVal= ""; if (-not ($row.Item("customer") -is [System.DBNull])) { $customerVal= [string]$row.Item("customer") }
         $actRows.Add(('{' +
-            '"id":"'            + [string]$rdrA["id"]                          + '",' +
-            '"state":"'         + (Escape-Json [string]$rdrA["state"])         + '",' +
-            '"title":"'         + (Escape-Json [string]$rdrA["title"])         + '",' +
-            '"c":"'             + (Escape-Json $analyst)                        + '",' +
-            '"email":"'         + (Escape-Json $email)                          + '",' +
-            '"region":"'        + (Escape-Json [string]$rdrA["region"])        + '",' +
-            '"created":"'       + [string]$rdrA["created"]                     + '",' +
-            '"closed":'         + $closedJ                                      + ',' +
-            '"age":'            + $age                                          + ',' +
-            '"pendingCustomer":' + $isCust.ToString().ToLower()                 + ',' +
-            '"escalated":'      + $isTeam.ToString().ToLower()                  + ',' +
-            '"mainCat":"'       + (Escape-Json [string]$rdrA["mainCat"])       + '",' +
-            '"subCat":"'        + (Escape-Json [string]$rdrA["subCat"])        + '",' +
-            '"version":"'       + (Escape-Json [string]$rdrA["version"])       + '",' +
-            '"customer":"'      + (Escape-Json [string]$rdrA["customer"])      + '"' +
+            '"id":"'            + $wi                          + '",' +
+            '"state":"'         + (Escape-Json $stateVal)      + '",' +
+            '"title":"'         + (Escape-Json $titleVal)      + '",' +
+            '"c":"'             + (Escape-Json $analyst)       + '",' +
+            '"email":"'         + (Escape-Json $email)         + '",' +
+            '"region":"'        + (Escape-Json $regionVal)     + '",' +
+            '"created":"'       + $createdVal                  + '",' +
+            '"closed":'         + $closedJ                     + ',' +
+            '"age":'            + $age                         + ',' +
+            '"pendingCustomer":' + $isCust.ToString().ToLower()+ ',' +
+            '"escalated":'      + $isTeam.ToString().ToLower() + ',' +
+            '"mainCat":"'       + (Escape-Json $mainCatVal)    + '",' +
+            '"subCat":"'        + (Escape-Json $subCatVal)     + '",' +
+            '"version":"'       + (Escape-Json $versionVal)    + '",' +
+            '"customer":"'      + (Escape-Json $customerVal)   + '"' +
             '}'))
     }
-    $rdrA.Close(); $connA.Close()
     $actJson = '{"count":' + $actRows.Count + ',"source":"prisma_sql","rows":[' + ($actRows -join ',') + ']}'
     [System.IO.File]::WriteAllText($ActiveFile, $actJson, [System.Text.Encoding]::UTF8)
     Log "Active tickets: $($actRows.Count) rows → active.json ($([Math]::Round((Get-Item $ActiveFile).Length/1KB)) KB)" "Green"
@@ -509,7 +623,7 @@ try {
 Log-Section "STEP 6: SecondLayer attribution (Sana_Start_TicketIndex_live)"
 $SecondLayerFile = Join-Path $WorkDir "secondlayer.json"
 try {
-    $SL_SQL = "WITH all_touches AS (SELECT r.WorkItemId, r.Value AS email, ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r WHERE r.Field='System.AssignedTo' AND LOWER(RTRIM(r.Value)) IN ('a.nouraldeen@sana-commerce.com','ahmed nouraldeen','a.hoyos@sana-commerce.com','alexander hoyos gonzalez','n.salgado@sana-commerce.com','najabi salgado giraldo','m.bayoumi@sana-commerce.com','mohamed bayoumi','t.refaat@sana-commerce.com','toqa refaat','toqa refaat abo-khatwa','s.elfaramawy@sana-commerce.com','sarah elfaramawy','s.sreedharan@sana-commerce.com','sruthi sreedharan','m.johny@sana-commerce.com','meha johny','a.stephenson@sana-commerce.com','alexis stephenson','a.chakravarty@sana-commerce.com','archana chakravarty','g.overheul@sana-commerce.com','gert overheul','j.huneburg@sana-commerce.com','judith huneburg','a.ohinska@sana-commerce.com','anna ohinska','k.durisova@sana-commerce.com','katie durisova','ri.khan@sana-commerce.com','rifa khan','m.martinez@sana-commerce.com','maria daniela martinez','t.atef@sana-commerce.com','tarek atef','f.tovar@sana-commerce.com','francisco tovar','r.garcia@sana-commerce.com','raffery garcia') AND r.WorkItemId IN (SELECT WorkitemId FROM dbo.AzureDevopsWorkitems WHERE Type IN ('Ticket','TicketSimple') AND (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion='Partner Support') AND ProjectReleaseVersion NOT LIKE '%wishlist%' AND CreatedDateUTC>='2026-01-01')) SELECT WorkItemId, email AS analyst FROM all_touches WHERE rn=1 ORDER BY WorkItemId DESC"
+    $SL_SQL = "WITH all_touches AS (SELECT r.WorkItemId, r.Value AS email, ROW_NUMBER() OVER (PARTITION BY r.WorkItemId ORDER BY r.Revision ASC) AS rn FROM Sana_Start_TicketIndex_live.dbo.AzureDevops_Issue_Revision r WHERE r.Field='System.AssignedTo' AND LOWER(RTRIM(r.Value)) IN ('a.nouraldeen@sana-commerce.com','ahmed nouraldeen','a.hoyos@sana-commerce.com','alexander hoyos gonzalez','n.salgado@sana-commerce.com','najabi salgado giraldo','m.bayoumi@sana-commerce.com','mohamed bayoumi','t.refaat@sana-commerce.com','toqa refaat','toqa refaat abo-khatwa','s.elfaramawy@sana-commerce.com','sarah elfaramawy','s.sreedharan@sana-commerce.com','sruthi sreedharan','m.johny@sana-commerce.com','meha johny','a.stephenson@sana-commerce.com','alexis stephenson','a.chakravarty@sana-commerce.com','archana chakravarty','g.overheul@sana-commerce.com','gert overheul','j.huneburg@sana-commerce.com','judith huneburg','a.ohinska@sana-commerce.com','anna ohinska','k.durisova@sana-commerce.com','katie durisova','ri.khan@sana-commerce.com','rifa khan','m.martinez@sana-commerce.com','maria daniela martinez','t.atef@sana-commerce.com','tarek atef','f.tovar@sana-commerce.com','francisco tovar','r.garcia@sana-commerce.com','raffery garcia') AND r.WorkItemId IN (SELECT WorkitemId FROM dbo.AzureDevopsWorkitems WHERE Type IN ('Ticket','TicketSimple') AND (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion='Partner Support') AND ProjectReleaseVersion NOT LIKE '%wishlist%' AND CreatedDateUTC>='2025-01-01')) SELECT WorkItemId, email AS analyst FROM all_touches WHERE rn=1 ORDER BY WorkItemId DESC"
     $connSL = Open-Conn "Prisma_sana_live"
     $cmdSL  = $connSL.CreateCommand(); $cmdSL.CommandText = $SL_SQL; $cmdSL.CommandTimeout = 120
     $rdrSL  = $cmdSL.ExecuteReader()
@@ -532,7 +646,7 @@ try {
 Log-Section "STEP 7: Response times (vwResponseTimePerTicketKoen)"
 $RespFile = Join-Path $WorkDir "resp.json"
 try {
-    $RESP_SQL = "WITH src AS (SELECT vr.WorkItemId, CAST(vr.CreatedUTC AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS c_nl, CAST(vr.FirstResponseUTC AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS f_nl FROM vwResponseTimePerTicketKoen vr JOIN AzureDevops_Issue ai ON ai.IssueId=vr.WorkItemId WHERE ai.IsInternal='False' AND ai.IssueType IN ('Ticket','TicketSimple') AND ai.State<>'Cancelled' AND vr.FirstResponseUTC IS NOT NULL AND vr.CreatedUTC>='2026-01-01' AND vr.WorkItemId IN (SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems WHERE (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion='Partner Support') AND ProjectReleaseVersion NOT LIKE '%wishlist%') AND NOT EXISTS (SELECT 1 FROM AzureDevops_Issue_Revision rev WHERE rev.WorkItemId=vr.WorkItemId AND rev.Field='Custom.Reopendate' AND rev.Value IS NOT NULL AND rev.Value<>'')), clamped AS (SELECT WorkItemId, CAST(c_nl AS date) AS c_date, CAST(f_nl AS date) AS f_date, CASE WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl)<540 THEN 540 WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl)>1050 THEN 1050 ELSE DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) END AS c_min, CASE WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl)<540 THEN 540 WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl)>1050 THEN 1050 ELSE DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) END AS f_min FROM src) SELECT WorkItemId, CAST(CASE WHEN c_date=f_date THEN CASE WHEN DATENAME(WEEKDAY,c_date) IN ('Saturday','Sunday') THEN 0 ELSE f_min-c_min END ELSE CASE WHEN DATENAME(WEEKDAY,c_date) NOT IN ('Saturday','Sunday') THEN 1050-c_min ELSE 0 END+ISNULL((SELECT SUM(510) FROM (SELECT TOP 200 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.columns) nums WHERE DATEADD(DAY,nums.n,CAST(c_date AS datetime))<CAST(f_date AS datetime) AND DATENAME(WEEKDAY,DATEADD(DAY,nums.n,CAST(c_date AS datetime))) NOT IN ('Saturday','Sunday')),0)+CASE WHEN DATENAME(WEEKDAY,f_date) NOT IN ('Saturday','Sunday') THEN f_min-540 ELSE 0 END END AS float)/60.0 AS biz_h FROM clamped"
+    $RESP_SQL = "WITH src AS (SELECT vr.WorkItemId, CAST(vr.CreatedUTC AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS c_nl, CAST(vr.FirstResponseUTC AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS datetime) AS f_nl FROM vwResponseTimePerTicketKoen vr JOIN AzureDevops_Issue ai ON ai.IssueId=vr.WorkItemId WHERE ai.IsInternal='False' AND ai.IssueType IN ('Ticket','TicketSimple') AND ai.State<>'Cancelled' AND vr.FirstResponseUTC IS NOT NULL AND vr.CreatedUTC>='2025-01-01' AND vr.WorkItemId IN (SELECT WorkitemId FROM Prisma_sana_live.dbo.AzureDevopsWorkitems WHERE (ProjectReleaseVersion LIKE 'Support%' OR ProjectReleaseVersion='Partner Support') AND ProjectReleaseVersion NOT LIKE '%wishlist%') AND NOT EXISTS (SELECT 1 FROM AzureDevops_Issue_Revision rev WHERE rev.WorkItemId=vr.WorkItemId AND rev.Field='Custom.Reopendate' AND rev.Value IS NOT NULL AND rev.Value<>'')), clamped AS (SELECT WorkItemId, CAST(c_nl AS date) AS c_date, CAST(f_nl AS date) AS f_date, CASE WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl)<540 THEN 540 WHEN DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl)>1050 THEN 1050 ELSE DATEPART(HOUR,c_nl)*60+DATEPART(MINUTE,c_nl) END AS c_min, CASE WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl)<540 THEN 540 WHEN DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl)>1050 THEN 1050 ELSE DATEPART(HOUR,f_nl)*60+DATEPART(MINUTE,f_nl) END AS f_min FROM src) SELECT WorkItemId, CAST(CASE WHEN c_date=f_date THEN CASE WHEN DATENAME(WEEKDAY,c_date) IN ('Saturday','Sunday') THEN 0 ELSE f_min-c_min END ELSE CASE WHEN DATENAME(WEEKDAY,c_date) NOT IN ('Saturday','Sunday') THEN 1050-c_min ELSE 0 END+ISNULL((SELECT SUM(510) FROM (SELECT TOP 200 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.columns) nums WHERE DATEADD(DAY,nums.n,CAST(c_date AS datetime))<CAST(f_date AS datetime) AND DATENAME(WEEKDAY,DATEADD(DAY,nums.n,CAST(c_date AS datetime))) NOT IN ('Saturday','Sunday')),0)+CASE WHEN DATENAME(WEEKDAY,f_date) NOT IN ('Saturday','Sunday') THEN f_min-540 ELSE 0 END END AS float)/60.0 AS biz_h FROM clamped"
     $connR = Open-Conn "Sana_Start_TicketIndex_live"
     $cmdR  = $connR.CreateCommand(); $cmdR.CommandText = $RESP_SQL; $cmdR.CommandTimeout = 180
     $rdrR  = $cmdR.ExecuteReader()
@@ -576,7 +690,7 @@ try {
     Log "ERROR in partner comments step: $(Sanitize-Err "$_")" "Red"
 }
 
-# ── STEP 9: Deploy to Azure (pure REST API — no Az module needed) ─────────────
+# ── STEP 9: Deploy to Azure (pure REST API - no Az module needed) ─────────────
 Log-Section "STEP 9: Deploy to Azure Blob"
 try {
     # Get OAuth token using Service Principal
@@ -584,7 +698,7 @@ try {
     try {
         $tokenResp = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Method POST -Body $tokenBody -ContentType "application/x-www-form-urlencoded" -ErrorAction Stop
     } catch {
-        # Never log the token body — it contains the SP secret
+        # Never log the token body - it contains the SP secret
         Log "ERROR getting Azure token: check AZ_SP_SECRET in .credentials.ps1 ($($_.Exception.GetType().Name))" "Red"
         throw
     }
